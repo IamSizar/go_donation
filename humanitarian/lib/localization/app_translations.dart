@@ -23,9 +23,11 @@ class AppTranslations extends Translations {
     'Add photo': 'Add photo',
     'Remove photo': 'Remove photo',
     'Edit your details': 'Edit your details',
-    'Update the details on your account.': 'Update the details on your account.',
+    'Update the details on your account.':
+        'Update the details on your account.',
     'Your profile has been updated.': 'Your profile has been updated.',
-    'Could not load your profile. Please try again.': 'Could not load your profile. Please try again.',
+    'Could not load your profile. Please try again.':
+        'Could not load your profile. Please try again.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -479,7 +481,8 @@ class AppTranslations extends Translations {
     // is a raw English literal (backend/internal/handlers/auth.go and
     // auth_staff_otp.go); the client now matches on the machine `code` field
     // instead and shows this localized copy, never the backend's text.
-    'otp_resend_cooldown_message': 'Please wait before requesting another code.',
+    'otp_resend_cooldown_message':
+        'Please wait before requesting another code.',
     'staff_otp_unavailable_message':
         "Staff sign-in isn't available yet. Ask the administrator for your code.",
     'error_password_setup_failed': 'Could not set your password.',
@@ -2826,6 +2829,14 @@ class AppTranslations extends Translations {
     'Accept': 'Accept',
     'Account': 'Account',
     'All caught up': 'All caught up',
+    // --- Notifications: clearing the list (client report, 2026-09-16) ---
+    'Clear @n read': 'Clear @n read',
+    'Clear read notifications?': 'Clear read notifications?',
+    'This removes @n read notifications from your list. Unread ones stay.':
+        'This removes @n read notifications from your list. Unread ones stay.',
+    'Unable to clear notifications.': 'Unable to clear notifications.',
+    'You have read everything. New alerts appear here.':
+        'You have read everything. New alerts appear here.',
     'All donations received for your published campaigns.':
         'All contributions received for your published campaigns.',
     'Anonymous Donor': 'Anonymous Grantor',
@@ -3283,7 +3294,8 @@ class AppTranslations extends Translations {
     'Edit your details': 'تعديل بياناتك',
     'Update the details on your account.': 'حدّث البيانات الموجودة على حسابك.',
     'Your profile has been updated.': 'تم تحديث ملفك الشخصي.',
-    'Could not load your profile. Please try again.': 'تعذّر تحميل ملفك الشخصي. حاول مرة أخرى.',
+    'Could not load your profile. Please try again.':
+        'تعذّر تحميل ملفك الشخصي. حاول مرة أخرى.',
     // ─── B1 · notification_type vocabulary ───
     // The filter dropdown in الإشعارات is built from the distinct
     // notification_type values on whatever rows the API returned, so the
@@ -3701,12 +3713,14 @@ class AppTranslations extends Translations {
         'أُغلقت هذه المحادثة قبل إرسال أي رسالة.',
     // OPOS #25284 Phase 5 — staff-mediated group chats.
     'error_chat_groups_load_failed': 'تعذّر تحميل محادثاتك الجماعية.',
-    'error_connect_requests_load_failed': 'تعذّر تحميل طلبات التواصل الخاصة بك.',
+    'error_connect_requests_load_failed':
+        'تعذّر تحميل طلبات التواصل الخاصة بك.',
     'chat_group_send_contact_blocked':
         'لا يمكن مشاركة أرقام الهواتف أو عناوين البريد الإلكتروني في هذه '
         'المحادثة. المحادثة تحت إشراف فريقنا حفاظاً على سلامتك — يُرجى إبقاء '
         'التواصل هنا، واطلب من فريقنا إن احتجت إلى ترتيب وسيلة تواصل.',
-    'chat_group_send_closed': 'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
+    'chat_group_send_closed':
+        'لم تُرسَل رسالتك لأن هذه المحادثة لم تعد مفتوحة.',
     'chat_group_unavailable_title': 'هذه المحادثة لم تعد متاحة',
     'chat_group_unavailable_message':
         'ربما أغلقها فريقنا، أو لم تعد مشاركاً فيها. ارجع لرؤية محادثاتك الأخرى.',
@@ -5780,6 +5794,14 @@ class AppTranslations extends Translations {
     'Accept': 'قبول',
     'Account': 'الحساب',
     'All caught up': 'لا جديد',
+    // --- Notifications: clearing the list (client report, 2026-09-16) ---
+    'Clear @n read': 'مسح @n مقروءة',
+    'Clear read notifications?': 'مسح الإشعارات المقروءة؟',
+    'This removes @n read notifications from your list. Unread ones stay.':
+        'سيؤدي هذا إلى إزالة @n إشعارًا مقروءًا من قائمتك. تبقى غير المقروءة.',
+    'Unable to clear notifications.': 'تعذّر مسح الإشعارات.',
+    'You have read everything. New alerts appear here.':
+        'قرأت كل شيء. ستظهر التنبيهات الجديدة هنا.',
     'All donations received for your published campaigns.':
         'جميع المساهمات المستلمة لحملاتك المنشورة.',
     'Anonymous Donor': 'مانح مجهول',
@@ -6158,8 +6180,7 @@ class AppTranslations extends Translations {
 
     // OPOS #26423 — انظر التعليق نفسه في الخريطة الإنجليزية.
     'messages_guest_title': 'سجّل الدخول لاستخدام الرسائل',
-    'messages_guest_body':
-        'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
+    'messages_guest_body': 'ستظهر محادثاتك هنا عندما يصبح لديك حساب كامل.',
   };
 
   static final Map<String, String> _sorani = {
@@ -6169,9 +6190,11 @@ class AppTranslations extends Translations {
     'Add photo': 'زیادکردنی وێنە',
     'Remove photo': 'لابردنی وێنە',
     'Edit your details': 'دەستکاری زانیارییەکانت',
-    'Update the details on your account.': 'زانیارییەکانی هەژمارەکەت نوێ بکەرەوە.',
+    'Update the details on your account.':
+        'زانیارییەکانی هەژمارەکەت نوێ بکەرەوە.',
     'Your profile has been updated.': 'پرۆفایلەکەت نوێ کرایەوە.',
-    'Could not load your profile. Please try again.': 'نەتوانرا پرۆفایلەکەت باربکرێت. دووبارە هەوڵ بدەرەوە.',
+    'Could not load your profile. Please try again.':
+        'نەتوانرا پرۆفایلەکەت باربکرێت. دووبارە هەوڵ بدەرەوە.',
     'city_social_links': 'بەستەرەکانی سۆشیال',
     'city_closed_now': 'ئێستا داخراوە',
     'city_open_now': 'ئێستا کراوەیە',
@@ -8531,7 +8554,8 @@ class AppTranslations extends Translations {
     'volunteer_mission_approved': 'بەشداری لە ئەرک پەسەندکرا',
     'volunteer_mission_cancelled': 'بەشداری لە ئەرک هەڵوەشێنرایەوە',
     'volunteer_mission_completed': 'ئەرک تەواوکرا',
-    'volunteer_mission_completion_requested': 'تەواوبوونی ئەرک لە پێداچوونەوەدایە',
+    'volunteer_mission_completion_requested':
+        'تەواوبوونی ئەرک لە پێداچوونەوەدایە',
     'volunteer_mission_join_submitted': 'داواکاری بەشداری لە ئەرک نێردرا',
     'volunteer_mission_joined': 'ئامادەبوون تۆمارکرا',
     'volunteer_mission_no_show': 'نەهاتن تۆمارکرا',
@@ -8541,31 +8565,41 @@ class AppTranslations extends Translations {
     'support_ticket_resolved': 'داواکاری پشتیوانی چارەسەرکرا',
     'Eligible support': 'پشتیوانیی بەردەست',
     'Kafala Support': 'کەفالەت و پاڵپشتی',
-    'Submit help requests and track admin review in one place.': 'داواکاری یارمەتی بنێرە و پێداچوونەوەی بەڕێوەبەرایەتی لە یەک شوێندا بەدواداچوونی بۆ بکە.',
-    'Monitor sponsorship plans, your submitted projects, and stories.': 'چاودێری پلانەکانی کەفالەت، پڕۆژە نێردراوەکانت و چیرۆکەکان بکە.',
+    'Submit help requests and track admin review in one place.':
+        'داواکاری یارمەتی بنێرە و پێداچوونەوەی بەڕێوەبەرایەتی لە یەک شوێندا بەدواداچوونی بۆ بکە.',
+    'Monitor sponsorship plans, your submitted projects, and stories.':
+        'چاودێری پلانەکانی کەفالەت، پڕۆژە نێردراوەکانت و چیرۆکەکان بکە.',
     'gifts': 'بەشداری',
     'contributions': 'بەشداری',
     'Delivered': 'گەیەنرا',
     'Awaiting confirmation': 'چاوەڕێی پشتڕاستکردنەوە',
     'No gifts yet': 'هێشتا هیچ بەشدارییەک نییە',
-    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.': 'هەموو بەشدارییەک کە دەیکەیت لێرە دەردەکەوێت لەگەڵ کۆدی ئاماژە و بارودۆخی گەیاندنی، تاکو هەمیشە بزانیت بۆ کوێ چووە.',
-    'Send the first message to start the conversation.': 'یەکەم پەیام بنێرە بۆ دەستپێکردنی گفتوگۆکە.',
-    'Send a support request and track the reply.': 'داواکاری پشتیوانی بنێرە و وەڵامەکەی بەدواداچوونی بۆ بکە.',
+    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.':
+        'هەموو بەشدارییەک کە دەیکەیت لێرە دەردەکەوێت لەگەڵ کۆدی ئاماژە و بارودۆخی گەیاندنی، تاکو هەمیشە بزانیت بۆ کوێ چووە.',
+    'Send the first message to start the conversation.':
+        'یەکەم پەیام بنێرە بۆ دەستپێکردنی گفتوگۆکە.',
+    'Send a support request and track the reply.':
+        'داواکاری پشتیوانی بنێرە و وەڵامەکەی بەدواداچوونی بۆ بکە.',
     'Flexible': 'نەرم',
     'My volunteer application': 'داواکاری خۆبەخشیم',
-    'Submit your skills and availability to the institution.': 'توانا و کاتە بەردەستەکانت بۆ دامەزراوەکە بنێرە.',
+    'Submit your skills and availability to the institution.':
+        'توانا و کاتە بەردەستەکانت بۆ دامەزراوەکە بنێرە.',
     'Sending...': 'دەنێردرێت...',
-    'Featured campaigns will appear here once published.': 'کەمپەینە دیارەکان لێرە دەردەکەون دوای بڵاوکردنەوەیان.',
+    'Featured campaigns will appear here once published.':
+        'کەمپەینە دیارەکان لێرە دەردەکەون دوای بڵاوکردنەوەیان.',
     'new one for review.': 'دانەیەکی نوێ بۆ پێداچوونەوە.',
     'edited here.': 'لێرە دەستکاری دەکرێت.',
-    'Sign in with your phone number and password.': 'بە ژمارەی مۆبایل و وشەی تێپەڕەکەت بچۆ ژوورەوە.',
+    'Sign in with your phone number and password.':
+        'بە ژمارەی مۆبایل و وشەی تێپەڕەکەت بچۆ ژوورەوە.',
     'Show password': 'پیشاندانی وشەی تێپەڕ',
     'Hide password': 'شاردنەوەی وشەی تێپەڕ',
     'New here? Create an account': 'نوێیت لێرە؟ هەژمارێک دروست بکە',
-    'This number has no password yet. Verify it to choose one.': 'ئەم ژمارەیە هێشتا وشەی تێپەڕی نییە. پشتڕاستی بکەرەوە بۆ هەڵبژاردنی یەکێک.',
+    'This number has no password yet. Verify it to choose one.':
+        'ئەم ژمارەیە هێشتا وشەی تێپەڕی نییە. پشتڕاستی بکەرەوە بۆ هەڵبژاردنی یەکێک.',
     'Verify my number': 'پشتڕاستکردنەوەی ژمارەکەم',
     'Choose a password': 'وشەیەکی تێپەڕ هەڵبژێرە',
-    'Your number is verified. This password is how you will sign in from now on.': 'ژمارەکەت پشتڕاستکرایەوە. لەمەودوا بەم وشەی تێپەڕە دەچیتە ژوورەوە.',
+    'Your number is verified. This password is how you will sign in from now on.':
+        'ژمارەکەت پشتڕاستکرایەوە. لەمەودوا بەم وشەی تێپەڕە دەچیتە ژوورەوە.',
     'Setting the password for @phone': 'دانانی وشەی تێپەڕ بۆ @phone',
     'New password': 'وشەی تێپەڕی نوێ',
     'At least @n characters.': 'بەلایەنی کەم @n پیت.',
@@ -8574,97 +8608,148 @@ class AppTranslations extends Translations {
     'Save and continue': 'پاشەکەوتکردن و بەردەوامبوون',
     'Back to sign in': 'گەڕانەوە بۆ چوونە ژوورەوە',
     'Go to sign in': 'بڕۆ بۆ چوونە ژوورەوە',
-    'This number already has a password. Sign in with it instead.': 'ئەم ژمارەیە وشەی تێپەڕی هەیە. لە جیاتی ئەوە پێی بچۆ ژوورەوە.',
-    'That verification expired. Request a new code and try again.': 'ماوەی ئەو پشتڕاستکردنەوەیە بەسەرچوو. کۆدێکی نوێ داوا بکە و دووبارە هەوڵ بدەرەوە.',
-    'Verify your number again to continue.': 'بۆ بەردەوامبوون دووبارە ژمارەکەت پشتڕاست بکەرەوە.',
-    'That password is too long. Use 72 characters or fewer.': 'ئەو وشەی تێپەڕە زۆر درێژە. ٧٢ پیت یان کەمتر بەکاربهێنە.',
-    'Could not save your password. Please try again.': 'نەتوانرا وشەی تێپەڕەکەت پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
-    'Incorrect phone number or password.': 'ژمارەی مۆبایل یان وشەی تێپەڕ هەڵەیە.',
-    'Could not sign you in. Please try again.': 'نەتوانرا بچیتە ژوورەوە. تکایە دووبارە هەوڵ بدەرەوە.',
-    'Too many failed attempts. Try again later.': 'هەوڵی سەرنەکەوتووی زۆر. دواتر دووبارە هەوڵ بدەرەوە.',
-    'Sign-in endpoint returned an invalid response.': 'خزمەتگوزاریی چوونەژوورەوە وەڵامێکی نادروستی گەڕاندەوە.',
+    'This number already has a password. Sign in with it instead.':
+        'ئەم ژمارەیە وشەی تێپەڕی هەیە. لە جیاتی ئەوە پێی بچۆ ژوورەوە.',
+    'That verification expired. Request a new code and try again.':
+        'ماوەی ئەو پشتڕاستکردنەوەیە بەسەرچوو. کۆدێکی نوێ داوا بکە و دووبارە هەوڵ بدەرەوە.',
+    'Verify your number again to continue.':
+        'بۆ بەردەوامبوون دووبارە ژمارەکەت پشتڕاست بکەرەوە.',
+    'That password is too long. Use 72 characters or fewer.':
+        'ئەو وشەی تێپەڕە زۆر درێژە. ٧٢ پیت یان کەمتر بەکاربهێنە.',
+    'Could not save your password. Please try again.':
+        'نەتوانرا وشەی تێپەڕەکەت پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'Incorrect phone number or password.':
+        'ژمارەی مۆبایل یان وشەی تێپەڕ هەڵەیە.',
+    'Could not sign you in. Please try again.':
+        'نەتوانرا بچیتە ژوورەوە. تکایە دووبارە هەوڵ بدەرەوە.',
+    'Too many failed attempts. Try again later.':
+        'هەوڵی سەرنەکەوتووی زۆر. دواتر دووبارە هەوڵ بدەرەوە.',
+    'Sign-in endpoint returned an invalid response.':
+        'خزمەتگوزاریی چوونەژوورەوە وەڵامێکی نادروستی گەڕاندەوە.',
     'support_subject_required': 'بابەتەکە بنووسە.',
     'support_message_required': 'پەیامەکەت بنووسە.',
     'What kind of donation is this?': 'ئەمە چ جۆرە بەخشینێکە؟',
-    'Choose how you would like to give.': 'ئەو ڕێگایە هەڵبژێرە کە دەتەوێت پێی ببەخشیت.',
+    'Choose how you would like to give.':
+        'ئەو ڕێگایە هەڵبژێرە کە دەتەوێت پێی ببەخشیت.',
     'Cash donation (direct handover)': 'بەخشینی نەقد (ڕادەستکردنی ڕاستەوخۆ)',
-    'Hand your gift to a representative or leave it at a collection point.': 'بەشدارییەکەت ڕادەستی نوێنەرێک بکە یان لە خاڵێکی کۆکردنەوەدا جێی بهێڵە.',
+    'Hand your gift to a representative or leave it at a collection point.':
+        'بەشدارییەکەت ڕادەستی نوێنەرێک بکە یان لە خاڵێکی کۆکردنەوەدا جێی بهێڵە.',
     'Donation by electronic payment': 'بەخشین بە پارەدانی ئەلیکترۆنی',
-    'Cards, electronic wallets and bank transfer.': 'کارت و جزدانی ئەلیکترۆنی و گواستنەوەی بانکی.',
+    'Cards, electronic wallets and bank transfer.':
+        'کارت و جزدانی ئەلیکترۆنی و گواستنەوەی بانکی.',
     'Donation by balance transfer': 'بەخشین بە گواستنەوەی باڵانس',
-    'Recharge cards, or transfer to the numbers set aside for donations.': 'کارتی پڕکردنەوە، یان گواستنەوە بۆ ئەو ژمارانەی بۆ بەخشین تەرخانکراون.',
-    'Food, clothing, stationery, furniture or home appliances.': 'خواردن، جلوبەرگ، قەرتاسیە، کەلوپەل یان ئامێری ماڵەوە.',
-    'We could not load the ways you can give.': 'نەمانتوانی ڕێگاکانی بەخشین باربکەین.',
+    'Recharge cards, or transfer to the numbers set aside for donations.':
+        'کارتی پڕکردنەوە، یان گواستنەوە بۆ ئەو ژمارانەی بۆ بەخشین تەرخانکراون.',
+    'Food, clothing, stationery, furniture or home appliances.':
+        'خواردن، جلوبەرگ، قەرتاسیە، کەلوپەل یان ئامێری ماڵەوە.',
+    'We could not load the ways you can give.':
+        'نەمانتوانی ڕێگاکانی بەخشین باربکەین.',
     'No ways to pay yet': 'هێشتا هیچ ڕێگایەکی پارەدان نییە',
-    'The organization has not published a payment method yet. You can still donate goods below.': 'ڕێکخراوەکە هێشتا هیچ ڕێگایەکی پارەدانی بڵاو نەکردووەتەوە. هێشتا دەتوانیت لە خوارەوە کاڵا ببەخشیت.',
+    'The organization has not published a payment method yet. You can still donate goods below.':
+        'ڕێکخراوەکە هێشتا هیچ ڕێگایەکی پارەدانی بڵاو نەکردووەتەوە. هێشتا دەتوانیت لە خوارەوە کاڵا ببەخشیت.',
     'Kind of donation': 'جۆری بەخشینی هەڵبژێردراو',
     'Change': 'گۆڕین',
-    'this option is not available right now, so every method the organization accepts is shown below.': 'ئەم هەڵبژاردەیە ئێستا بەردەست نییە، بۆیە لە خوارەوە هەموو ئەو ڕێگایانە پیشان دەدرێن کە ڕێکخراوەکە پەسەندیان دەکات.',
-    'We could not load the donation types.': 'نەمانتوانی جۆرەکانی بەخشین باربکەین.',
-    'No donation type has been published yet, so this gift will be recorded as a general donation.': 'هێشتا هیچ جۆرێکی بەخشین بڵاو نەکراوەتەوە، بۆیە ئەم بەشدارییە وەک بەخشینێکی گشتی تۆمار دەکرێت.',
+    'this option is not available right now, so every method the organization accepts is shown below.':
+        'ئەم هەڵبژاردەیە ئێستا بەردەست نییە، بۆیە لە خوارەوە هەموو ئەو ڕێگایانە پیشان دەدرێن کە ڕێکخراوەکە پەسەندیان دەکات.',
+    'We could not load the donation types.':
+        'نەمانتوانی جۆرەکانی بەخشین باربکەین.',
+    'No donation type has been published yet, so this gift will be recorded as a general donation.':
+        'هێشتا هیچ جۆرێکی بەخشین بڵاو نەکراوەتەوە، بۆیە ئەم بەشدارییە وەک بەخشینێکی گشتی تۆمار دەکرێت.',
     'Who should this help?': 'دەتەوێت کێ سوودی لێ ببینێت؟',
     'General aid': 'یارمەتیی گشتی',
-    'Our team distributes it by priority and real need.': 'تیمەکەمان بەپێی پێشینە و پێویستیی ڕاستەقینە دابەشی دەکات.',
+    'Our team distributes it by priority and real need.':
+        'تیمەکەمان بەپێی پێشینە و پێویستیی ڕاستەقینە دابەشی دەکات.',
     'Donate to a specific project': 'بەخشین بۆ پڕۆژەیەکی دیاریکراو',
-    'Choose one of the organization\'s open projects.': 'یەکێک لە پڕۆژە کراوەکانی ڕێکخراوەکە هەڵبژێرە.',
+    'Choose one of the organization\'s open projects.':
+        'یەکێک لە پڕۆژە کراوەکانی ڕێکخراوەکە هەڵبژێرە.',
     'We could not load the projects.': 'نەمانتوانی پڕۆژەکان باربکەین.',
-    'Choose a project, or go back to general aid.': 'پڕۆژەیەک هەڵبژێرە، یان بگەڕێوە بۆ یارمەتیی گشتی.',
-    'No project is open for donation right now, so your gift goes to general aid.': 'ئێستا هیچ پڕۆژەیەک بۆ بەخشین کراوە نییە، بۆیە بەشدارییەکەت بۆ یارمەتیی گشتی دەچێت.',
-    'Project donations are switched off right now, so your gift goes to general aid.': 'بەخشین بۆ پڕۆژە ئێستا ڕاگیراوە، بۆیە بەشدارییەکەت بۆ یارمەتیی گشتی دەچێت.',
+    'Choose a project, or go back to general aid.':
+        'پڕۆژەیەک هەڵبژێرە، یان بگەڕێوە بۆ یارمەتیی گشتی.',
+    'No project is open for donation right now, so your gift goes to general aid.':
+        'ئێستا هیچ پڕۆژەیەک بۆ بەخشین کراوە نییە، بۆیە بەشدارییەکەت بۆ یارمەتیی گشتی دەچێت.',
+    'Project donations are switched off right now, so your gift goes to general aid.':
+        'بەخشین بۆ پڕۆژە ئێستا ڕاگیراوە، بۆیە بەشدارییەکەت بۆ یارمەتیی گشتی دەچێت.',
     'Main menu': 'لیستی سەرەکی',
     'Game': 'یاری',
-    'Could not load your saved items.': 'نەتوانرا بابەتە پاشەکەوتکراوەکانت باربکرێن.',
-    'Could not load subscription packages.': 'نەتوانرا پاکێجەکانی بەشداری باربکرێن.',
+    'Could not load your saved items.':
+        'نەتوانرا بابەتە پاشەکەوتکراوەکانت باربکرێن.',
+    'Could not load subscription packages.':
+        'نەتوانرا پاکێجەکانی بەشداری باربکرێن.',
     'Could not load this conversation.': 'نەتوانرا ئەم گفتوگۆیە باربکرێت.',
     'Could not load your case chats.': 'نەتوانرا چاتەکانی کەیسەکەت باربکرێن.',
-    'Could not decline this chat request.': 'نەتوانرا ئەم داواکاری چاتە ڕەتبکرێتەوە.',
-    'Could not load volunteer missions.': 'نەتوانرا ئەرکەکانی خۆبەخشی باربکرێن.',
-    'Could not load your support requests.': 'نەتوانرا داواکارییەکانی پشتیوانیت باربکرێن.',
-    'Could not load your wallet and payment methods.': 'نەتوانرا جزدان و ڕێگاکانی پارەدانت باربکرێن.',
+    'Could not decline this chat request.':
+        'نەتوانرا ئەم داواکاری چاتە ڕەتبکرێتەوە.',
+    'Could not load volunteer missions.':
+        'نەتوانرا ئەرکەکانی خۆبەخشی باربکرێن.',
+    'Could not load your support requests.':
+        'نەتوانرا داواکارییەکانی پشتیوانیت باربکرێن.',
+    'Could not load your wallet and payment methods.':
+        'نەتوانرا جزدان و ڕێگاکانی پارەدانت باربکرێن.',
     'Could not load your tasks.': 'نەتوانرا ئەرکەکانت باربکرێن.',
-    'Could not load the browse categories.': 'نەتوانرا پۆلەکانی گەڕان باربکرێن.',
-    'Could not load the sector filters.': 'نەتوانرا پاڵێوەرەکانی کەرتەکان باربکرێن.',
-    'Could not load your sponsorship schedule.': 'نەتوانرا خشتەی کەفالەتەکەت باربکرێت.',
+    'Could not load the browse categories.':
+        'نەتوانرا پۆلەکانی گەڕان باربکرێن.',
+    'Could not load the sector filters.':
+        'نەتوانرا پاڵێوەرەکانی کەرتەکان باربکرێن.',
+    'Could not load your sponsorship schedule.':
+        'نەتوانرا خشتەی کەفالەتەکەت باربکرێت.',
     'Could not load the comments.': 'نەتوانرا لێدوانەکان باربکرێن.',
     'Could not play this video.': 'نەتوانرا ئەم ڤیدیۆیە لێبدرێت.',
     'Balance unavailable right now': 'باڵانس ئێستا بەردەست نییە',
-    'Balance unavailable — tap to retry': 'باڵانس بەردەست نییە — کرتە بکە بۆ هەوڵدانەوە',
-    'We couldn\'t load the latest payment options, so these are the default ones.': 'نەمانتوانی دوایین هەڵبژاردەکانی پارەدان باربکەین، بۆیە ئەمانە هەڵبژاردە بنەڕەتییەکانن.',
-    'Your balance could not be refreshed. Retry the load before subscribing.': 'نەتوانرا باڵانسەکەت نوێ بکرێتەوە. پێش بەشداریکردن دووبارە بیبارکە.',
-    'Could not load this partner\'s joint activities.': 'نەتوانرا چالاکییە هاوبەشەکانی ئەم هاوبەشە باربکرێن.',
-    'Could not load your privacy settings.': 'نەتوانرا ڕێکخستنەکانی تایبەتمەندێتیت باربکرێن.',
-    'Could not refresh the list of fields you can hide.': 'نەتوانرا لیستی ئەو خانانە نوێ بکرێتەوە کە دەتوانیت بیانشاریتەوە.',
-    'Could not load your display-name choice.': 'نەتوانرا هەڵبژاردەی ناوی پیشاندانت باربکرێت.',
+    'Balance unavailable — tap to retry':
+        'باڵانس بەردەست نییە — کرتە بکە بۆ هەوڵدانەوە',
+    'We couldn\'t load the latest payment options, so these are the default ones.':
+        'نەمانتوانی دوایین هەڵبژاردەکانی پارەدان باربکەین، بۆیە ئەمانە هەڵبژاردە بنەڕەتییەکانن.',
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'نەتوانرا باڵانسەکەت نوێ بکرێتەوە. پێش بەشداریکردن دووبارە بیبارکە.',
+    'Could not load this partner\'s joint activities.':
+        'نەتوانرا چالاکییە هاوبەشەکانی ئەم هاوبەشە باربکرێن.',
+    'Could not load your privacy settings.':
+        'نەتوانرا ڕێکخستنەکانی تایبەتمەندێتیت باربکرێن.',
+    'Could not refresh the list of fields you can hide.':
+        'نەتوانرا لیستی ئەو خانانە نوێ بکرێتەوە کە دەتوانیت بیانشاریتەوە.',
+    'Could not load your display-name choice.':
+        'نەتوانرا هەڵبژاردەی ناوی پیشاندانت باربکرێت.',
     'error_title': 'هەڵەیەک ڕوویدا',
     'retry': 'دووبارە هەوڵ بدەرەوە',
     'Could not load your dashboard.': 'نەتوانرا داشبۆردەکەت باربکرێت.',
     'session_expired_title': 'ماوەی دانیشتن تەواو بوو',
-    'session_expired_message': 'دەرچوویت چونکە ماوەی دانیشتنەکەت تەواو بوو. تکایە دووبارە بچۆ ژوورەوە بۆ بەردەوامبوون.',
+    'session_expired_message':
+        'دەرچوویت چونکە ماوەی دانیشتنەکەت تەواو بوو. تکایە دووبارە بچۆ ژوورەوە بۆ بەردەوامبوون.',
     'error_next_offline': 'پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە.',
-    'error_next_retry': 'تکایە دووبارە هەوڵ بدەرەوە. ئەگەر دووبارە بووەوە، پەیوەندی بە پشتیوانییەوە بکە.',
-    'error_gps_capture_failed': 'نەتوانرا شوێنەکەت بخوێندرێتەوە. دڵنیابە کە خزمەتگوزاری شوێن بۆ ئەم ئەپە چالاکە، پاشان دووبارە هەوڵ بدەرەوە.',
+    'error_next_retry':
+        'تکایە دووبارە هەوڵ بدەرەوە. ئەگەر دووبارە بووەوە، پەیوەندی بە پشتیوانییەوە بکە.',
+    'error_gps_capture_failed':
+        'نەتوانرا شوێنەکەت بخوێندرێتەوە. دڵنیابە کە خزمەتگوزاری شوێن بۆ ئەم ئەپە چالاکە، پاشان دووبارە هەوڵ بدەرەوە.',
     'error_history_load_failed': 'نەتوانرا تۆمارەکەت باربکرێت.',
     'error_otp_send_failed': 'نەتوانرا کۆدی پشتڕاستکردنەوە بنێردرێت.',
     'error_otp_verify_failed': 'نەتوانرا ئەو کۆدە پشتڕاست بکرێتەوە.',
     'otp_resend_cooldown_message': 'تکایە پێش داواکردنی کۆدێکی تر چاوەڕێ بکە.',
-    'staff_otp_unavailable_message': 'چوونەژوورەوەی کارمەندان هێشتا بەردەست نییە. کۆدەکەت لە بەڕێوەبەر داوا بکە.',
+    'staff_otp_unavailable_message':
+        'چوونەژوورەوەی کارمەندان هێشتا بەردەست نییە. کۆدەکەت لە بەڕێوەبەر داوا بکە.',
     'error_password_setup_failed': 'نەتوانرا وشەی تێپەڕەکەت دابنرێت.',
     'error_message_send_failed': 'نەتوانرا پەیامەکەت بنێردرێت.',
     'error_messages_load_failed': 'نەتوانرا ئەم گفتوگۆیە باربکرێت.',
     'error_chat_accept_failed': 'نەتوانرا ئەم داواکاری چاتە پەسەند بکرێت.',
     'chat_invite_refusal_declined': 'تۆ ئەم بانگهێشتنەت ڕەتکردەوە.',
-    'chat_invite_refusal_already_active': 'ئەم چاتە پێشتر چالاکە، بۆیە چیتر ناتوانرێت ڕەتبکرێتەوە.',
+    'chat_invite_refusal_already_active':
+        'ئەم چاتە پێشتر چالاکە، بۆیە چیتر ناتوانرێت ڕەتبکرێتەوە.',
     'chat_group_closed_empty_title': 'لێرە هیچ پەیامێک نییە',
-    'chat_group_closed_empty_message': 'ئەم گفتوگۆیە پێش ئەوەی هیچ پەیامێک بنێردرێت داخرا.',
+    'chat_group_closed_empty_message':
+        'ئەم گفتوگۆیە پێش ئەوەی هیچ پەیامێک بنێردرێت داخرا.',
     'error_chat_groups_load_failed': 'نەتوانرا چاتە گرووپییەکانت باربکرێن.',
-    'error_connect_requests_load_failed': 'نەتوانرا داواکارییەکانی پەیوەندیکردنت باربکرێن.',
-    'chat_group_send_contact_blocked': 'ناکرێت ژمارەی مۆبایل و ناونیشانی ئیمەیڵ لەم چاتەدا هاوبەش بکرێن. لەبەر سەلامەتی تۆ لەژێر چاودێریدایە — تکایە گفتوگۆکە لێرە بهێڵەرەوە، و ئەگەر پێویستت بە ڕێکخستنی پەیوەندییە داوای لە تیمەکەمان بکە.',
-    'chat_group_send_closed': 'پەیامەکەت نەنێردرا چونکە ئەم گفتوگۆیە چیتر کراوە نییە.',
+    'error_connect_requests_load_failed':
+        'نەتوانرا داواکارییەکانی پەیوەندیکردنت باربکرێن.',
+    'chat_group_send_contact_blocked':
+        'ناکرێت ژمارەی مۆبایل و ناونیشانی ئیمەیڵ لەم چاتەدا هاوبەش بکرێن. لەبەر سەلامەتی تۆ لەژێر چاودێریدایە — تکایە گفتوگۆکە لێرە بهێڵەرەوە، و ئەگەر پێویستت بە ڕێکخستنی پەیوەندییە داوای لە تیمەکەمان بکە.',
+    'chat_group_send_closed':
+        'پەیامەکەت نەنێردرا چونکە ئەم گفتوگۆیە چیتر کراوە نییە.',
     'chat_group_unavailable_title': 'ئەم گفتوگۆیە چیتر بەردەست نییە',
-    'chat_group_unavailable_message': 'لەوانەیە تیمەکەمان داییخستبێت، یان چیتر بەشدار نیت تێیدا. بگەڕێوە بۆ بینینی گفتوگۆ ترەکانت.',
+    'chat_group_unavailable_message':
+        'لەوانەیە تیمەکەمان داییخستبێت، یان چیتر بەشدار نیت تێیدا. بگەڕێوە بۆ بینینی گفتوگۆ ترەکانت.',
     'Send message': 'ناردنی پەیام',
     'chat_groups_my_connect_requests': 'داواکارییەکانی پەیوەندیکردنم',
-    'chat_groups_my_connect_requests_desc': 'بزانە ئەو داواکارییانەی بۆ تیمەکەمان ناردوونە لە چ بارودۆخێکدان.',
+    'chat_groups_my_connect_requests_desc':
+        'بزانە ئەو داواکارییانەی بۆ تیمەکەمان ناردوونە لە چ بارودۆخێکدان.',
     'chat_groups_my_connections': 'گفتوگۆکانی پەیوەندیکردن',
     'chat_groups_my_team_groups': 'گرووپەکانی تیم',
     'chat_groups_connection_title': 'گفتوگۆی پەیوەندیکردن',
@@ -8676,29 +8761,37 @@ class AppTranslations extends Translations {
     'chat_groups_status_declined': 'ڕەتکراو',
     'chat_groups_about_donation': 'دەربارەی بەخشینێک',
     'chat_groups_about_case': 'دەربارەی کەیسێک',
-    'chat_groups_pending_hint': 'تیمەکەمان ئێستا پێداچوونەوە بە داواکارییەکەتدا دەکات.',
+    'chat_groups_pending_hint':
+        'تیمەکەمان ئێستا پێداچوونەوە بە داواکارییەکەتدا دەکات.',
     'chat_groups_open_conversation': 'گفتوگۆکە بکەرەوە',
     'chat_groups_decline_reason_label': 'هۆکار لە تیمەکەمانەوە',
     'chat_group_sender_donor_n': 'بەخشەر @n',
     'chat_group_sender_beneficiary_n': 'وەرگری شایستە @n',
     'chat_group_sender_volunteer_n': 'خۆبەخش @n',
-    'chat_groups_requests_empty_title': 'هێشتا هیچ داواکاریەکی پەیوەندیکردن نییە',
-    'chat_groups_requests_empty_message': 'کاتێک داوا لە تیمەکەمان دەکەیت کە بە کەسێکەوە پەیوەندیت پێبکەن، داواکارییەکەت و بارودۆخەکەی لێرە دەردەکەون.',
-    'error_privacy_settings_save_failed': 'نەتوانرا ڕێکخستنەکانی تایبەتمەندێتیت پاشەکەوت بکرێن.',
-    'error_service_request_failed': 'نەتوانرا داواکاری خزمەتگوزارییەکەت بنێردرێت.',
+    'chat_groups_requests_empty_title':
+        'هێشتا هیچ داواکاریەکی پەیوەندیکردن نییە',
+    'chat_groups_requests_empty_message':
+        'کاتێک داوا لە تیمەکەمان دەکەیت کە بە کەسێکەوە پەیوەندیت پێبکەن، داواکارییەکەت و بارودۆخەکەی لێرە دەردەکەون.',
+    'error_privacy_settings_save_failed':
+        'نەتوانرا ڕێکخستنەکانی تایبەتمەندێتیت پاشەکەوت بکرێن.',
+    'error_service_request_failed':
+        'نەتوانرا داواکاری خزمەتگوزارییەکەت بنێردرێت.',
     'error_subscription_failed': 'نەتوانرا بەشداریەکەت تەواو بکرێت.',
     'error_photo_upload_failed': 'نەتوانرا وێنەکەت بارکرێت.',
     'error_attachment_upload_failed': 'نەتوانرا ئەو بەڵگەنامەیە بارکرێت.',
     'error_order_checkout_failed': 'نەتوانرا داواکارییەکەت تۆمار بکرێت.',
     'error_case_submit_failed': 'نەتوانرا کەیسەکەت بنێردرێت.',
-    'error_sponsorship_submit_failed': 'نەتوانرا داواکاری کەفالەتەکەت پاشەکەوت بکرێت.',
+    'error_sponsorship_submit_failed':
+        'نەتوانرا داواکاری کەفالەتەکەت پاشەکەوت بکرێت.',
     'error_in_kind_submit_failed': 'نەتوانرا بەشداریی کاڵاکەت بنێردرێت.',
     'error_evidence_capture_failed': 'نەتوانرا شوێن و وێنەکەت وەربگیرێت.',
     'error_checkin_failed': 'نەتوانرا ئامادەبوونت تۆمار بکرێت.',
     'error_mission_checkout_failed': 'نەتوانرا ڕۆیشتنت تۆمار بکرێت.',
     'error_join_mission_failed': 'نەتوانرا داواکاری بەشداریکردنت بنێردرێت.',
-    'error_volunteer_application_failed': 'نەتوانرا داواکاری خۆبەخشیت پاشەکەوت بکرێت.',
-    'We could not check for new notifications.': 'نەمانتوانی سەیری ئاگادارکردنەوەی نوێ بکەین.',
+    'error_volunteer_application_failed':
+        'نەتوانرا داواکاری خۆبەخشیت پاشەکەوت بکرێت.',
+    'We could not check for new notifications.':
+        'نەمانتوانی سەیری ئاگادارکردنەوەی نوێ بکەین.',
     'beauty_care': 'جوانکاری و چاودێری',
     'food_pantry': 'خۆراک',
     'home_textiles': 'ڕایەخی ماڵ',
@@ -8706,7 +8799,8 @@ class AppTranslations extends Translations {
     'event': 'ڕووداو',
     'news': 'هەواڵ',
     'article': 'وتار',
-    'Your contributions will appear here once you give.': 'بەشدارییەکانت دوای یەکەم بەخشین لێرە دەردەکەون.',
+    'Your contributions will appear here once you give.':
+        'بەشدارییەکانت دوای یەکەم بەخشین لێرە دەردەکەون.',
     'status_open': 'کراوە',
     'status_pending': 'چاوەڕوان',
     'status_in_progress': 'لە کاردایە',
@@ -8748,40 +8842,57 @@ class AppTranslations extends Translations {
     'Not funded yet': 'هێشتا دارایی بۆ دابین نەکراوە',
     'Product': 'بەرهەم',
     'Registration': 'تۆمارکردن',
-    'Your registration was saved, but your documents did not upload. You can add them from your profile.': 'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام بەڵگەنامەکانت بارنەکران. دەتوانیت لە پڕۆفایلەکەتەوە زیادیان بکەیت.',
-    'Your registration was saved, but your photo did not upload. You can add it from your profile.': 'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام وێنەکەت بارنەکرا. دەتوانیت لە پڕۆفایلەکەتەوە زیادی بکەیت.',
-    'Your registration was saved, but your social links did not. You can add them from Privacy settings.': 'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام بەستەرەکانی سۆشیال پاشەکەوت نەکران. دەتوانیت لە ڕێکخستنەکانی تایبەتمەندێتییەوە زیادیان بکەیت.',
-    'Could not save that preference. Please try again.': 'نەتوانرا ئەو ڕێکخستنە پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام بەڵگەنامەکانت بارنەکران. دەتوانیت لە پڕۆفایلەکەتەوە زیادیان بکەیت.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام وێنەکەت بارنەکرا. دەتوانیت لە پڕۆفایلەکەتەوە زیادی بکەیت.',
+    'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
+        'تۆمارکردنەکەت پاشەکەوتکرا، بەڵام بەستەرەکانی سۆشیال پاشەکەوت نەکران. دەتوانیت لە ڕێکخستنەکانی تایبەتمەندێتییەوە زیادیان بکەیت.',
+    'Could not save that preference. Please try again.':
+        'نەتوانرا ئەو ڕێکخستنە پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'Continue with phone': 'بەردەوامبوون بە ژمارەی مۆبایل',
-    'Sign in or create an account with your phone number.': 'بە ژمارەی مۆبایلەکەت بچۆ ژوورەوە یان هەژمارێک دروست بکە.',
+    'Sign in or create an account with your phone number.':
+        'بە ژمارەی مۆبایلەکەت بچۆ ژوورەوە یان هەژمارێک دروست بکە.',
     'All partners': 'هەموو هاوبەشەکان',
     'All requests': 'هەموو داواکارییەکان',
     'No pending requests': 'هیچ داواکاریەکی چاوەڕوان نییە',
     'No approved requests': 'هیچ داواکاریەکی پەسەندکراو نییە',
     'No rejected requests': 'هیچ داواکاریەکی ڕەتکراوە نییە',
-    'Requests waiting for review, changes, or sponsor matching will appear here.': 'ئەو داواکارییانەی چاوەڕێی پێداچوونەوە یان گۆڕانکاری یان گونجاندنی کەفیلن لێرە دەردەکەون.',
-    'Requests the admins approve will appear here.': 'ئەو داواکارییانەی بەڕێوەبەران پەسەندیان دەکەن لێرە دەردەکەون.',
-    'Requests the admins turn down will appear here.': 'ئەو داواکارییانەی بەڕێوەبەران ڕەتیان دەکەنەوە لێرە دەردەکەون.',
-    'View your profile and its status, or create one': 'پڕۆفایلەکەت و بارودۆخەکەی ببینە، یان یەکێک دروست بکە',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'ئەو داواکارییانەی چاوەڕێی پێداچوونەوە یان گۆڕانکاری یان گونجاندنی کەفیلن لێرە دەردەکەون.',
+    'Requests the admins approve will appear here.':
+        'ئەو داواکارییانەی بەڕێوەبەران پەسەندیان دەکەن لێرە دەردەکەون.',
+    'Requests the admins turn down will appear here.':
+        'ئەو داواکارییانەی بەڕێوەبەران ڕەتیان دەکەنەوە لێرە دەردەکەون.',
+    'View your profile and its status, or create one':
+        'پڕۆفایلەکەت و بارودۆخەکەی ببینە، یان یەکێک دروست بکە',
     'Create my profile': 'پڕۆفایلەکەم دروست بکە',
     'Need to change something?': 'پێویستت بە گۆڕینی شتێکە؟',
     'Submit a new profile': 'پڕۆفایلێکی نوێ بنێرە',
-    'Ask the staff team to update an existing profile, or submit a new one for review.': 'داوا لە تیمی کارمەندان بکە پڕۆفایلێکی هەبوو نوێ بکەنەوە، یان یەکێکی نوێ بۆ پێداچوونەوە بنێرە.',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'داوا لە تیمی کارمەندان بکە پڕۆفایلێکی هەبوو نوێ بکەنەوە، یان یەکێکی نوێ بۆ پێداچوونەوە بنێرە.',
     'Community and support': 'کۆمەڵگا و پشتیوانی',
     'Giving tools': 'ئامرازەکانی بەخشین',
     'Volunteer tools': 'ئامرازەکانی خۆبەخشی',
     'No places on the map yet': 'هێشتا هیچ شوێنێک لەسەر نەخشە نییە',
-    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.': 'شوێنە پەسەندکراوەکانی ڕێنمای شار لێرە دەردەکەون. دەتوانیت لە ڕێگەی «زیادکردنی چالاکی» یەکێک پێشنیار بکەیت.',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'شوێنە پەسەندکراوەکانی ڕێنمای شار لێرە دەردەکەون. دەتوانیت لە ڕێگەی «زیادکردنی چالاکی» یەکێک پێشنیار بکەیت.',
     'No places in this sector': 'هیچ شوێنێک لەم کەرتەدا نییە',
-    'Nothing in the guide matches this sector yet. Clear the filter to see every place.': 'هێشتا هیچ شتێک لە ڕێنماکەدا لەگەڵ ئەم کەرتەدا ناگونجێت. پاڵێوەرەکە بسڕەوە بۆ بینینی هەموو شوێنەکان.',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'هێشتا هیچ شتێک لە ڕێنماکەدا لەگەڵ ئەم کەرتەدا ناگونجێت. پاڵێوەرەکە بسڕەوە بۆ بینینی هەموو شوێنەکان.',
     'No places in this sub-category': 'هیچ شوێنێک لەم پۆلە لاوەکییەدا نییە',
-    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.': 'هێشتا هیچ شتێک بەم پۆلە لاوەکییە نیشانە نەکراوە. بیسڕەوە بۆ بینینی هەموو کەرتەکە.',
+    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.':
+        'هێشتا هیچ شتێک بەم پۆلە لاوەکییە نیشانە نەکراوە. بیسڕەوە بۆ بینینی هەموو کەرتەکە.',
     'Show all places': 'پیشاندانی هەموو شوێنەکان',
     'Show the whole sector': 'پیشاندانی هەموو کەرتەکە',
-    'These places have no map location yet.\nBrowse them in the row below.': 'ئەم شوێنانە هێشتا شوێنی نەخشەیان نییە.\nلە ڕیزی خوارەوە بگەڕێ بەناویاندا.',
-    'Name and phone come from your verified account. Change them in Profile > Edit profile.': 'ناو و ژمارەی مۆبایل لە هەژمارە پشتڕاستکراوەکەتەوە دێن. لە «پڕۆفایل > دەستکاری پڕۆفایل» بیانگۆڕە.',
-    'This is the verified number you sign in with, so it cannot be edited here.': 'ئەمە ئەو ژمارە پشتڕاستکراوەیە کە پێی دەچیتە ژوورەوە، بۆیە لێرە ناتوانرێت دەستکاری بکرێت.',
-    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.': 'پڕۆژەکان بە دیناری عێراقی (IQD) دارایییان بۆ دابین دەکرێت، بۆیە دراوەکە جێگیرە.',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'ئەم شوێنانە هێشتا شوێنی نەخشەیان نییە.\nلە ڕیزی خوارەوە بگەڕێ بەناویاندا.',
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'ناو و ژمارەی مۆبایل لە هەژمارە پشتڕاستکراوەکەتەوە دێن. لە «پڕۆفایل > دەستکاری پڕۆفایل» بیانگۆڕە.',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'ئەمە ئەو ژمارە پشتڕاستکراوەیە کە پێی دەچیتە ژوورەوە، بۆیە لێرە ناتوانرێت دەستکاری بکرێت.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'پڕۆژەکان بە دیناری عێراقی (IQD) دارایییان بۆ دابین دەکرێت، بۆیە دراوەکە جێگیرە.',
     'catalogue_sort_best_selling': 'زۆرترین فرۆش',
     'catalogue_sort_newest': 'تازە گەیشتوو',
     'catalogue_sort_price_asc': 'نرخ: لە کەمەوە بۆ زۆر',
@@ -8795,94 +8906,133 @@ class AppTranslations extends Translations {
     'catalogue_price_min': 'کەمترین نرخ',
     'catalogue_price_max': 'زۆرترین نرخ',
     'catalogue_in_stock_only': 'تەنیا بەردەست',
-    'catalogue_in_stock_only_desc': 'ئەو بەرهەمانە دەشارێتەوە کە فرۆشیار وەک تەواوبوو نیشانەی کردوون.',
+    'catalogue_in_stock_only_desc':
+        'ئەو بەرهەمانە دەشارێتەوە کە فرۆشیار وەک تەواوبوو نیشانەی کردوون.',
     'catalogue_apply': 'پیشاندانی بەرهەمەکان',
     'catalogue_clear': 'سڕینەوە',
     'catalogue_price_invalid': 'نرخەکە وەک ژمارە بنووسە.',
-    'catalogue_price_range_invalid': 'زۆرترین نرخ ناتوانێت لە کەمترین نرخ کەمتر بێت.',
+    'catalogue_price_range_invalid':
+        'زۆرترین نرخ ناتوانێت لە کەمترین نرخ کەمتر بێت.',
     'catalogue_product_count': '@count بەرهەم',
     'catalogue_sold_count': '@count فرۆشراوە',
     'catalogue_no_results': 'هیچ شتێک لەگەڵ ئەم پاڵێوەرانەدا ناگونجێت',
-    'catalogue_no_results_desc': 'هەوڵ بدە پاڵێوەرێک لاببەیت، یان بواری نرخەکە فراوانتر بکەیت.',
+    'catalogue_no_results_desc':
+        'هەوڵ بدە پاڵێوەرێک لاببەیت، یان بواری نرخەکە فراوانتر بکەیت.',
     'catalogue_categories_empty': 'هێشتا هیچ پۆلێک نییە',
     'catalogue_brands_empty': 'هێشتا هیچ براندێک نییە',
-    'catalogue_facet_empty_desc': 'ئەم لیستە پڕدەبێتەوە هەر کاتێک بەرهەم بۆ دوکانەکە زیاد بکرێت.',
+    'catalogue_facet_empty_desc':
+        'ئەم لیستە پڕدەبێتەوە هەر کاتێک بەرهەم بۆ دوکانەکە زیاد بکرێت.',
     'catalogue_categories_failed': 'نەتوانرا پۆلەکان باربکرێن.',
     'catalogue_brands_failed': 'نەتوانرا براندەکان باربکرێن.',
-    'Community events, announcements, and updates.': 'ڕووداو و ڕاگەیاندن و نوێکارییەکانی کۆمەڵگا.',
+    'Community events, announcements, and updates.':
+        'ڕووداو و ڕاگەیاندن و نوێکارییەکانی کۆمەڵگا.',
     'Community events': 'ڕووداوەکانی کۆمەڵگا',
-    'No community events or announcements yet. Check back soon.': 'هێشتا هیچ ڕووداو یان ڕاگەیاندنێکی کۆمەڵگا نییە. بەم زووانە دووبارە سەیری بکەرەوە.',
+    'No community events or announcements yet. Check back soon.':
+        'هێشتا هیچ ڕووداو یان ڕاگەیاندنێکی کۆمەڵگا نییە. بەم زووانە دووبارە سەیری بکەرەوە.',
     'Alert categories': 'پۆلەکانی ئاگادارکردنەوە',
-    'notif_cat_desc': 'ئەو جۆرە ئاگادارکردنەوانە هەڵبژێرە کە پێت دەگەن. ڕاگرتنی هەر جۆرێک ڕێگری لە ناردنی بۆت دەکات، نەک تەنیا شاردنەوەی دوای گەیشتنی.',
+    'notif_cat_desc':
+        'ئەو جۆرە ئاگادارکردنەوانە هەڵبژێرە کە پێت دەگەن. ڕاگرتنی هەر جۆرێک ڕێگری لە ناردنی بۆت دەکات، نەک تەنیا شاردنەوەی دوای گەیشتنی.',
     'notif_cat_on': 'ئەمانەت پێدەگەن',
     'notif_cat_off': 'ئەمانەت پێناگەن',
-    'notif_cat_master_off': 'هەموو ئاگادارکردنەوەکان ڕاگیراون، بۆیە هیچیان پێت ناگەن هەتا مفتاحی سەرەوە دووبارە چالاک نەکەیتەوە.',
+    'notif_cat_master_off':
+        'هەموو ئاگادارکردنەوەکان ڕاگیراون، بۆیە هیچیان پێت ناگەن هەتا مفتاحی سەرەوە دووبارە چالاک نەکەیتەوە.',
     'notif_cat_empty': 'هێشتا هیچ پۆلێکی ئاگادارکردنەوە نییە',
-    'notif_cat_empty_desc': 'ئێستا هیچ شتێک نییە بۆ چالاککردن یان ڕاگرتن. ئاگادارکردنەوەکانت وەک جاران پێت دەگەن.',
+    'notif_cat_empty_desc':
+        'ئێستا هیچ شتێک نییە بۆ چالاککردن یان ڕاگرتن. ئاگادارکردنەوەکانت وەک جاران پێت دەگەن.',
     'notif_cat_tier_high': 'پێشینەی بەرز',
     'notif_cat_tier_medium': 'ئاسایی',
     'notif_cat_tier_low': 'پێشینەی نزم',
     'notif_cat_group_summary': '@on لە @total چالاک',
-    'Could not load your notification settings.': 'نەتوانرا ڕێکخستنەکانی ئاگادارکردنەوەت باربکرێن.',
+    'Could not load your notification settings.':
+        'نەتوانرا ڕێکخستنەکانی ئاگادارکردنەوەت باربکرێن.',
     'marriage_privacy_empty': 'هێشتا هیچ شتێک نییە بۆ شاردنەوە',
-    'marriage_privacy_empty_desc': 'ئێستا هیچ وردەکارییەک نییە کە بتوانیت لەم پڕۆفایلەدا بیشاریتەوە. وەک ئەوەی ئەمڕۆ پیشانی دەدات دەمێنێتەوە.',
+    'marriage_privacy_empty_desc':
+        'ئێستا هیچ وردەکارییەک نییە کە بتوانیت لەم پڕۆفایلەدا بیشاریتەوە. وەک ئەوەی ئەمڕۆ پیشانی دەدات دەمێنێتەوە.',
     'history_code_title': 'گەڕان بە ڕەمزی ناسنامە',
-    'history_code_help': 'ڕەمزی ناسنامەیەک بنووسە بۆ بینینی تۆماری بەخشین و پشتیوانیی. دەتوانیت بە ڕەمزی خۆت بگەڕێیت؛ کارمەندان دەتوانن بە ڕەمزی کەسانی تر بگەڕێن. خانەکە بسڕەوە بۆ گەڕانەوە بۆ تۆمارەکەی خۆت.',
+    'history_code_help':
+        'ڕەمزی ناسنامەیەک بنووسە بۆ بینینی تۆماری بەخشین و پشتیوانیی. دەتوانیت بە ڕەمزی خۆت بگەڕێیت؛ کارمەندان دەتوانن بە ڕەمزی کەسانی تر بگەڕێن. خانەکە بسڕەوە بۆ گەڕانەوە بۆ تۆمارەکەی خۆت.',
     'history_code_not_found': 'هیچ تۆمارێک بۆ ئەو ڕەمزە بەردەست نییە.',
-    'history_code_not_permitted': 'هەژمارەکەت ڕێگەی پێنەدراوە بگەڕێت بەدوای تۆماری کەسانی تردا.',
-    'history_code_failed': 'نەتوانرا بەدوای ئەو ڕەمزەدا بگەڕێت. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە.',
-    'content_page_empty': 'هێشتا هیچ شتێک لەم پەڕەیەدا نییە. تکایە بەم زووانە سەیری بکەرەوە.',
-    'Create a full account to use this feature.': 'هەژمارێکی تەواو دروست بکە بۆ بەکارهێنانی ئەم تایبەتمەندییە.',
-    'Full registration is required to view the City Directory.': 'بۆ بینینی ڕێنمای شار تۆمارکردنی تەواو پێویستە.',
+    'history_code_not_permitted':
+        'هەژمارەکەت ڕێگەی پێنەدراوە بگەڕێت بەدوای تۆماری کەسانی تردا.',
+    'history_code_failed':
+        'نەتوانرا بەدوای ئەو ڕەمزەدا بگەڕێت. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە.',
+    'content_page_empty':
+        'هێشتا هیچ شتێک لەم پەڕەیەدا نییە. تکایە بەم زووانە سەیری بکەرەوە.',
+    'Create a full account to use this feature.':
+        'هەژمارێکی تەواو دروست بکە بۆ بەکارهێنانی ئەم تایبەتمەندییە.',
+    'Full registration is required to view the City Directory.':
+        'بۆ بینینی ڕێنمای شار تۆمارکردنی تەواو پێویستە.',
     'chat_support_unavailable_title': 'چاتی پشتیوانی هێشتا ڕێکنەخراوە',
-    'chat_support_unavailable_body': 'ئێستا کەس دیارینەکراوە بۆ وەرگرتنی پەیامەکانی چات. هێشتا دەتوانیت لە ڕێگەی فۆڕمی پشتیوانی یان واتساپەوە بگەیت بە تیمەکە.',
+    'chat_support_unavailable_body':
+        'ئێستا کەس دیارینەکراوە بۆ وەرگرتنی پەیامەکانی چات. هێشتا دەتوانیت لە ڕێگەی فۆڕمی پشتیوانی یان واتساپەوە بگەیت بە تیمەکە.',
     'connect_request_action': 'داوا لە تیمەکەمان بکە پەیوەندیم پێبکەن',
     'connect_request_title': 'داواکاری پەیوەندیکردن لە ڕێگەی تیمەکەمان',
-    'connect_request_explainer': 'تیمەکەمان پێداچوونەوە بە داواکارییەکەتدا دەکات. ئەگەر پەسەندی بکەن، لێرە لە ئەپەکەدا چاتێکی چاودێریکراوت بۆ دەکەنەوە.',
+    'connect_request_explainer':
+        'تیمەکەمان پێداچوونەوە بە داواکارییەکەتدا دەکات. ئەگەر پەسەندی بکەن، لێرە لە ئەپەکەدا چاتێکی چاودێریکراوت بۆ دەکەنەوە.',
     'connect_request_message_label': 'پێویستت بە چییە؟',
-    'connect_request_message_hint': 'بە تیمەکەمان بڵێ دەتەوێت باسی چی بکەیت، و بۆچی.',
-    'connect_request_message_required': 'تکایە باسی ئەوە بکە کە پێویستت پێیەتی.',
+    'connect_request_message_hint':
+        'بە تیمەکەمان بڵێ دەتەوێت باسی چی بکەیت، و بۆچی.',
+    'connect_request_message_required':
+        'تکایە باسی ئەوە بکە کە پێویستت پێیەتی.',
     'connect_request_submit': 'ناردنی داواکاری',
-    'connect_request_sent': 'داواکارییەکە نێردرا. تیمەکەمان بەم زووانە پێداچوونەوەی پێدا دەکات.',
+    'connect_request_sent':
+        'داواکارییەکە نێردرا. تیمەکەمان بەم زووانە پێداچوونەوەی پێدا دەکات.',
     'connect_request_sent_title': 'داواکاری نێردرا',
-    'connect_request_sent_body': 'تیمەکەمان بەم زووانە پێداچوونەوەی پێدا دەکات. دەتوانیت لە «داواکارییەکانی پەیوەندیکردنم» لە تابی «پەیامەکان» بەدوایدا بچیت.',
+    'connect_request_sent_body':
+        'تیمەکەمان بەم زووانە پێداچوونەوەی پێدا دەکات. دەتوانیت لە «داواکارییەکانی پەیوەندیکردنم» لە تابی «پەیامەکان» بەدوایدا بچیت.',
     'error_connect_request_submit_failed': 'نەتوانرا داواکارییەکەت بنێردرێت.',
     'support_request_form': 'ناردنی داواکاری پشتیوانی',
-    'support_request_form_desc': 'تۆمارێک بنێرە و بارودۆخەکەی بەدواداچوونی بۆ بکە — پێویست بە چاتی ڕاستەوخۆ ناکات.',
-    'location_timed_out': 'نەتوانرا شوێنەکەت دیاری بکرێت. بڕۆ بۆ شوێنێک کە ئاسمانی ڕوونتری هەبێت و دووبارە هەوڵ بدەرەوە.',
-    'photo_upload_timed_out': 'نەتوانرا وێنەکە بنێردرێت. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە — ئامادەبوونت تۆمار نەکرا.',
+    'support_request_form_desc':
+        'تۆمارێک بنێرە و بارودۆخەکەی بەدواداچوونی بۆ بکە — پێویست بە چاتی ڕاستەوخۆ ناکات.',
+    'location_timed_out':
+        'نەتوانرا شوێنەکەت دیاری بکرێت. بڕۆ بۆ شوێنێک کە ئاسمانی ڕوونتری هەبێت و دووبارە هەوڵ بدەرەوە.',
+    'photo_upload_timed_out':
+        'نەتوانرا وێنەکە بنێردرێت. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە — ئامادەبوونت تۆمار نەکرا.',
     'marriage_owner_edit': 'دەستکاری پڕۆفایلەکەم',
     'marriage_owner_pause': 'ڕاگرتنی پیشاندانی پڕۆفایلەکەم',
     'marriage_owner_resume': 'دووبارە پیشاندانی پڕۆفایلەکەم',
     'marriage_owner_delete': 'لابردنی پڕۆفایلەکەم',
-    'marriage_owner_pause_unavailable': 'ئەم پڕۆفایلە لەم بارودۆخەدا ناتوانرێت پیشان بدرێت یان بشاردرێتەوە. تیمی کارمەندان بڕیار دەدات هەنگاوی داهاتوو چییە.',
-    'marriage_owner_new_submission_desc': 'وردەکارییەکانی سەرەوە خۆت دەستکاری بکە. تەنیا ئەگەر پێویستت بە پێداچوونەوەی پڕۆفایلێکی دووەم بوو، پڕۆفایلێکی نوێ بنێرە.',
+    'marriage_owner_pause_unavailable':
+        'ئەم پڕۆفایلە لەم بارودۆخەدا ناتوانرێت پیشان بدرێت یان بشاردرێتەوە. تیمی کارمەندان بڕیار دەدات هەنگاوی داهاتوو چییە.',
+    'marriage_owner_new_submission_desc':
+        'وردەکارییەکانی سەرەوە خۆت دەستکاری بکە. تەنیا ئەگەر پێویستت بە پێداچوونەوەی پڕۆفایلێکی دووەم بوو، پڕۆفایلێکی نوێ بنێرە.',
     'marriage_owner_delete_title': 'پڕۆفایلەکەت لاببرێت؟',
-    'marriage_owner_delete_body': 'لە لیستی گەڕان و لە پڕۆفایلەکانت لێرە ون دەبێت. پەیامەکانت و تۆماری بەشدارییەکەت دەپارێزرێن، و تیمی کارمەندان دەتوانێت بیگەڕێنێتەوە.',
+    'marriage_owner_delete_body':
+        'لە لیستی گەڕان و لە پڕۆفایلەکانت لێرە ون دەبێت. پەیامەکانت و تۆماری بەشدارییەکەت دەپارێزرێن، و تیمی کارمەندان دەتوانێت بیگەڕێنێتەوە.',
     'marriage_owner_delete_confirm': 'بەڵێ، لایببە',
-    'marriage_owner_deleted_ok': 'پڕۆفایلەکەت لابرا. تیمی کارمەندان دەتوانێت بیگەڕێنێتەوە.',
+    'marriage_owner_deleted_ok':
+        'پڕۆفایلەکەت لابرا. تیمی کارمەندان دەتوانێت بیگەڕێنێتەوە.',
     'marriage_owner_edit_title': 'دەستکاری پڕۆفایلەکەم',
     'marriage_owner_edit_subtitle': 'ئەوەی پڕۆفایلەکەت پیشانی دەدات بیگۆڕە.',
-    'marriage_owner_staff_fields_note': 'بەشەکانی ناسنامە و نیشتەجێبوون و موڵک و تەندروستی هێشتا تیمی کارمەندان نوێیان دەکاتەوە. داوایان لێ بکە هەر شتێک بگۆڕن کە لەم شاشەیەدا نییە.',
+    'marriage_owner_staff_fields_note':
+        'بەشەکانی ناسنامە و نیشتەجێبوون و موڵک و تەندروستی هێشتا تیمی کارمەندان نوێیان دەکاتەوە. داوایان لێ بکە هەر شتێک بگۆڕن کە لەم شاشەیەدا نییە.',
     'marriage_owner_number_invalid': 'ژمارەیەکی تەواو بنووسە.',
     'marriage_owner_number_range': 'ژمارەیەک لە نێوان @min و @max بنووسە.',
-    'marriage_owner_photo_failed': 'نەتوانرا ئەو وێنەیە بارکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
-    'marriage_owner_error_not_owner': 'ئەم پڕۆفایلە چیتر هی تۆ نییە بۆ گۆڕین. بۆ نوێکردنەوە بیکێشە خوارەوە و بارودۆخەکەی بپشکنە.',
-    'marriage_owner_error_not_pausable': 'ئەم پڕۆفایلە لەم بارودۆخەدا ناتوانرێت پیشان بدرێت یان بشاردرێتەوە.',
-    'marriage_owner_error_invalid_visibility': 'یەکێک لە هەڵبژاردە بەردەستەکانی تایبەتمەندێتی هەڵبژێرە.',
-    'marriage_owner_error_generic': 'نەتوانرا ئەو گۆڕانکارییە پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'marriage_owner_photo_failed':
+        'نەتوانرا ئەو وێنەیە بارکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
+    'marriage_owner_error_not_owner':
+        'ئەم پڕۆفایلە چیتر هی تۆ نییە بۆ گۆڕین. بۆ نوێکردنەوە بیکێشە خوارەوە و بارودۆخەکەی بپشکنە.',
+    'marriage_owner_error_not_pausable':
+        'ئەم پڕۆفایلە لەم بارودۆخەدا ناتوانرێت پیشان بدرێت یان بشاردرێتەوە.',
+    'marriage_owner_error_invalid_visibility':
+        'یەکێک لە هەڵبژاردە بەردەستەکانی تایبەتمەندێتی هەڵبژێرە.',
+    'marriage_owner_error_generic':
+        'نەتوانرا ئەو گۆڕانکارییە پاشەکەوت بکرێت. تکایە دووبارە هەوڵ بدەرەوە.',
     'receipts_load_failed': 'نەتوانرا پسوولەکانت باربکرێن.',
     'Light': 'ڕووناک',
     'Dark': 'تاریک',
     'Resend in @time': 'دووبارە ناردنەوە لە @time',
-    'A code was just sent. You can ask for another shortly.': 'هەر ئێستا کۆدێک نێردرا. بەم زووانە دەتوانیت داوای یەکێکی تر بکەیت.',
+    'A code was just sent. You can ask for another shortly.':
+        'هەر ئێستا کۆدێک نێردرا. بەم زووانە دەتوانیت داوای یەکێکی تر بکەیت.',
     'Submit beneficiary case': 'ناردنی کەیسی شایستە',
     'Beneficiary cases': 'کەیسەکانی شایستە',
     '@count minutes': '@count خولەک',
     '@count hours': '@count کاتژمێر',
     '@count days': '@count ڕۆژ',
-    'Beneficiary case saved for review.': 'کەیسی شایستە بۆ پێداچوونەوە پاشەکەوتکرا.',
-    'Districts could not load. Tap to retry.': 'نەتوانرا ناوچەکان باربکرێن. کرتە بکە بۆ هەوڵدانەوە.',
+    'Beneficiary case saved for review.':
+        'کەیسی شایستە بۆ پێداچوونەوە پاشەکەوتکرا.',
+    'Districts could not load. Tap to retry.':
+        'نەتوانرا ناوچەکان باربکرێن. کرتە بکە بۆ هەوڵدانەوە.',
     'household_individual': 'تاک',
     'household_family_of': 'خێزانێک لە @count کەس',
     'items_one': 'دانە',
@@ -8891,41 +9041,58 @@ class AppTranslations extends Translations {
     'items_many': 'دانە',
     'Beneficiary pending projects': 'پڕۆژە چاوەڕوانەکانی شایستە',
     'Enter beneficiary or community': 'شایستە یان کۆمەڵگا بنووسە',
-    'Unable to load beneficiary cases from the server.': 'نەتوانرا کەیسەکانی شایستە لە ڕاژەکارەوە باربکرێن.',
-    'Unable to load your beneficiary cases.': 'نەتوانرا کەیسەکانی شایستەی تۆ باربکرێن.',
+    'Unable to load beneficiary cases from the server.':
+        'نەتوانرا کەیسەکانی شایستە لە ڕاژەکارەوە باربکرێن.',
+    'Unable to load your beneficiary cases.':
+        'نەتوانرا کەیسەکانی شایستەی تۆ باربکرێن.',
     'Your beneficiary workspace': 'شوێنی کاری شایستەی تۆ',
     'Saved — waiting for approval': 'پاشەکەوتکرا — چاوەڕێی پەسەندکردن',
-    'Your other details are saved. Your new name needs staff approval before it appears.': 'وردەکارییە ترەکانت پاشەکەوتکران. ناوە نوێیەکەت پێویستی بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەوێت.',
-    'Your other details are saved. Your new photo needs staff approval before it appears.': 'وردەکارییە ترەکانت پاشەکەوتکران. وێنە نوێیەکەت پێویستی بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەوێت.',
-    'Your other details are saved. Your new name and photo need staff approval before they appear.': 'وردەکارییە ترەکانت پاشەکەوتکران. ناو و وێنە نوێیەکانت پێویستیان بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەون.',
+    'Your other details are saved. Your new name needs staff approval before it appears.':
+        'وردەکارییە ترەکانت پاشەکەوتکران. ناوە نوێیەکەت پێویستی بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەوێت.',
+    'Your other details are saved. Your new photo needs staff approval before it appears.':
+        'وردەکارییە ترەکانت پاشەکەوتکران. وێنە نوێیەکەت پێویستی بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەوێت.',
+    'Your other details are saved. Your new name and photo need staff approval before they appear.':
+        'وردەکارییە ترەکانت پاشەکەوتکران. ناو و وێنە نوێیەکانت پێویستیان بە پەسەندکردنی کارمەندە پێش ئەوەی دەربکەون.',
     'Beneficiary community': 'کۆمەڵگای شایستە',
     'Beneficiary or community name': 'ناوی شایستە یان کۆمەڵگا',
-    'Beneficiary or community name (Arabic)': 'ناوی شایستە یان کۆمەڵگا (بە عەرەبی)',
-    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.': 'هەژمارەکەت بە ژمارەی مۆبایل و وشەی تێپەڕ دەچێتە ژوورەوە. کۆدی یەکجارەیی تەنیا لە کاتی دروستکردنی هەژماردا بەکاردێت.',
+    'Beneficiary or community name (Arabic)':
+        'ناوی شایستە یان کۆمەڵگا (بە عەرەبی)',
+    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.':
+        'هەژمارەکەت بە ژمارەی مۆبایل و وشەی تێپەڕ دەچێتە ژوورەوە. کۆدی یەکجارەیی تەنیا لە کاتی دروستکردنی هەژماردا بەکاردێت.',
     'My beneficiary cases': 'کەیسەکانی شایستەی خۆم',
-    'Submitted beneficiary cases will appear here.': 'کەیسە نێردراوەکانی شایستە لێرە دەردەکەون.',
-    'history_empty_no_records': 'هێشتا هیچ شتێک لێرە نییە. داواکارییەکانت و ئەو پشتیوانییەی پێت دەدرێت دوای دەستپێکردن لێرە دەردەکەون.',
+    'Submitted beneficiary cases will appear here.':
+        'کەیسە نێردراوەکانی شایستە لێرە دەردەکەون.',
+    'history_empty_no_records':
+        'هێشتا هیچ شتێک لێرە نییە. داواکارییەکانت و ئەو پشتیوانییەی پێت دەدرێت دوای دەستپێکردن لێرە دەردەکەون.',
     'Eligibles': 'شایستەکان',
     'Beneficiary history': 'تۆماری شایستە',
     'No beneficiary cases yet.': 'هێشتا هیچ کەیسێکی شایستە نییە.',
     '@count place': '@count شوێن',
     '@count places': '@count شوێن',
-    'location_failed': 'نەتوانرا شوێنەکەت بدۆزرێتەوە. لە دەرەوە هەوڵ بدەرەوە یان دڵنیابە خزمەتگوزاری شوێن بۆ ئەم ئەپە چالاکە.',
+    'location_failed':
+        'نەتوانرا شوێنەکەت بدۆزرێتەوە. لە دەرەوە هەوڵ بدەرەوە یان دڵنیابە خزمەتگوزاری شوێن بۆ ئەم ئەپە چالاکە.',
     'map_my_location': 'بڕۆ بۆ شوێنی من',
     'map_fit_all': 'پیشاندانی هەموو شوێنەکان',
     'map_fullscreen': 'کردنەوەی نەخشە بە پڕی شاشە',
     '@count place · Mosul': '@count شوێن · مووسڵ',
     '@count places · Mosul': '@count شوێن · مووسڵ',
-    'activity_submit_unconfirmed': 'نەمانتوانی دڵنیا بین لەوەی ئەمە گەیشتووە. پێش هەوڵدانەوە سەیری لیستەکە بکە.',
-    'activity_pick_sector_first': 'کەرتێک لە سەرەوە هەڵبژێرە بۆ بینینی پۆلە لاوەکییەکانی.',
+    'activity_submit_unconfirmed':
+        'نەمانتوانی دڵنیا بین لەوەی ئەمە گەیشتووە. پێش هەوڵدانەوە سەیری لیستەکە بکە.',
+    'activity_pick_sector_first':
+        'کەرتێک لە سەرەوە هەڵبژێرە بۆ بینینی پۆلە لاوەکییەکانی.',
     'Social': 'سۆشیال',
-    'Book halls, photographers, and everything your event needs': 'هۆڵ و وێنەگر و هەرچی ڕووداوەکەت پێویستی پێیەتی حیجز بکە',
-    'Profiles, posts, and support for the events community': 'پڕۆفایل و پۆست و پشتیوانی بۆ کۆمەڵگای ڕووداوەکان',
-    'guest_start_failed': 'نەمانتوانی گەڕانی میوان دەستپێبکەین. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە.',
+    'Book halls, photographers, and everything your event needs':
+        'هۆڵ و وێنەگر و هەرچی ڕووداوەکەت پێویستی پێیەتی حیجز بکە',
+    'Profiles, posts, and support for the events community':
+        'پڕۆفایل و پۆست و پشتیوانی بۆ کۆمەڵگای ڕووداوەکان',
+    'guest_start_failed':
+        'نەمانتوانی گەڕانی میوان دەستپێبکەین. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەرەوە.',
     'chat_thread_other_user_id': 'بەکارهێنەر #@id',
-    'You can switch to @type yourself, but only staff can switch you back.': 'خۆت دەتوانیت بگۆڕیت بۆ @type، بەڵام تەنیا کارمەندان دەتوانن بتگەڕێننەوە.',
+    'You can switch to @type yourself, but only staff can switch you back.':
+        'خۆت دەتوانیت بگۆڕیت بۆ @type، بەڵام تەنیا کارمەندان دەتوانن بتگەڕێننەوە.',
     'messages_guest_title': 'بۆ بەکارهێنانی پەیامەکان بچۆ ژوورەوە',
-    'messages_guest_body': 'گفتوگۆکانت لێرە دەردەکەون کاتێک هەژمارێکی تەواوت هەبێت.',
+    'messages_guest_body':
+        'گفتوگۆکانت لێرە دەردەکەون کاتێک هەژمارێکی تەواوت هەبێت.',
   };
 
   static final Map<String, String> _badini = {
@@ -8937,7 +9104,8 @@ class AppTranslations extends Translations {
     'Edit your details': 'گهۆرینا زانیاریێن تە',
     'Update the details on your account.': 'زانیاریێن هەژمارا خۆ نوی بکە.',
     'Your profile has been updated.': 'پرۆفایلا تە هاتە نویکرن.',
-    'Could not load your profile. Please try again.': 'پرۆفایلا تە نەهاتە بارکرن. دیسا بجەربینە.',
+    'Could not load your profile. Please try again.':
+        'پرۆفایلا تە نەهاتە بارکرن. دیسا بجەربینە.',
     'city_social_links': 'گرێدانێن سۆشیال',
     'city_closed_now': 'نوکە گرتیە',
     'city_open_now': 'نوکە ڤەکریە',
@@ -11273,7 +11441,8 @@ class AppTranslations extends Translations {
     'volunteer_mission_approved': 'بەشداریا ئەرکێ هاتە پەسەندکرن',
     'volunteer_mission_cancelled': 'بەشداریا ئەرکێ هاتە بەتالکرن',
     'volunteer_mission_completed': 'ئەرک هاتە تەمامکرن',
-    'volunteer_mission_completion_requested': 'تەمامبوونا ئەرکی د بن داچۆنەکێ دایە',
+    'volunteer_mission_completion_requested':
+        'تەمامبوونا ئەرکی د بن داچۆنەکێ دایە',
     'volunteer_mission_join_submitted': 'داخوازا بەشداریا ئەرکێ هاتە شاندن',
     'volunteer_mission_joined': 'ئامادەبوون هاتە تۆمارکرن',
     'volunteer_mission_no_show': 'نەهاتن هاتە تۆمارکرن',
@@ -11283,31 +11452,41 @@ class AppTranslations extends Translations {
     'support_ticket_resolved': 'داخوازا پشتەڤانیێ هاتە چارەسەرکرن',
     'Eligible support': 'پشتەڤانیا بەردەست',
     'Kafala Support': 'کەفالەت و پشتەڤانی',
-    'Submit help requests and track admin review in one place.': 'داخوازا هاریکاریێ بشینە و داچۆنەکا بەڕێڤەبەریێ ل جهەکی دا بشوپینە.',
-    'Monitor sponsorship plans, your submitted projects, and stories.': 'چاڤدێریا پلانێن کەفالەتێ، پرۆژێن تە یێن شاندی، و چیرۆکان بکە.',
+    'Submit help requests and track admin review in one place.':
+        'داخوازا هاریکاریێ بشینە و داچۆنەکا بەڕێڤەبەریێ ل جهەکی دا بشوپینە.',
+    'Monitor sponsorship plans, your submitted projects, and stories.':
+        'چاڤدێریا پلانێن کەفالەتێ، پرۆژێن تە یێن شاندی، و چیرۆکان بکە.',
     'gifts': 'بەشداری',
     'contributions': 'بەشداری',
     'Delivered': 'هاتە گەهاندن',
     'Awaiting confirmation': 'ل هیڤیا پشتڕاستکرنێ',
     'No gifts yet': 'هێشتا چ بەشداری نینە',
-    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.': 'هەر بەشداریەکا تو بکەی ل ڤێرێ دیار دبیت دگەل کۆدا ئاماژەیێ و رەوشا گەهاندنێ، دا هەمی دەم بزانی چویە کیڤە.',
-    'Send the first message to start the conversation.': 'پەیاما ئێکێ بشینە دا گفتوگۆ دەست پێ بکەت.',
-    'Send a support request and track the reply.': 'داخوازا پشتەڤانیێ بشینە و بەرسڤا وێ بشوپینە.',
+    'Every gift you make appears here with its reference code and delivery status, so you always know where it went.':
+        'هەر بەشداریەکا تو بکەی ل ڤێرێ دیار دبیت دگەل کۆدا ئاماژەیێ و رەوشا گەهاندنێ، دا هەمی دەم بزانی چویە کیڤە.',
+    'Send the first message to start the conversation.':
+        'پەیاما ئێکێ بشینە دا گفتوگۆ دەست پێ بکەت.',
+    'Send a support request and track the reply.':
+        'داخوازا پشتەڤانیێ بشینە و بەرسڤا وێ بشوپینە.',
     'Flexible': 'نەرم',
     'My volunteer application': 'داخوازا خۆبەخشیا من',
-    'Submit your skills and availability to the institution.': 'شیان و دەمێن خۆ یێن بەردەست بۆ دامەزراوەی بشینە.',
+    'Submit your skills and availability to the institution.':
+        'شیان و دەمێن خۆ یێن بەردەست بۆ دامەزراوەی بشینە.',
     'Sending...': 'تێ شاندن...',
-    'Featured campaigns will appear here once published.': 'کەمپینێن دیار ل ڤێرێ دیار دبن پشتی بەلاڤکرنا وان.',
+    'Featured campaigns will appear here once published.':
+        'کەمپینێن دیار ل ڤێرێ دیار دبن پشتی بەلاڤکرنا وان.',
     'new one for review.': 'دانەکا نوی بۆ داچۆنەکێ.',
     'edited here.': 'ل ڤێرێ تێ دەستکاریکرن.',
-    'Sign in with your phone number and password.': 'ب ژمارا تەلەفۆنا خۆ و پەیڤا تێپەڕێ بچە ژوور.',
+    'Sign in with your phone number and password.':
+        'ب ژمارا تەلەفۆنا خۆ و پەیڤا تێپەڕێ بچە ژوور.',
     'Show password': 'پەیڤا تێپەڕێ نیشا بدە',
     'Hide password': 'پەیڤا تێپەڕێ ڤەشێرە',
     'New here? Create an account': 'نویی ل ڤێرێ؟ هەژمارەکێ چێکە',
-    'This number has no password yet. Verify it to choose one.': 'ڤێ ژمارەی هێشتا پەیڤا تێپەڕێ نینە. وێ پشتڕاست بکە دا ئێکێ هەلبژێری.',
+    'This number has no password yet. Verify it to choose one.':
+        'ڤێ ژمارەی هێشتا پەیڤا تێپەڕێ نینە. وێ پشتڕاست بکە دا ئێکێ هەلبژێری.',
     'Verify my number': 'ژمارا خۆ پشتڕاست بکە',
     'Choose a password': 'پەیڤەکا تێپەڕێ هەلبژێرە',
-    'Your number is verified. This password is how you will sign in from now on.': 'ژمارا تە هاتە پشتڕاستکرن. ژ نوکە و پێڤەتر ب ڤێ پەیڤا تێپەڕێ دچی ژوور.',
+    'Your number is verified. This password is how you will sign in from now on.':
+        'ژمارا تە هاتە پشتڕاستکرن. ژ نوکە و پێڤەتر ب ڤێ پەیڤا تێپەڕێ دچی ژوور.',
     'Setting the password for @phone': 'دانانا پەیڤا تێپەڕێ بۆ @phone',
     'New password': 'پەیڤا تێپەڕێ یا نوی',
     'At least @n characters.': 'ب کێمی @n پیت.',
@@ -11316,97 +11495,148 @@ class AppTranslations extends Translations {
     'Save and continue': 'پاشکەفتکرن و بەردەوامبوون',
     'Back to sign in': 'ڤەگەڕان بۆ چوونا ژوور',
     'Go to sign in': 'هەڕە بۆ چوونا ژوور',
-    'This number already has a password. Sign in with it instead.': 'ڤێ ژمارەی پەیڤا تێپەڕێ یا هەی. ل شونا وێ ب وێ بچە ژوور.',
-    'That verification expired. Request a new code and try again.': 'دەمێ وێ پشتڕاستکرنێ ب دوماهی هات. کۆدەکێ نوی بخوازە و دیسا هەول بدە.',
-    'Verify your number again to continue.': 'بۆ بەردەوامبوونێ دیسا ژمارا خۆ پشتڕاست بکە.',
-    'That password is too long. Use 72 characters or fewer.': 'ئەو پەیڤا تێپەڕێ پر درێژە. ٧٢ پیت یان کێمتر بکاربینە.',
-    'Could not save your password. Please try again.': 'نەشیا پەیڤا تێپەڕا تە بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
-    'Incorrect phone number or password.': 'ژمارا تەلەفۆنێ یان پەیڤا تێپەڕێ یا شاشە.',
-    'Could not sign you in. Please try again.': 'نەشیا تو بچییە ژوور. ژ کەرەما خۆ دیسا هەول بدە.',
-    'Too many failed attempts. Try again later.': 'هەولێن سەرنەکەفتی پر زێدەنە. پاشتر دیسا هەول بدە.',
-    'Sign-in endpoint returned an invalid response.': 'خزمەتگوزاریا چوونا ژوور بەرسڤەکا نەدروست ڤەگەڕاند.',
+    'This number already has a password. Sign in with it instead.':
+        'ڤێ ژمارەی پەیڤا تێپەڕێ یا هەی. ل شونا وێ ب وێ بچە ژوور.',
+    'That verification expired. Request a new code and try again.':
+        'دەمێ وێ پشتڕاستکرنێ ب دوماهی هات. کۆدەکێ نوی بخوازە و دیسا هەول بدە.',
+    'Verify your number again to continue.':
+        'بۆ بەردەوامبوونێ دیسا ژمارا خۆ پشتڕاست بکە.',
+    'That password is too long. Use 72 characters or fewer.':
+        'ئەو پەیڤا تێپەڕێ پر درێژە. ٧٢ پیت یان کێمتر بکاربینە.',
+    'Could not save your password. Please try again.':
+        'نەشیا پەیڤا تێپەڕا تە بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
+    'Incorrect phone number or password.':
+        'ژمارا تەلەفۆنێ یان پەیڤا تێپەڕێ یا شاشە.',
+    'Could not sign you in. Please try again.':
+        'نەشیا تو بچییە ژوور. ژ کەرەما خۆ دیسا هەول بدە.',
+    'Too many failed attempts. Try again later.':
+        'هەولێن سەرنەکەفتی پر زێدەنە. پاشتر دیسا هەول بدە.',
+    'Sign-in endpoint returned an invalid response.':
+        'خزمەتگوزاریا چوونا ژوور بەرسڤەکا نەدروست ڤەگەڕاند.',
     'support_subject_required': 'بابەتی بنڤیسە.',
     'support_message_required': 'پەیاما خۆ بنڤیسە.',
     'What kind of donation is this?': 'ئەڤە چ جۆرێ بەخشینێیە؟',
-    'Choose how you would like to give.': 'ئەو رێکا هەلبژێرە کو دخوازی پێ ببەخشی.',
+    'Choose how you would like to give.':
+        'ئەو رێکا هەلبژێرە کو دخوازی پێ ببەخشی.',
     'Cash donation (direct handover)': 'بەخشینا نەقدی (ڕادەستکرنا راستەوخۆ)',
-    'Hand your gift to a representative or leave it at a collection point.': 'بەشداریا خۆ ڕادەستی نوینەرەکی بکە یان ل خالەکا کۆمکرنێ بهێلە.',
+    'Hand your gift to a representative or leave it at a collection point.':
+        'بەشداریا خۆ ڕادەستی نوینەرەکی بکە یان ل خالەکا کۆمکرنێ بهێلە.',
     'Donation by electronic payment': 'بەخشین ب پارەدانا ئەلیکترۆنی',
-    'Cards, electronic wallets and bank transfer.': 'کارت و جزدانێن ئەلیکترۆنی و گوهاستنا بانکی.',
+    'Cards, electronic wallets and bank transfer.':
+        'کارت و جزدانێن ئەلیکترۆنی و گوهاستنا بانکی.',
     'Donation by balance transfer': 'بەخشین ب گوهاستنا باقیمایێ',
-    'Recharge cards, or transfer to the numbers set aside for donations.': 'کارتێن پڕکرنێ، یان گوهاستن بۆ وان ژمارێن بۆ بەخشینێ هاتینە تەرخانکرن.',
-    'Food, clothing, stationery, furniture or home appliances.': 'خوارن، جل و بەرگ، قەرتاسیە، کەلوپەل یان ئامێرێن مالێ.',
-    'We could not load the ways you can give.': 'مە نەشیا رێکێن بەخشینێ بار بکەین.',
+    'Recharge cards, or transfer to the numbers set aside for donations.':
+        'کارتێن پڕکرنێ، یان گوهاستن بۆ وان ژمارێن بۆ بەخشینێ هاتینە تەرخانکرن.',
+    'Food, clothing, stationery, furniture or home appliances.':
+        'خوارن، جل و بەرگ، قەرتاسیە، کەلوپەل یان ئامێرێن مالێ.',
+    'We could not load the ways you can give.':
+        'مە نەشیا رێکێن بەخشینێ بار بکەین.',
     'No ways to pay yet': 'هێشتا چ رێکێن پارەدانێ نینن',
-    'The organization has not published a payment method yet. You can still donate goods below.': 'رێکخراوەی هێشتا چ رێکا پارەدانێ بەلاڤ نەکریە. هێشتا دشێی ل خوارێ کەلوپەلان ببەخشی.',
+    'The organization has not published a payment method yet. You can still donate goods below.':
+        'رێکخراوەی هێشتا چ رێکا پارەدانێ بەلاڤ نەکریە. هێشتا دشێی ل خوارێ کەلوپەلان ببەخشی.',
     'Kind of donation': 'جۆرێ بەخشینا هەلبژارتی',
     'Change': 'گوهۆرین',
-    'this option is not available right now, so every method the organization accepts is shown below.': 'ئەڤ هەلبژارتنە نوکە نینە، ژ بەر هندێ ل خوارێ هەمی ئەو رێک تێنە نیشاندان یێن رێکخراو قەبوول دکەت.',
-    'We could not load the donation types.': 'مە نەشیا جۆرێن بەخشینێ بار بکەین.',
-    'No donation type has been published yet, so this gift will be recorded as a general donation.': 'هێشتا چ جۆرێ بەخشینێ نەهاتیە بەلاڤکرن، ژ بەر هندێ ئەڤ بەشداری وەکی بەخشینەکا گشتی تێ تۆمارکرن.',
+    'this option is not available right now, so every method the organization accepts is shown below.':
+        'ئەڤ هەلبژارتنە نوکە نینە، ژ بەر هندێ ل خوارێ هەمی ئەو رێک تێنە نیشاندان یێن رێکخراو قەبوول دکەت.',
+    'We could not load the donation types.':
+        'مە نەشیا جۆرێن بەخشینێ بار بکەین.',
+    'No donation type has been published yet, so this gift will be recorded as a general donation.':
+        'هێشتا چ جۆرێ بەخشینێ نەهاتیە بەلاڤکرن، ژ بەر هندێ ئەڤ بەشداری وەکی بەخشینەکا گشتی تێ تۆمارکرن.',
     'Who should this help?': 'دخوازی کی ژێ سوود ببینیت؟',
     'General aid': 'هاریکاریا گشتی',
-    'Our team distributes it by priority and real need.': 'تیمێ مە ب پێی پێشینی و پێدڤیا راستەقینە وێ پارڤە دکەت.',
+    'Our team distributes it by priority and real need.':
+        'تیمێ مە ب پێی پێشینی و پێدڤیا راستەقینە وێ پارڤە دکەت.',
     'Donate to a specific project': 'بەخشین بۆ پرۆژەیەکا دیارکری',
-    'Choose one of the organization\'s open projects.': 'ئێکێ ژ پرۆژێن ڤەکری یێن رێکخراوەی هەلبژێرە.',
+    'Choose one of the organization\'s open projects.':
+        'ئێکێ ژ پرۆژێن ڤەکری یێن رێکخراوەی هەلبژێرە.',
     'We could not load the projects.': 'مە نەشیا پرۆژە بار بکەین.',
-    'Choose a project, or go back to general aid.': 'پرۆژەیەکێ هەلبژێرە، یان ڤەگەڕە بۆ هاریکاریا گشتی.',
-    'No project is open for donation right now, so your gift goes to general aid.': 'نوکە چ پرۆژە بۆ بەخشینێ ڤەکری نینە، ژ بەر هندێ بەشداریا تە بۆ هاریکاریا گشتی دچیت.',
-    'Project donations are switched off right now, so your gift goes to general aid.': 'بەخشین بۆ پرۆژەیان نوکە یا راوەستاندییە، ژ بەر هندێ بەشداریا تە بۆ هاریکاریا گشتی دچیت.',
+    'Choose a project, or go back to general aid.':
+        'پرۆژەیەکێ هەلبژێرە، یان ڤەگەڕە بۆ هاریکاریا گشتی.',
+    'No project is open for donation right now, so your gift goes to general aid.':
+        'نوکە چ پرۆژە بۆ بەخشینێ ڤەکری نینە، ژ بەر هندێ بەشداریا تە بۆ هاریکاریا گشتی دچیت.',
+    'Project donations are switched off right now, so your gift goes to general aid.':
+        'بەخشین بۆ پرۆژەیان نوکە یا راوەستاندییە، ژ بەر هندێ بەشداریا تە بۆ هاریکاریا گشتی دچیت.',
     'Main menu': 'لیستا سەرەکی',
     'Game': 'یاری',
-    'Could not load your saved items.': 'نەشیا بابەتێن تە یێن پاشکەفتکری بهێنە بارکرن.',
-    'Could not load subscription packages.': 'نەشیا پاکێجێن بەشداریێ بهێنە بارکرن.',
+    'Could not load your saved items.':
+        'نەشیا بابەتێن تە یێن پاشکەفتکری بهێنە بارکرن.',
+    'Could not load subscription packages.':
+        'نەشیا پاکێجێن بەشداریێ بهێنە بارکرن.',
     'Could not load this conversation.': 'نەشیا ئەڤ گفتوگۆ بهێتە بارکرن.',
     'Could not load your case chats.': 'نەشیا چاتێن کەیسا تە بهێنە بارکرن.',
-    'Could not decline this chat request.': 'نەشیا ئەڤ داخوازا چاتێ بهێتە ڕەتکرن.',
+    'Could not decline this chat request.':
+        'نەشیا ئەڤ داخوازا چاتێ بهێتە ڕەتکرن.',
     'Could not load volunteer missions.': 'نەشیا ئەرکێن خۆبەخشیێ بهێنە بارکرن.',
-    'Could not load your support requests.': 'نەشیا داخوازێن تە یێن پشتەڤانیێ بهێنە بارکرن.',
-    'Could not load your wallet and payment methods.': 'نەشیا جزدان و رێکێن پارەدانا تە بهێنە بارکرن.',
+    'Could not load your support requests.':
+        'نەشیا داخوازێن تە یێن پشتەڤانیێ بهێنە بارکرن.',
+    'Could not load your wallet and payment methods.':
+        'نەشیا جزدان و رێکێن پارەدانا تە بهێنە بارکرن.',
     'Could not load your tasks.': 'نەشیا ئەرکێن تە بهێنە بارکرن.',
-    'Could not load the browse categories.': 'نەشیا پۆلێن گەڕیانێ بهێنە بارکرن.',
-    'Could not load the sector filters.': 'نەشیا پاڵێڤەرێن کەرتان بهێنە بارکرن.',
-    'Could not load your sponsorship schedule.': 'نەشیا خشتەیا کەفالەتا تە بهێتە بارکرن.',
+    'Could not load the browse categories.':
+        'نەشیا پۆلێن گەڕیانێ بهێنە بارکرن.',
+    'Could not load the sector filters.':
+        'نەشیا پاڵێڤەرێن کەرتان بهێنە بارکرن.',
+    'Could not load your sponsorship schedule.':
+        'نەشیا خشتەیا کەفالەتا تە بهێتە بارکرن.',
     'Could not load the comments.': 'نەشیا شرۆڤە بهێنە بارکرن.',
     'Could not play this video.': 'نەشیا ئەڤ ڤیدیۆ بهێتە لێدان.',
     'Balance unavailable right now': 'باقیمایی نوکە نینە',
-    'Balance unavailable — tap to retry': 'باقیمایی نینە — کرتێ بکە بۆ هەولدانا نوی',
-    'We couldn\'t load the latest payment options, so these are the default ones.': 'مە نەشیا هەلبژارتنێن دوماهیێ یێن پارەدانێ بار بکەین، ژ بەر هندێ ئەڤە هەلبژارتنێن بنەڕەتینە.',
-    'Your balance could not be refreshed. Retry the load before subscribing.': 'نەشیا باقیمایا تە بهێتە نویکرن. بەری بەشداریێ دیسا وێ بار بکە.',
-    'Could not load this partner\'s joint activities.': 'نەشیا چالاکیێن هەڤبەش یێن ڤی هەڤبەشی بهێنە بارکرن.',
-    'Could not load your privacy settings.': 'نەشیا ڕێکخستنێن تایبەتمەندیا تە بهێنە بارکرن.',
-    'Could not refresh the list of fields you can hide.': 'نەشیا لیستا وان خانان بهێتە نویکرن یێن تو دشێی ڤەشێری.',
-    'Could not load your display-name choice.': 'نەشیا هەلبژارتنا ناڤێ نیشاندانا تە بهێتە بارکرن.',
+    'Balance unavailable — tap to retry':
+        'باقیمایی نینە — کرتێ بکە بۆ هەولدانا نوی',
+    'We couldn\'t load the latest payment options, so these are the default ones.':
+        'مە نەشیا هەلبژارتنێن دوماهیێ یێن پارەدانێ بار بکەین، ژ بەر هندێ ئەڤە هەلبژارتنێن بنەڕەتینە.',
+    'Your balance could not be refreshed. Retry the load before subscribing.':
+        'نەشیا باقیمایا تە بهێتە نویکرن. بەری بەشداریێ دیسا وێ بار بکە.',
+    'Could not load this partner\'s joint activities.':
+        'نەشیا چالاکیێن هەڤبەش یێن ڤی هەڤبەشی بهێنە بارکرن.',
+    'Could not load your privacy settings.':
+        'نەشیا ڕێکخستنێن تایبەتمەندیا تە بهێنە بارکرن.',
+    'Could not refresh the list of fields you can hide.':
+        'نەشیا لیستا وان خانان بهێتە نویکرن یێن تو دشێی ڤەشێری.',
+    'Could not load your display-name choice.':
+        'نەشیا هەلبژارتنا ناڤێ نیشاندانا تە بهێتە بارکرن.',
     'error_title': 'خەلەتیەک ڕوی دا',
     'retry': 'دیسا هەول بدە',
     'Could not load your dashboard.': 'نەشیا داشبۆردا تە بهێتە بارکرن.',
     'session_expired_title': 'دەمێ دانیشتنێ ب دوماهی هات',
-    'session_expired_message': 'تو هاتیە دەرئێخستن چونکی دەمێ دانیشتنا تە ب دوماهی هات. ژ کەرەما خۆ دیسا بچە ژوور دا بەردەوام بی.',
+    'session_expired_message':
+        'تو هاتیە دەرئێخستن چونکی دەمێ دانیشتنا تە ب دوماهی هات. ژ کەرەما خۆ دیسا بچە ژوور دا بەردەوام بی.',
     'error_next_offline': 'گرێدانا خۆ بپشکنە و دیسا هەول بدە.',
-    'error_next_retry': 'ژ کەرەما خۆ دیسا هەول بدە. ئەگەر دووبارە بوو، پەیوەندیێ ب پشتەڤانیێ ڕا بکە.',
-    'error_gps_capture_failed': 'نەشیا جهێ تە بهێتە خواندن. دلنیا بە کو خزمەتگوزاریا جهی بۆ ڤێ ئەپێ یا چالاکە، پاشی دیسا هەول بدە.',
+    'error_next_retry':
+        'ژ کەرەما خۆ دیسا هەول بدە. ئەگەر دووبارە بوو، پەیوەندیێ ب پشتەڤانیێ ڕا بکە.',
+    'error_gps_capture_failed':
+        'نەشیا جهێ تە بهێتە خواندن. دلنیا بە کو خزمەتگوزاریا جهی بۆ ڤێ ئەپێ یا چالاکە، پاشی دیسا هەول بدە.',
     'error_history_load_failed': 'نەشیا تۆمارا تە بهێتە بارکرن.',
     'error_otp_send_failed': 'نەشیا کۆدا پشتڕاستکرنێ بهێتە شاندن.',
     'error_otp_verify_failed': 'نەشیا ئەو کۆد بهێتە پشتڕاستکرن.',
-    'otp_resend_cooldown_message': 'ژ کەرەما خۆ بەری داخوازکرنا کۆدەکا دی چاڤەڕێ بکە.',
-    'staff_otp_unavailable_message': 'چوونا ژوور یا کارمەندان هێشتا نینە. کۆدا خۆ ژ بەڕێڤەبەری بخوازە.',
+    'otp_resend_cooldown_message':
+        'ژ کەرەما خۆ بەری داخوازکرنا کۆدەکا دی چاڤەڕێ بکە.',
+    'staff_otp_unavailable_message':
+        'چوونا ژوور یا کارمەندان هێشتا نینە. کۆدا خۆ ژ بەڕێڤەبەری بخوازە.',
     'error_password_setup_failed': 'نەشیا پەیڤا تێپەڕا تە بهێتە دانان.',
     'error_message_send_failed': 'نەشیا پەیاما تە بهێتە شاندن.',
     'error_messages_load_failed': 'نەشیا ئەڤ گفتوگۆ بهێتە بارکرن.',
     'error_chat_accept_failed': 'نەشیا ئەڤ داخوازا چاتێ بهێتە پەسەندکرن.',
     'chat_invite_refusal_declined': 'تە ئەڤ ڤەخواندن ڕەتکر.',
-    'chat_invite_refusal_already_active': 'ئەڤ چات ژخۆڤە یا چالاکە، ژ بەر هندێ ئێدی نایێتە ڕەتکرن.',
+    'chat_invite_refusal_already_active':
+        'ئەڤ چات ژخۆڤە یا چالاکە، ژ بەر هندێ ئێدی نایێتە ڕەتکرن.',
     'chat_group_closed_empty_title': 'ل ڤێرێ چ پەیام نینن',
-    'chat_group_closed_empty_message': 'ئەڤ گفتوگۆ هاتە گرتن بەری چ پەیامەک بهێتە شاندن.',
+    'chat_group_closed_empty_message':
+        'ئەڤ گفتوگۆ هاتە گرتن بەری چ پەیامەک بهێتە شاندن.',
     'error_chat_groups_load_failed': 'نەشیا چاتێن تە یێن کۆمی بهێنە بارکرن.',
-    'error_connect_requests_load_failed': 'نەشیا داخوازێن تە یێن پەیوەندیکرنێ بهێنە بارکرن.',
-    'chat_group_send_contact_blocked': 'ناهێتە کرن ژمارێن تەلەفۆنێ و ناڤونیشانێن ئیمەیلێ د ڤێ چاتێ دا بهێنە هەڤبەشکرن. بۆ سەلامەتیا تە د بن چاڤدێریێ دایە — ژ کەرەما خۆ گفتوگۆیێ ل ڤێرێ بهێلە، و ئەگەر پێدڤیا تە ب رێکخستنا پەیوەندیێ هەبوو ژ تیمێ مە بخوازە.',
-    'chat_group_send_closed': 'پەیاما تە نەهاتە شاندن چونکی ئەڤ گفتوگۆ ئێدی ڤەکری نینە.',
+    'error_connect_requests_load_failed':
+        'نەشیا داخوازێن تە یێن پەیوەندیکرنێ بهێنە بارکرن.',
+    'chat_group_send_contact_blocked':
+        'ناهێتە کرن ژمارێن تەلەفۆنێ و ناڤونیشانێن ئیمەیلێ د ڤێ چاتێ دا بهێنە هەڤبەشکرن. بۆ سەلامەتیا تە د بن چاڤدێریێ دایە — ژ کەرەما خۆ گفتوگۆیێ ل ڤێرێ بهێلە، و ئەگەر پێدڤیا تە ب رێکخستنا پەیوەندیێ هەبوو ژ تیمێ مە بخوازە.',
+    'chat_group_send_closed':
+        'پەیاما تە نەهاتە شاندن چونکی ئەڤ گفتوگۆ ئێدی ڤەکری نینە.',
     'chat_group_unavailable_title': 'ئەڤ گفتوگۆ ئێدی نینە',
-    'chat_group_unavailable_message': 'دبیت تیمێ مە ئەو گرتیبیت، یان تو ئێدی تێدا بەشدار نینی. ڤەگەڕە دا گفتوگۆیێن خۆ یێن دی ببینی.',
+    'chat_group_unavailable_message':
+        'دبیت تیمێ مە ئەو گرتیبیت، یان تو ئێدی تێدا بەشدار نینی. ڤەگەڕە دا گفتوگۆیێن خۆ یێن دی ببینی.',
     'Send message': 'پەیامێ بشینە',
     'chat_groups_my_connect_requests': 'داخوازێن من یێن پەیوەندیکرنێ',
-    'chat_groups_my_connect_requests_desc': 'بزانە ئەو داخوازێن تە بۆ تیمێ مە شاندین د چ رەوشەکێ دانە.',
+    'chat_groups_my_connect_requests_desc':
+        'بزانە ئەو داخوازێن تە بۆ تیمێ مە شاندین د چ رەوشەکێ دانە.',
     'chat_groups_my_connections': 'گفتوگۆیێن پەیوەندیکرنێ',
     'chat_groups_my_team_groups': 'کۆمێن تیمی',
     'chat_groups_connection_title': 'گفتوگۆیا پەیوەندیکرنێ',
@@ -11425,22 +11655,29 @@ class AppTranslations extends Translations {
     'chat_group_sender_beneficiary_n': 'وەرگرێ شایستە @n',
     'chat_group_sender_volunteer_n': 'خۆبەخش @n',
     'chat_groups_requests_empty_title': 'هێشتا چ داخوازێن پەیوەندیکرنێ نینن',
-    'chat_groups_requests_empty_message': 'دەمێ تو ژ تیمێ مە دخوازی تە ب کەسەکی ڤە گرێ بدەن، داخوازا تە و رەوشا وێ ل ڤێرێ دیار دبن.',
-    'error_privacy_settings_save_failed': 'نەشیا ڕێکخستنێن تایبەتمەندیا تە بهێنە پاشکەفتکرن.',
-    'error_service_request_failed': 'نەشیا داخوازا خزمەتگوزاریا تە بهێتە شاندن.',
+    'chat_groups_requests_empty_message':
+        'دەمێ تو ژ تیمێ مە دخوازی تە ب کەسەکی ڤە گرێ بدەن، داخوازا تە و رەوشا وێ ل ڤێرێ دیار دبن.',
+    'error_privacy_settings_save_failed':
+        'نەشیا ڕێکخستنێن تایبەتمەندیا تە بهێنە پاشکەفتکرن.',
+    'error_service_request_failed':
+        'نەشیا داخوازا خزمەتگوزاریا تە بهێتە شاندن.',
     'error_subscription_failed': 'نەشیا بەشداریا تە بهێتە تەمامکرن.',
     'error_photo_upload_failed': 'نەشیا وێنا تە بهێتە بارکرن.',
     'error_attachment_upload_failed': 'نەشیا ئەو بەلگەنامە بهێتە بارکرن.',
     'error_order_checkout_failed': 'نەشیا داخوازا تە بهێتە تۆمارکرن.',
     'error_case_submit_failed': 'نەشیا کەیسا تە بهێتە شاندن.',
-    'error_sponsorship_submit_failed': 'نەشیا داخوازا کەفالەتا تە بهێتە پاشکەفتکرن.',
-    'error_in_kind_submit_failed': 'نەشیا بەشداریا تە یا کەلوپەلان بهێتە شاندن.',
+    'error_sponsorship_submit_failed':
+        'نەشیا داخوازا کەفالەتا تە بهێتە پاشکەفتکرن.',
+    'error_in_kind_submit_failed':
+        'نەشیا بەشداریا تە یا کەلوپەلان بهێتە شاندن.',
     'error_evidence_capture_failed': 'نەشیا جه و وێنا تە بهێنە وەرگرتن.',
     'error_checkin_failed': 'نەشیا ئامادەبوونا تە بهێتە تۆمارکرن.',
     'error_mission_checkout_failed': 'نەشیا چوونا تە یا دەرڤە بهێتە تۆمارکرن.',
     'error_join_mission_failed': 'نەشیا داخوازا بەشداریا تە بهێتە شاندن.',
-    'error_volunteer_application_failed': 'نەشیا داخوازا خۆبەخشیا تە بهێتە پاشکەفتکرن.',
-    'We could not check for new notifications.': 'مە نەشیا ل ئاگەهداریێن نوی بنێرین.',
+    'error_volunteer_application_failed':
+        'نەشیا داخوازا خۆبەخشیا تە بهێتە پاشکەفتکرن.',
+    'We could not check for new notifications.':
+        'مە نەشیا ل ئاگەهداریێن نوی بنێرین.',
     'beauty_care': 'جوانکاری و چاڤدێری',
     'food_pantry': 'خوارن',
     'home_textiles': 'رایەخێن مالێ',
@@ -11448,7 +11685,8 @@ class AppTranslations extends Translations {
     'event': 'بویەر',
     'news': 'نووچە',
     'article': 'گۆتار',
-    'Your contributions will appear here once you give.': 'بەشداریێن تە پشتی بەخشینا ئێکێ ل ڤێرێ دیار دبن.',
+    'Your contributions will appear here once you give.':
+        'بەشداریێن تە پشتی بەخشینا ئێکێ ل ڤێرێ دیار دبن.',
     'status_open': 'ڤەکری',
     'status_pending': 'چاڤەڕوان',
     'status_in_progress': 'د کاری دا',
@@ -11490,40 +11728,57 @@ class AppTranslations extends Translations {
     'Not funded yet': 'هێشتا دراڤ بۆ نەهاتیە دابینکرن',
     'Product': 'بەرهەم',
     'Registration': 'تۆمارکرن',
-    'Your registration was saved, but your documents did not upload. You can add them from your profile.': 'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ بەلگەنامێن تە نەهاتنە بارکرن. تو دشێی ژ پرۆفایلا خۆ وان زێدە بکەی.',
-    'Your registration was saved, but your photo did not upload. You can add it from your profile.': 'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ وێنا تە نەهاتە بارکرن. تو دشێی ژ پرۆفایلا خۆ وێ زێدە بکەی.',
-    'Your registration was saved, but your social links did not. You can add them from Privacy settings.': 'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ بەستەرێن سۆشیالێ نەهاتنە پاشکەفتکرن. تو دشێی ژ ڕێکخستنێن تایبەتمەندیێ وان زێدە بکەی.',
-    'Could not save that preference. Please try again.': 'نەشیا ئەو ڕێکخستن بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
+    'Your registration was saved, but your documents did not upload. You can add them from your profile.':
+        'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ بەلگەنامێن تە نەهاتنە بارکرن. تو دشێی ژ پرۆفایلا خۆ وان زێدە بکەی.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ وێنا تە نەهاتە بارکرن. تو دشێی ژ پرۆفایلا خۆ وێ زێدە بکەی.',
+    'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
+        'تۆمارکرنا تە هاتە پاشکەفتکرن، بەلێ بەستەرێن سۆشیالێ نەهاتنە پاشکەفتکرن. تو دشێی ژ ڕێکخستنێن تایبەتمەندیێ وان زێدە بکەی.',
+    'Could not save that preference. Please try again.':
+        'نەشیا ئەو ڕێکخستن بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
     'Continue with phone': 'بەردەوامبوون ب ژمارا تەلەفۆنێ',
-    'Sign in or create an account with your phone number.': 'ب ژمارا تەلەفۆنا خۆ بچە ژوور یان هەژمارەکێ چێکە.',
+    'Sign in or create an account with your phone number.':
+        'ب ژمارا تەلەفۆنا خۆ بچە ژوور یان هەژمارەکێ چێکە.',
     'All partners': 'هەمی هەڤبەش',
     'All requests': 'هەمی داخواز',
     'No pending requests': 'چ داخوازێن چاڤەڕوان نینن',
     'No approved requests': 'چ داخوازێن پەسەندکری نینن',
     'No rejected requests': 'چ داخوازێن ڕەتکری نینن',
-    'Requests waiting for review, changes, or sponsor matching will appear here.': 'ئەو داخوازێن ل هیڤیا داچۆنەکێ یان گوهۆرینان یان گونجاندنا کەفیلی نە ل ڤێرێ دیار دبن.',
-    'Requests the admins approve will appear here.': 'ئەو داخوازێن بەڕێڤەبەر وان پەسەند دکەن ل ڤێرێ دیار دبن.',
-    'Requests the admins turn down will appear here.': 'ئەو داخوازێن بەڕێڤەبەر وان ڕەت دکەن ل ڤێرێ دیار دبن.',
-    'View your profile and its status, or create one': 'پرۆفایلا خۆ و رەوشا وێ ببینە، یان ئێکێ چێکە',
+    'Requests waiting for review, changes, or sponsor matching will appear here.':
+        'ئەو داخوازێن ل هیڤیا داچۆنەکێ یان گوهۆرینان یان گونجاندنا کەفیلی نە ل ڤێرێ دیار دبن.',
+    'Requests the admins approve will appear here.':
+        'ئەو داخوازێن بەڕێڤەبەر وان پەسەند دکەن ل ڤێرێ دیار دبن.',
+    'Requests the admins turn down will appear here.':
+        'ئەو داخوازێن بەڕێڤەبەر وان ڕەت دکەن ل ڤێرێ دیار دبن.',
+    'View your profile and its status, or create one':
+        'پرۆفایلا خۆ و رەوشا وێ ببینە، یان ئێکێ چێکە',
     'Create my profile': 'پرۆفایلا من چێکە',
     'Need to change something?': 'پێدڤیا تە ب گوهۆرینا تشتەکی هەیە؟',
     'Submit a new profile': 'پرۆفایلەکا نوی بشینە',
-    'Ask the staff team to update an existing profile, or submit a new one for review.': 'ژ تیمێ کارمەندان بخوازە پرۆفایلەکا هەیی نوی بکەن، یان ئێکا نوی بۆ داچۆنەکێ بشینە.',
+    'Ask the staff team to update an existing profile, or submit a new one for review.':
+        'ژ تیمێ کارمەندان بخوازە پرۆفایلەکا هەیی نوی بکەن، یان ئێکا نوی بۆ داچۆنەکێ بشینە.',
     'Community and support': 'کۆمەلگەه و پشتەڤانی',
     'Giving tools': 'ئامرازێن بەخشینێ',
     'Volunteer tools': 'ئامرازێن خۆبەخشیێ',
     'No places on the map yet': 'هێشتا چ جه ل سەر نەخشەی نینن',
-    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.': 'جهێن پەسەندکری یێن رێنماییا باژێری ل ڤێرێ دیار دبن. تو دشێی ب رێکا «زێدەکرنا چالاکیێ» ئێکێ پێشنیار بکەی.',
+    'Approved places in the city guide will appear here. You can suggest one with Add an Activity.':
+        'جهێن پەسەندکری یێن رێنماییا باژێری ل ڤێرێ دیار دبن. تو دشێی ب رێکا «زێدەکرنا چالاکیێ» ئێکێ پێشنیار بکەی.',
     'No places in this sector': 'چ جه د ڤی کەرتی دا نینن',
-    'Nothing in the guide matches this sector yet. Clear the filter to see every place.': 'هێشتا چ تشت د رێنماییێ دا دگەل ڤی کەرتی ناگونجیت. پاڵێڤەری ژێبە دا هەمی جهان ببینی.',
+    'Nothing in the guide matches this sector yet. Clear the filter to see every place.':
+        'هێشتا چ تشت د رێنماییێ دا دگەل ڤی کەرتی ناگونجیت. پاڵێڤەری ژێبە دا هەمی جهان ببینی.',
     'No places in this sub-category': 'چ جه د ڤێ پۆلا لاوەکی دا نینن',
-    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.': 'هێشتا چ تشت ب ڤێ پۆلا لاوەکی نەهاتیە نیشانکرن. وێ ژێبە دا هەمی کەرتی ببینی.',
+    'Nothing here has been tagged with this sub-category yet. Clear it to see the whole sector.':
+        'هێشتا چ تشت ب ڤێ پۆلا لاوەکی نەهاتیە نیشانکرن. وێ ژێبە دا هەمی کەرتی ببینی.',
     'Show all places': 'هەمی جهان نیشا بدە',
     'Show the whole sector': 'هەمی کەرتی نیشا بدە',
-    'These places have no map location yet.\nBrowse them in the row below.': 'ڤان جهان هێشتا جهێ نەخشەی نینە.\nد ریزا خوارێ دا ل وان بگەڕە.',
-    'Name and phone come from your verified account. Change them in Profile > Edit profile.': 'ناڤ و ژمارا تەلەفۆنێ ژ هەژمارا تە یا پشتڕاستکری تێن. د «پرۆفایل > دەستکاریا پرۆفایلێ» دا وان بگوهۆڕە.',
-    'This is the verified number you sign in with, so it cannot be edited here.': 'ئەڤە ئەو ژمارا پشتڕاستکریە یا تو پێ دچییە ژوور، ژ بەر هندێ ل ڤێرێ نایێتە دەستکاریکرن.',
-    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.': 'پرۆژە ب دینارێ عێراقی (IQD) تێنە دابینکرن، ژ بەر هندێ دراڤ یێ جێگیرە.',
+    'These places have no map location yet.\nBrowse them in the row below.':
+        'ڤان جهان هێشتا جهێ نەخشەی نینە.\nد ریزا خوارێ دا ل وان بگەڕە.',
+    'Name and phone come from your verified account. Change them in Profile > Edit profile.':
+        'ناڤ و ژمارا تەلەفۆنێ ژ هەژمارا تە یا پشتڕاستکری تێن. د «پرۆفایل > دەستکاریا پرۆفایلێ» دا وان بگوهۆڕە.',
+    'This is the verified number you sign in with, so it cannot be edited here.':
+        'ئەڤە ئەو ژمارا پشتڕاستکریە یا تو پێ دچییە ژوور، ژ بەر هندێ ل ڤێرێ نایێتە دەستکاریکرن.',
+    'Projects are funded in Iraqi dinar (IQD), so the currency is fixed.':
+        'پرۆژە ب دینارێ عێراقی (IQD) تێنە دابینکرن، ژ بەر هندێ دراڤ یێ جێگیرە.',
     'catalogue_sort_best_selling': 'پتریا فرۆتنێ',
     'catalogue_sort_newest': 'نوی هاتی',
     'catalogue_sort_price_asc': 'بها: ژ کێمێ بۆ پتر',
@@ -11537,94 +11792,133 @@ class AppTranslations extends Translations {
     'catalogue_price_min': 'کێمترین بها',
     'catalogue_price_max': 'پترین بها',
     'catalogue_in_stock_only': 'تنێ یێن بەردەست',
-    'catalogue_in_stock_only_desc': 'ئەو بەرهەمان ڤەدشێریت یێن فرۆشیاری وەکی خلاسبوی نیشانکرین.',
+    'catalogue_in_stock_only_desc':
+        'ئەو بەرهەمان ڤەدشێریت یێن فرۆشیاری وەکی خلاسبوی نیشانکرین.',
     'catalogue_apply': 'بەرهەمان نیشا بدە',
     'catalogue_clear': 'ژێبرن',
     'catalogue_price_invalid': 'بهایێ وەکی ژمارە بنڤیسە.',
-    'catalogue_price_range_invalid': 'پترین بها ناشێت ژ کێمترین بهایی کێمتر بیت.',
+    'catalogue_price_range_invalid':
+        'پترین بها ناشێت ژ کێمترین بهایی کێمتر بیت.',
     'catalogue_product_count': '@count بەرهەم',
     'catalogue_sold_count': '@count هاتیە فرۆتن',
     'catalogue_no_results': 'چ تشت دگەل ڤان پاڵێڤەران ناگونجیت',
-    'catalogue_no_results_desc': 'هەول بدە پاڵێڤەرەکێ ژێبەی، یان بەرفرەهیا بهایی زێدە بکەی.',
+    'catalogue_no_results_desc':
+        'هەول بدە پاڵێڤەرەکێ ژێبەی، یان بەرفرەهیا بهایی زێدە بکەی.',
     'catalogue_categories_empty': 'هێشتا چ پۆل نینن',
     'catalogue_brands_empty': 'هێشتا چ براند نینن',
-    'catalogue_facet_empty_desc': 'ئەڤ لیستە پڕ دبیت هەر دەمێ بەرهەم بۆ دکانێ زێدە ببن.',
+    'catalogue_facet_empty_desc':
+        'ئەڤ لیستە پڕ دبیت هەر دەمێ بەرهەم بۆ دکانێ زێدە ببن.',
     'catalogue_categories_failed': 'نەشیا پۆل بهێنە بارکرن.',
     'catalogue_brands_failed': 'نەشیا براند بهێنە بارکرن.',
-    'Community events, announcements, and updates.': 'بویەر و ڕاگەهاندن و نویکرنێن کۆمەلگەهێ.',
+    'Community events, announcements, and updates.':
+        'بویەر و ڕاگەهاندن و نویکرنێن کۆمەلگەهێ.',
     'Community events': 'بویەرێن کۆمەلگەهێ',
-    'No community events or announcements yet. Check back soon.': 'هێشتا چ بویەر یان ڕاگەهاندنێن کۆمەلگەهێ نینن. ئێ زوی دیسا لێ بنێرە.',
+    'No community events or announcements yet. Check back soon.':
+        'هێشتا چ بویەر یان ڕاگەهاندنێن کۆمەلگەهێ نینن. ئێ زوی دیسا لێ بنێرە.',
     'Alert categories': 'پۆلێن ئاگەهداریێ',
-    'notif_cat_desc': 'ئەو جۆرێن ئاگەهداریێ هەلبژێرە یێن دگەهنە تە. راوەستاندنا هەر جۆرەکی رێگریێ ژ شاندنا وێ بۆ تە دکەت، نە تنێ ڤەشارتنا وێ پشتی گەهشتنێ.',
+    'notif_cat_desc':
+        'ئەو جۆرێن ئاگەهداریێ هەلبژێرە یێن دگەهنە تە. راوەستاندنا هەر جۆرەکی رێگریێ ژ شاندنا وێ بۆ تە دکەت، نە تنێ ڤەشارتنا وێ پشتی گەهشتنێ.',
     'notif_cat_on': 'ئەڤە دگەهنە تە',
     'notif_cat_off': 'ئەڤە ناگەهنە تە',
-    'notif_cat_master_off': 'هەمی ئاگەهداری یێن راوەستاندینە، ژ بەر هندێ چ ژ وان ناگەهنە تە هەتا تو مفتەحا سەرێ دیسا چالاک نەکەی.',
+    'notif_cat_master_off':
+        'هەمی ئاگەهداری یێن راوەستاندینە، ژ بەر هندێ چ ژ وان ناگەهنە تە هەتا تو مفتەحا سەرێ دیسا چالاک نەکەی.',
     'notif_cat_empty': 'هێشتا چ پۆلێن ئاگەهداریێ نینن',
-    'notif_cat_empty_desc': 'نوکە چ تشت نینە بۆ چالاککرن یان راوەستاندنێ. ئاگەهداریێن تە وەکی بەرێ دگەهنە تە.',
+    'notif_cat_empty_desc':
+        'نوکە چ تشت نینە بۆ چالاککرن یان راوەستاندنێ. ئاگەهداریێن تە وەکی بەرێ دگەهنە تە.',
     'notif_cat_tier_high': 'پێشینیا بلند',
     'notif_cat_tier_medium': 'ئاسایی',
     'notif_cat_tier_low': 'پێشینیا نزم',
     'notif_cat_group_summary': '@on ژ @total چالاک',
-    'Could not load your notification settings.': 'نەشیا ڕێکخستنێن ئاگەهداریا تە بهێنە بارکرن.',
+    'Could not load your notification settings.':
+        'نەشیا ڕێکخستنێن ئاگەهداریا تە بهێنە بارکرن.',
     'marriage_privacy_empty': 'هێشتا چ تشت نینە بۆ ڤەشارتنێ',
-    'marriage_privacy_empty_desc': 'نوکە چ ورداتی نینە یا تو بشێی د ڤێ پرۆفایلێ دا ڤەشێری. وەکی ئەوا ئەڤرۆ نیشان ددەت دمینیت.',
+    'marriage_privacy_empty_desc':
+        'نوکە چ ورداتی نینە یا تو بشێی د ڤێ پرۆفایلێ دا ڤەشێری. وەکی ئەوا ئەڤرۆ نیشان ددەت دمینیت.',
     'history_code_title': 'گەڕیان ب کۆدا ناسنامەیێ',
-    'history_code_help': 'کۆدەکا ناسنامەیێ بنڤیسە دا تۆمارا بەخشین و پشتەڤانیێ ببینی. تو دشێی ب کۆدا خۆ بگەڕی؛ کارمەند دشێن ب کۆدێن کەسێن دی بگەڕن. خانێ ژێبە دا بۆ تۆمارا خۆ ڤەگەڕی.',
+    'history_code_help':
+        'کۆدەکا ناسنامەیێ بنڤیسە دا تۆمارا بەخشین و پشتەڤانیێ ببینی. تو دشێی ب کۆدا خۆ بگەڕی؛ کارمەند دشێن ب کۆدێن کەسێن دی بگەڕن. خانێ ژێبە دا بۆ تۆمارا خۆ ڤەگەڕی.',
     'history_code_not_found': 'چ تۆمار بۆ وێ کۆدێ نینە.',
-    'history_code_not_permitted': 'دەستویا هەژمارا تە نینە ل تۆمارێن کەسێن دی بگەڕیت.',
-    'history_code_failed': 'نەشیا ل وێ کۆدێ بگەڕیت. گرێدانا خۆ بپشکنە و دیسا هەول بدە.',
-    'content_page_empty': 'هێشتا چ تشت د ڤێ پەڕێ دا نینە. ژ کەرەما خۆ ئێ زوی دیسا لێ بنێرە.',
-    'Create a full account to use this feature.': 'هەژمارەکا تەمام چێکە دا ڤێ تایبەتمەندیێ بکاربینی.',
-    'Full registration is required to view the City Directory.': 'بۆ دیتنا رێنماییا باژێری تۆمارکرنا تەمام پێدڤیە.',
+    'history_code_not_permitted':
+        'دەستویا هەژمارا تە نینە ل تۆمارێن کەسێن دی بگەڕیت.',
+    'history_code_failed':
+        'نەشیا ل وێ کۆدێ بگەڕیت. گرێدانا خۆ بپشکنە و دیسا هەول بدە.',
+    'content_page_empty':
+        'هێشتا چ تشت د ڤێ پەڕێ دا نینە. ژ کەرەما خۆ ئێ زوی دیسا لێ بنێرە.',
+    'Create a full account to use this feature.':
+        'هەژمارەکا تەمام چێکە دا ڤێ تایبەتمەندیێ بکاربینی.',
+    'Full registration is required to view the City Directory.':
+        'بۆ دیتنا رێنماییا باژێری تۆمارکرنا تەمام پێدڤیە.',
     'chat_support_unavailable_title': 'چاتا پشتەڤانیێ هێشتا نەهاتیە رێکخستن',
-    'chat_support_unavailable_body': 'نوکە چ کەس نەهاتیە دیارکرن بۆ وەرگرتنا پەیامێن چاتێ. هێشتا تو دشێی ب رێکا فۆرما پشتەڤانیێ یان واتساپێ بگەهییە تیمی.',
+    'chat_support_unavailable_body':
+        'نوکە چ کەس نەهاتیە دیارکرن بۆ وەرگرتنا پەیامێن چاتێ. هێشتا تو دشێی ب رێکا فۆرما پشتەڤانیێ یان واتساپێ بگەهییە تیمی.',
     'connect_request_action': 'ژ تیمێ مە بخوازە من گرێ بدەن',
     'connect_request_title': 'داخوازا پەیوەندیکرنێ ب رێکا تیمێ مە',
-    'connect_request_explainer': 'تیمێ مە داچۆنەکێ ب داخوازا تە دکەت. ئەگەر پەسەند کرن، ل ڤێرێ د ئەپێ دا چاتەکا چاڤدێریکری بۆ تە ڤەدکەن.',
+    'connect_request_explainer':
+        'تیمێ مە داچۆنەکێ ب داخوازا تە دکەت. ئەگەر پەسەند کرن، ل ڤێرێ د ئەپێ دا چاتەکا چاڤدێریکری بۆ تە ڤەدکەن.',
     'connect_request_message_label': 'پێدڤیا تە ب چییە؟',
-    'connect_request_message_hint': 'بۆ تیمێ مە بێژە تو دخوازی باسێ چی بکەی، و چما.',
-    'connect_request_message_required': 'ژ کەرەما خۆ باسێ وی تشتی بکە یێ پێدڤیا تە پێ هەیە.',
+    'connect_request_message_hint':
+        'بۆ تیمێ مە بێژە تو دخوازی باسێ چی بکەی، و چما.',
+    'connect_request_message_required':
+        'ژ کەرەما خۆ باسێ وی تشتی بکە یێ پێدڤیا تە پێ هەیە.',
     'connect_request_submit': 'داخوازێ بشینە',
-    'connect_request_sent': 'داخواز هاتە شاندن. تیمێ مە ئێ زوی داچۆنەکێ پێ بکەت.',
+    'connect_request_sent':
+        'داخواز هاتە شاندن. تیمێ مە ئێ زوی داچۆنەکێ پێ بکەت.',
     'connect_request_sent_title': 'داخواز هاتە شاندن',
-    'connect_request_sent_body': 'تیمێ مە ئێ زوی داچۆنەکێ پێ بکەت. تو دشێی د «داخوازێن من یێن پەیوەندیکرنێ» دا ل تابا «پەیاما» وێ بشوپینی.',
+    'connect_request_sent_body':
+        'تیمێ مە ئێ زوی داچۆنەکێ پێ بکەت. تو دشێی د «داخوازێن من یێن پەیوەندیکرنێ» دا ل تابا «پەیاما» وێ بشوپینی.',
     'error_connect_request_submit_failed': 'نەشیا داخوازا تە بهێتە شاندن.',
     'support_request_form': 'شاندنا داخوازا پشتەڤانیێ',
-    'support_request_form_desc': 'تۆمارەکێ بشینە و رەوشا وێ بشوپینە — پێدڤی ب چاتا راستەوخۆ ناکەت.',
-    'location_timed_out': 'نەشیا جهێ تە بهێتە دیارکرن. هەڕە جهەکێ کو ئەسمانێ وی زلالتر بیت و دیسا هەول بدە.',
-    'photo_upload_timed_out': 'نەشیا وێنە بهێتە شاندن. گرێدانا خۆ بپشکنە و دیسا هەول بدە — ئامادەبوونا تە نەهاتە تۆمارکرن.',
+    'support_request_form_desc':
+        'تۆمارەکێ بشینە و رەوشا وێ بشوپینە — پێدڤی ب چاتا راستەوخۆ ناکەت.',
+    'location_timed_out':
+        'نەشیا جهێ تە بهێتە دیارکرن. هەڕە جهەکێ کو ئەسمانێ وی زلالتر بیت و دیسا هەول بدە.',
+    'photo_upload_timed_out':
+        'نەشیا وێنە بهێتە شاندن. گرێدانا خۆ بپشکنە و دیسا هەول بدە — ئامادەبوونا تە نەهاتە تۆمارکرن.',
     'marriage_owner_edit': 'دەستکاریا پرۆفایلا من',
     'marriage_owner_pause': 'راوەستاندنا نیشاندانا پرۆفایلا من',
     'marriage_owner_resume': 'دیسا نیشاندانا پرۆفایلا من',
     'marriage_owner_delete': 'ژێبرنا پرۆفایلا من',
-    'marriage_owner_pause_unavailable': 'ئەڤ پرۆفایلە د ڤێ رەوشێ دا نایێتە نیشاندان یان ڤەشارتن. تیمێ کارمەندان بڕیارێ ددەت کا گاڤا بەرێ چیە.',
-    'marriage_owner_new_submission_desc': 'ورداتیێن سەرێ ب خۆ دەستکاری بکە. تنێ ئەگەر پێدڤیا تە ب داچۆنەکا پرۆفایلەکا دوێ هەبوو، پرۆفایلەکا نوی بشینە.',
+    'marriage_owner_pause_unavailable':
+        'ئەڤ پرۆفایلە د ڤێ رەوشێ دا نایێتە نیشاندان یان ڤەشارتن. تیمێ کارمەندان بڕیارێ ددەت کا گاڤا بەرێ چیە.',
+    'marriage_owner_new_submission_desc':
+        'ورداتیێن سەرێ ب خۆ دەستکاری بکە. تنێ ئەگەر پێدڤیا تە ب داچۆنەکا پرۆفایلەکا دوێ هەبوو، پرۆفایلەکا نوی بشینە.',
     'marriage_owner_delete_title': 'پرۆفایلا تە بێتە ژێبرن؟',
-    'marriage_owner_delete_body': 'ژ لیستا گەڕیانێ و ژ پرۆفایلێن تە ل ڤێرێ وندا دبیت. پەیامێن تە و تۆمارا بەشداریا تە تێنە پاراستن، و تیمێ کارمەندان دشێت وێ ڤەگەڕینیت.',
+    'marriage_owner_delete_body':
+        'ژ لیستا گەڕیانێ و ژ پرۆفایلێن تە ل ڤێرێ وندا دبیت. پەیامێن تە و تۆمارا بەشداریا تە تێنە پاراستن، و تیمێ کارمەندان دشێت وێ ڤەگەڕینیت.',
     'marriage_owner_delete_confirm': 'بەلێ، وێ ژێبە',
-    'marriage_owner_deleted_ok': 'پرۆفایلا تە هاتە ژێبرن. تیمێ کارمەندان دشێت وێ ڤەگەڕینیت.',
+    'marriage_owner_deleted_ok':
+        'پرۆفایلا تە هاتە ژێبرن. تیمێ کارمەندان دشێت وێ ڤەگەڕینیت.',
     'marriage_owner_edit_title': 'دەستکاریا پرۆفایلا من',
     'marriage_owner_edit_subtitle': 'ئەوا پرۆفایلا تە نیشان ددەت بگوهۆڕە.',
-    'marriage_owner_staff_fields_note': 'بەشێن ناسنامەیێ و نشتەجێبوونێ و مالان و تەندروستیێ هێشتا تیمێ کارمەندان وان نوی دکەت. ژ وان بخوازە هەر تشتەکی بگوهۆڕن یێ ل ڤێ شاشەیێ نینە.',
+    'marriage_owner_staff_fields_note':
+        'بەشێن ناسنامەیێ و نشتەجێبوونێ و مالان و تەندروستیێ هێشتا تیمێ کارمەندان وان نوی دکەت. ژ وان بخوازە هەر تشتەکی بگوهۆڕن یێ ل ڤێ شاشەیێ نینە.',
     'marriage_owner_number_invalid': 'ژمارەکا تەمام بنڤیسە.',
     'marriage_owner_number_range': 'ژمارەکێ د ناڤبەرا @min و @max دا بنڤیسە.',
-    'marriage_owner_photo_failed': 'نەشیا ئەو وێنە بهێتە بارکرن. ژ کەرەما خۆ دیسا هەول بدە.',
-    'marriage_owner_error_not_owner': 'ئەڤ پرۆفایلە ئێدی نە یا تەیە بۆ گوهۆرینێ. بۆ نویکرنێ بکێشە خوارێ و رەوشا وێ بپشکنە.',
-    'marriage_owner_error_not_pausable': 'ئەڤ پرۆفایلە د ڤێ رەوشێ دا نایێتە نیشاندان یان ڤەشارتن.',
-    'marriage_owner_error_invalid_visibility': 'ئێکێ ژ هەلبژارتنێن بەردەست یێن تایبەتمەندیێ هەلبژێرە.',
-    'marriage_owner_error_generic': 'نەشیا ئەو گوهۆرین بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
+    'marriage_owner_photo_failed':
+        'نەشیا ئەو وێنە بهێتە بارکرن. ژ کەرەما خۆ دیسا هەول بدە.',
+    'marriage_owner_error_not_owner':
+        'ئەڤ پرۆفایلە ئێدی نە یا تەیە بۆ گوهۆرینێ. بۆ نویکرنێ بکێشە خوارێ و رەوشا وێ بپشکنە.',
+    'marriage_owner_error_not_pausable':
+        'ئەڤ پرۆفایلە د ڤێ رەوشێ دا نایێتە نیشاندان یان ڤەشارتن.',
+    'marriage_owner_error_invalid_visibility':
+        'ئێکێ ژ هەلبژارتنێن بەردەست یێن تایبەتمەندیێ هەلبژێرە.',
+    'marriage_owner_error_generic':
+        'نەشیا ئەو گوهۆرین بهێتە پاشکەفتکرن. ژ کەرەما خۆ دیسا هەول بدە.',
     'receipts_load_failed': 'نەشیا پسوولێن تە بهێنە بارکرن.',
     'Light': 'رۆنی',
     'Dark': 'تاری',
     'Resend in @time': 'دیسا شاندن د @time دا',
-    'A code was just sent. You can ask for another shortly.': 'نوکە کۆدەک هاتە شاندن. ئێ زوی تو دشێی ئێکا دی بخوازی.',
+    'A code was just sent. You can ask for another shortly.':
+        'نوکە کۆدەک هاتە شاندن. ئێ زوی تو دشێی ئێکا دی بخوازی.',
     'Submit beneficiary case': 'شاندنا کەیسا شایستە',
     'Beneficiary cases': 'کەیسێن شایستە',
     '@count minutes': '@count خولەک',
     '@count hours': '@count دەمژمێر',
     '@count days': '@count رۆژ',
-    'Beneficiary case saved for review.': 'کەیسا شایستە بۆ داچۆنەکێ هاتە پاشکەفتکرن.',
-    'Districts could not load. Tap to retry.': 'نەشیا دەڤەر بهێنە بارکرن. کرتێ بکە بۆ هەولدانا نوی.',
+    'Beneficiary case saved for review.':
+        'کەیسا شایستە بۆ داچۆنەکێ هاتە پاشکەفتکرن.',
+    'Districts could not load. Tap to retry.':
+        'نەشیا دەڤەر بهێنە بارکرن. کرتێ بکە بۆ هەولدانا نوی.',
     'household_individual': 'تاک',
     'household_family_of': 'خێزانەکا ژ @count کەسان',
     'items_one': 'دانە',
@@ -11633,42 +11927,60 @@ class AppTranslations extends Translations {
     'items_many': 'دانە',
     'Beneficiary pending projects': 'پرۆژێن چاڤەڕوان یێن شایستە',
     'Enter beneficiary or community': 'شایستە یان کۆمەلگەهێ بنڤیسە',
-    'Unable to load beneficiary cases from the server.': 'نەشیا کەیسێن شایستە ژ ڕاژەکاری بهێنە بارکرن.',
-    'Unable to load your beneficiary cases.': 'نەشیا کەیسێن تە یێن شایستە بهێنە بارکرن.',
+    'Unable to load beneficiary cases from the server.':
+        'نەشیا کەیسێن شایستە ژ ڕاژەکاری بهێنە بارکرن.',
+    'Unable to load your beneficiary cases.':
+        'نەشیا کەیسێن تە یێن شایستە بهێنە بارکرن.',
     'Your beneficiary workspace': 'جهێ کارێ تە یێ شایستە',
     'Saved — waiting for approval': 'هاتە پاشکەفتکرن — ل هیڤیا پەسەندکرنێ',
-    'Your other details are saved. Your new name needs staff approval before it appears.': 'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. ناڤێ تە یێ نوی پێدڤی ب پەسەندکرنا کارمەندی هەیە بەری دیار بیت.',
-    'Your other details are saved. Your new photo needs staff approval before it appears.': 'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. وێنا تە یا نوی پێدڤی ب پەسەندکرنا کارمەندی هەیە بەری دیار بیت.',
-    'Your other details are saved. Your new name and photo need staff approval before they appear.': 'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. ناڤ و وێنا تە یێن نوی پێدڤی ب پەسەندکرنا کارمەندی هەنە بەری دیار ببن.',
+    'Your other details are saved. Your new name needs staff approval before it appears.':
+        'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. ناڤێ تە یێ نوی پێدڤی ب پەسەندکرنا کارمەندی هەیە بەری دیار بیت.',
+    'Your other details are saved. Your new photo needs staff approval before it appears.':
+        'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. وێنا تە یا نوی پێدڤی ب پەسەندکرنا کارمەندی هەیە بەری دیار بیت.',
+    'Your other details are saved. Your new name and photo need staff approval before they appear.':
+        'ورداتیێن تە یێن دی هاتنە پاشکەفتکرن. ناڤ و وێنا تە یێن نوی پێدڤی ب پەسەندکرنا کارمەندی هەنە بەری دیار ببن.',
     'Beneficiary community': 'کۆمەلگەها شایستە',
     'Beneficiary or community name': 'ناڤێ شایستە یان کۆمەلگەهێ',
-    'Beneficiary or community name (Arabic)': 'ناڤێ شایستە یان کۆمەلگەهێ (ب عەرەبی)',
-    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.': 'هەژمارا تە ب ژمارا تەلەفۆنێ و پەیڤا تێپەڕێ دچیتە ژوور. کۆدا ئێکجاری تنێ د دەمێ چێکرنا هەژمارێ دا تێ بکارئینان.',
+    'Beneficiary or community name (Arabic)':
+        'ناڤێ شایستە یان کۆمەلگەهێ (ب عەرەبی)',
+    'Your account signs in with your phone number and password. A one-time code is only used when creating an account.':
+        'هەژمارا تە ب ژمارا تەلەفۆنێ و پەیڤا تێپەڕێ دچیتە ژوور. کۆدا ئێکجاری تنێ د دەمێ چێکرنا هەژمارێ دا تێ بکارئینان.',
     'My beneficiary cases': 'کەیسێن من یێن شایستە',
-    'Submitted beneficiary cases will appear here.': 'کەیسێن شاندی یێن شایستە ل ڤێرێ دیار دبن.',
-    'history_empty_no_records': 'هێشتا چ تشت ل ڤێرێ نینە. داخوازێن تە و ئەو پشتەڤانیا بۆ تە پشتی دەستپێکرنێ ل ڤێرێ دیار دبن.',
+    'Submitted beneficiary cases will appear here.':
+        'کەیسێن شاندی یێن شایستە ل ڤێرێ دیار دبن.',
+    'history_empty_no_records':
+        'هێشتا چ تشت ل ڤێرێ نینە. داخوازێن تە و ئەو پشتەڤانیا بۆ تە پشتی دەستپێکرنێ ل ڤێرێ دیار دبن.',
     'Eligibles': 'شایستە',
     'Beneficiary history': 'تۆمارا شایستە',
     'No beneficiary cases yet.': 'هێشتا چ کەیسێن شایستە نینن.',
     '@count place': '@count جه',
     '@count places': '@count جه',
-    'location_failed': 'نەشیا جهێ تە بهێتە دیتن. ل دەرڤە هەول بدە یان دلنیا بە کو خزمەتگوزاریا جهی بۆ ڤێ ئەپێ یا چالاکە.',
+    'location_failed':
+        'نەشیا جهێ تە بهێتە دیتن. ل دەرڤە هەول بدە یان دلنیا بە کو خزمەتگوزاریا جهی بۆ ڤێ ئەپێ یا چالاکە.',
     'map_my_location': 'هەڕە بۆ جهێ من',
     'map_fit_all': 'هەمی جهان نیشا بدە',
     'map_fullscreen': 'ڤەکرنا نەخشەی ب تژیا شاشەیێ',
     '@count place · Mosul': '@count جه · مووسل',
     '@count places · Mosul': '@count جه · مووسل',
-    'activity_submit_unconfirmed': 'مە نەشیا دلنیا بین کو ئەڤە گەهشتیە. بەری هەولدانا نوی ل لیستێ بنێرە.',
-    'activity_pick_sector_first': 'کەرتەکێ ل سەرێ هەلبژێرە دا پۆلێن وی یێن لاوەکی ببینی.',
+    'activity_submit_unconfirmed':
+        'مە نەشیا دلنیا بین کو ئەڤە گەهشتیە. بەری هەولدانا نوی ل لیستێ بنێرە.',
+    'activity_pick_sector_first':
+        'کەرتەکێ ل سەرێ هەلبژێرە دا پۆلێن وی یێن لاوەکی ببینی.',
     'Social': 'سۆشیال',
-    'Book halls, photographers, and everything your event needs': 'هۆل و وێنەگر و هەر تشتێ بویەرا تە پێدڤی پێ هەیە حیجز بکە',
-    'Profiles, posts, and support for the events community': 'پرۆفایل و پۆست و پشتەڤانی بۆ کۆمەلگەها بویەران',
-    'guest_start_failed': 'مە نەشیا گەڕیانا میوانی دەست پێ بکەین. گرێدانا خۆ بپشکنە و دیسا هەول بدە.',
+    'Book halls, photographers, and everything your event needs':
+        'هۆل و وێنەگر و هەر تشتێ بویەرا تە پێدڤی پێ هەیە حیجز بکە',
+    'Profiles, posts, and support for the events community':
+        'پرۆفایل و پۆست و پشتەڤانی بۆ کۆمەلگەها بویەران',
+    'guest_start_failed':
+        'مە نەشیا گەڕیانا میوانی دەست پێ بکەین. گرێدانا خۆ بپشکنە و دیسا هەول بدە.',
     'chat_thread_other_user_id': 'بکارهێنەر #@id',
-    'You can switch to @type yourself, but only staff can switch you back.': 'تو ب خۆ دشێی بۆ @type بگوهۆڕی، بەلێ تنێ کارمەند دشێن تە ڤەگەڕینن.',
+    'You can switch to @type yourself, but only staff can switch you back.':
+        'تو ب خۆ دشێی بۆ @type بگوهۆڕی، بەلێ تنێ کارمەند دشێن تە ڤەگەڕینن.',
     'messages_guest_title': 'بۆ بکارئینانا پەیاما بچە ژوور',
-    'messages_guest_body': 'گفتوگۆیێن تە ل ڤێرێ دیار دبن دەمێ هەژمارەکا تەمام یا تە هەبیت.',
-    'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.': 'نموونە: «ئاڤا پاقژ بۆ گوندێ مەفرەق» — ئارمانجێ، کی سوودێ ژێ دبینیت، و بودجەیا گشتی یا تو پێدڤی پێ هەیە دیار بکە.',
+    'messages_guest_body':
+        'گفتوگۆیێن تە ل ڤێرێ دیار دبن دەمێ هەژمارەکا تەمام یا تە هەبیت.',
+    'Example: “Clean water for Al-Mafraq village” — state the goal, who benefits, and the total budget you need.':
+        'نموونە: «ئاڤا پاقژ بۆ گوندێ مەفرەق» — ئارمانجێ، کی سوودێ ژێ دبینیت، و بودجەیا گشتی یا تو پێدڤی پێ هەیە دیار بکە.',
   };
 
   // ─── Test-visible views of the raw maps ───

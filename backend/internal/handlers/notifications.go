@@ -66,7 +66,7 @@ func (h *NotificationsHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 
-// POST /api/notifications  (action=mark_read)
+// POST /api/notifications  (action=mark_read | clear_read)
 // Body fields: action, id (or notification_id), user_id. JSON or form.
 // Bearer required; user_id MUST match the token.
 func (h *NotificationsHandler) Post(c *gin.Context) {
@@ -85,13 +85,29 @@ func (h *NotificationsHandler) Post(c *gin.Context) {
 	if uid <= 0 {
 		uid = tokenUser.UserID
 	}
+	// The identity check runs before the action switch, so every action gets
+	// it and a new one cannot be added without it.
+	if uid != tokenUser.UserID {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized request."})
+		return
+	}
+
+	// clear_read takes the caller's already-read notifications out of their
+	// list (client report, 2026-09-16). It names no notification: it is the
+	// whole read half of one user's list, and it stamps rather than deletes —
+	// see notify.ClearRead and migration 125.
+	if action == "clear_read" {
+		cleared, err := h.Notifier.ClearRead(c.Request.Context(), uid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "cleared": cleared})
+		return
+	}
 
 	if action != "mark_read" || notifID <= 0 || uid <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Missing notification read data."})
-		return
-	}
-	if uid != tokenUser.UserID {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized request."})
 		return
 	}
 
