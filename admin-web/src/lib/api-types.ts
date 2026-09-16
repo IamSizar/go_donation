@@ -38,6 +38,10 @@ export type UserAccount = {
   // a bootstrap "set first password" action (no PIN step-up possible yet)
   // apart from "change existing password" (still requires PIN step-up).
   has_password?: boolean
+  // OPOS #25287 — true when this user has an unreviewed name/photo edit
+  // sitting in the profile_change_requests queue (see ProfileChangesPage).
+  // Without this, a queued edit looked identical to one that "never synced".
+  has_pending_profile_change?: boolean
 }
 
 export type PaginationMeta = {
