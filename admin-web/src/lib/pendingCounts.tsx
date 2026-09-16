@@ -12,19 +12,7 @@
 //     no SSE reconnect logic. Upgrade-path is wide open later: swap the
 //     setInterval for an EventSource and the rest of the app is unchanged.
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
-import { api } from './api'
-import { useAuth } from './auth'
-
+import { createContext, useContext } from 'react'
 // Mirrors backend `handlers.PendingCounts`. Total is server-derived so the
 // client never has to re-sum (avoids the bug where adding a new section to
 // the backend leaves the client total stale).
@@ -42,7 +30,7 @@ export type PendingCounts = {
   total: number
 }
 
-const EMPTY: PendingCounts = {
+export const EMPTY: PendingCounts = {
   donations: 0,
   sponsorships: 0,
   beneficiary: 0,
@@ -58,9 +46,9 @@ const EMPTY: PendingCounts = {
 
 // POLL_MS is intentionally per the product decision (5 sec). If you change
 // it, change the docstring on the backend endpoint too.
-const POLL_MS = 5_000
+export const POLL_MS = 5_000
 
-type Ctx = {
+export type Ctx = {
   counts: PendingCounts
   loading: boolean
   /** Manual refresh — useful right after a mutation that we know moves a
@@ -68,79 +56,11 @@ type Ctx = {
   refresh: () => void
 }
 
-const PendingCountsContext = createContext<Ctx>({
+export const PendingCountsContext = createContext<Ctx>({
   counts: EMPTY,
   loading: false,
   refresh: () => {},
 })
-
-export function PendingCountsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
-  const [counts, setCounts] = useState<PendingCounts>(EMPTY)
-  const [loading, setLoading] = useState(false)
-
-  // Use a ref so multiple `refresh()` calls in the same tick coalesce —
-  // and so we can cancel a stale request when one races with another.
-  const inFlightRef = useRef<AbortController | null>(null)
-
-  const fetchOnce = useCallback(async () => {
-    // Bail if not signed in — the endpoint is admin-only and would 401.
-    if (!user) return
-
-    // Cancel any prior in-flight call.
-    inFlightRef.current?.abort()
-    const ac = new AbortController()
-    inFlightRef.current = ac
-
-    setLoading(true)
-    try {
-      const res = await api.get<PendingCounts>('/api/admin/pending-counts', {
-        signal: ac.signal,
-      })
-      setCounts(res.data)
-    } catch (err: unknown) {
-      // Swallow aborts; surface other errors silently (the sidebar should
-      // never hard-fail because a count poll briefly errored — the next
-      // tick will retry).
-      const e = err as { name?: string; code?: string }
-      if (e?.name !== 'CanceledError' && e?.code !== 'ERR_CANCELED') {
-        // Keep the previous counts on the screen; just log for diagnostics.
-        // eslint-disable-next-line no-console
-        console.warn('pending-counts poll failed:', err)
-      }
-    } finally {
-      // Only clear the loading flag if THIS request is still the latest.
-      if (inFlightRef.current === ac) setLoading(false)
-    }
-  }, [user])
-
-  useEffect(() => {
-    // Skip polling entirely when signed out — saves a 401 every 5 seconds.
-    if (!user) {
-      setCounts(EMPTY)
-      return
-    }
-    // Immediate fetch on mount + login, then a steady tick.
-    fetchOnce()
-    const id = setInterval(fetchOnce, POLL_MS)
-    return () => {
-      clearInterval(id)
-      inFlightRef.current?.abort()
-    }
-  }, [user, fetchOnce])
-
-  const value = useMemo<Ctx>(
-    () => ({ counts, loading, refresh: fetchOnce }),
-    [counts, loading, fetchOnce],
-  )
-
-  return (
-    <PendingCountsContext.Provider value={value}>
-      {children}
-    </PendingCountsContext.Provider>
-  )
-}
-
 // usePendingCounts — read-only hook for any component that needs a count.
 // Returns the full record, the per-section number, plus `refresh()` if the
 // caller knows it just changed something (e.g. an admin approved a donation).

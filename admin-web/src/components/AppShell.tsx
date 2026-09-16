@@ -16,8 +16,8 @@ import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
 import ThemeToggle from './ThemeToggle'
 import TopActionBar from './TopActionBar'
-import { PageHeadSlotContext, PageActionsSlotContext, BarSecondarySlotContext } from './PageHead'
-import { SaveActionProvider } from '../lib/saveAction'
+import { PageHeadSlotContext, PageActionsSlotContext, BarSecondarySlotContext } from './pageHeadSlots'
+import { SaveActionProvider } from '../lib/SaveActionProvider'
 import { ChevronDown, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 // Show "99+" instead of overflowing the badge with huge digits. ~5 chars max.
