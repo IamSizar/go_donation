@@ -6,6 +6,96 @@
 
 ---
 
+## 2026-09-16 — a connect request's OTHER PARTY is resolved and added automatically (branch `feat/connect-request-other-party`, NOT pushed)
+
+**Asked for:** the client, testing live, asked to connect from a beneficiary
+case as a donor, approved it as super_admin, and got a masked group containing
+only the donor — the case's owner was never added, so the group had one member
+and nobody to talk to. Mid-task the client added: "this must be automatic" —
+pre-filling the dashboard dialog is not enough, the SERVER must add the other
+party itself on approve.
+
+**Branch** `feat/connect-request-other-party`, cut from `origin/main` `2af2d76`.
+
+### The root cause
+`resolveConnectContext` (handlers/chat_group_admin_connect.go:31) only ever
+turned a context into a human-readable LABEL. Nothing anywhere resolved WHO the
+case or campaign belongs to, and `ApproveConnectRequest` wrote exactly the
+members the dashboard sent — which, for the client, was the requester alone.
+
+### Who owns what (read from the schema, not guessed)
+- a case → `beneficiary_cases.user_id` (migrations/001_full_v2.sql:168)
+- a campaign → `campaigns.owner_user_id` (migrations/007_campaigns_owner.sql:18)
+- a donation to the GENERAL FUND (`campaign_id` NULL) has no other party, and
+  nothing is invented for it.
+
+### What changed
+- **NEW** `backend/internal/chatgroups/chatgroups_connect_party.go` —
+  `connectContextOwner` (the authoritative lookup; returns real DB errors),
+  `accountRoleWord` (role_id 1/2/3 → donor/beneficiary/volunteer, else
+  "member"), and `connectGroupMembers`, which assembles the final member list.
+- `chatgroups_connect.go` — `ApproveConnectRequest` now also reads
+  `context_type`/`context_id` under the same `FOR UPDATE`, and runs
+  `connectGroupMembers` inside the SAME transaction as the group insert. An
+  EMPTY members list is now valid and becomes requester + other party; a
+  NON-EMPTY list that omits the requester is still refused (unchanged rule,
+  its old test still passes). The owner is never added twice.
+- **NEW** `backend/internal/handlers/chat_group_admin_connect_party.go` — the
+  DISPLAY copy of the question, best-effort like `resolveConnectContext`: a
+  failed lookup yields no other party rather than breaking the inbox.
+- `chat_group_admin_connect.go` — `other_party_user_id` and `other_party_name`
+  on both the list and the detail. The NAME follows `requester_name` (D6,
+  `canViewContact`, per user); the ID is NOT gated — the inbox already ships
+  `requester_user_id` and `context_id` ungated, D6 is about names beside masked
+  identities, and the dialog needs the id to pre-fill a member. Approve now
+  requires only `kind` ("kind is required."), not members.
+- Dashboard: `ConnectRequest` gained the two fields; `approveDraftFor` puts the
+  other party in member row 2 (removable); row 1 (the requester) unchanged.
+
+### Decision worth knowing: team groups (#137)
+A team group takes only volunteers and staff. The auto-added other party goes
+through the same `insertMemberRow`, so a case owner who is a beneficiary
+account REFUSES the approval with `ErrTeamMemberRole` — a clear, existing 400,
+not a crash, and not a silent drop that would recreate the one-member group.
+Pinned by `TestApproveConnectRequest_TeamGroupRefusesAnIneligibleOwner`.
+
+### Tests (written first, each watched fail)
+NEW files: `backend/internal/chatgroups/chatgroups_connect_party_test.go`,
+`backend/internal/handlers/chat_group_connect_other_party_test.go`,
+`admin-web/src/components/connectRequests/ApproveRequestDialog.otherParty.test.tsx`.
+RED, before the fix: "approve with no members: ... requester ... not in
+members: invalid input"; "members = [{donor Donor 1}], want 2";
+"other_party_user_id = <nil>, want the owner"; approve with no members answered
+400 "kind and at least one member are required."; the dialog had no "Remove
+member 2".
+
+One EXISTING test was updated deliberately: the approve case in
+`chat_group_inline_refusal_codes_test.go` now expects "kind is required."
+
+### Verification actually run
+- `gofmt -l .` → only `internal/handlers/admin_edit_user_profile.go`, which is
+  pre-existing on `origin/main` and untouched here. `go build ./...`,
+  `go vet ./...` clean.
+- Throwaway DBs created and dropped (`psql -lqt` shows none left):
+  `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`
+  → both `ok`. The `-v -run` of the new tests → 14 PASS, 0 SKIP, 0 FAIL.
+- Dashboard (Node 22): `npm test` 23 files / 202 tests, `npx tsc -b`,
+  `npm run build`, `test:mock-api`, `test:nav`, `check:labels`,
+  `check:css-tokens`, `npm run lint` — all exit 0 (lint: 0 errors, 62
+  pre-existing warnings, none in the new files).
+
+### Still open / traps
+- **Not pushed.** One commit on the branch, no PR.
+- No new locale keys, so `TRANSLATION_REQUEST.md` is untouched.
+- `npm ci` had to be run in this worktree first; without it vitest cannot even
+  load its config ("Cannot find package 'vitest'"), which looks like a broken
+  test rather than a missing install.
+- Trap: a member draft array literal in `connectRequestForm.ts` must be typed
+  `MemberDraft[]` explicitly, or TS widens `role` to `string` and `tsc -b`
+  fails while `vitest` passes.
+- The inbox list now does one extra owner lookup per request. Fine at today's
+  volumes; if the inbox ever pages large it wants batching.
+
 ## 2026-09-16 — chat end-to-end test plan for the Railway deployment (branch `docs/chat-e2e-test-plan`, NOT pushed)
 
 **Asked for:** a test plan Zaid can follow to test the whole chat system end to

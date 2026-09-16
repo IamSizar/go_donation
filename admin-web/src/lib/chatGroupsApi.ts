@@ -137,6 +137,20 @@ export type ConnectRequest = {
    * screen must fall back to the requester's id.
    */
   requester_name?: string
+  /**
+   * The other party: the person the request's context belongs to — the case's
+   * owner, or the owner of the campaign the donation went to. ABSENT when the
+   * request has none (a donation to the general fund) or the server could not
+   * resolve one. The server adds this person to the group itself on approve;
+   * the dialog pre-fills them so staff can see and change who that will be.
+   */
+  other_party_user_id?: number
+  /**
+   * The other party's profile name. Like requester_name, the key is ABSENT
+   * unless the caller may view sensitive data (per user, D6) — the id is not
+   * gated, the name is — so a screen must fall back to the id.
+   */
+  other_party_name?: string
 }
 
 /**
