@@ -269,7 +269,10 @@ export default function DetailPage() {
   const fieldLabel = useFieldLabel()
   const statusLabel = useStatusLabel()
   const [resp, setResp] = useState<DetailResp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below rather
+  // than set at the top of the fetch effect, which costs a second render and
+  // is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
   // Resolve user-id references (owner, donor, reviewed_by, …) to real names so
@@ -309,18 +312,22 @@ export default function DetailPage() {
 
   const meta = RESOURCE_LABELS[resource]
 
+  // The fetch effect's dependencies. With no resource/id nothing is fetched,
+  // so the page is not loading either — the same thing the effect's guard and
+  // the `false` initial state used to say between them.
+  const requestKey = `${resource}|${id}`
+  const loading = Boolean(resource && id) && loadedKey !== requestKey
+
   useEffect(() => {
     if (!resource || !id) return
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<DetailResp>(`/api/admin/detail/${resource}/${id}`)
-      .then((res) => { if (!cancelled) setResp(res.data) })
+      .then((res) => { if (!cancelled) { setResp(res.data); setErr(null) } })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoadedKey(requestKey) })
     return () => { cancelled = true }
-  }, [resource, id])
+  }, [resource, id, requestKey])
 
   if (!meta) {
     return (
@@ -355,7 +362,9 @@ export default function DetailPage() {
           <button className="secondary" onClick={() => nav(meta.list)}>{t('common.back_to_list')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing the
+          error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       {loading && <p className="muted">{t('common.loading')}</p>}
       {resp && (() => {
         const isUser = resource === 'users'

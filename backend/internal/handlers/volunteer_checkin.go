@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
-	"github.com/karam-flutter/humanitarian-backend/internal/casevolchat"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 )
 
@@ -23,14 +22,12 @@ import (
 // path is sent here — same "upload, then save the path" convention already
 // used everywhere else in this codebase (e.g. partners.logo_path).
 type VolunteerCheckinHandler struct {
-	Pool        *pgxpool.Pool
-	Notifier    *notify.Notifier
-	CaseVolChat *casevolchat.Store // Note #36 — a check-in can make an already
-	// case-linked signup eligible for the Staff↔Volunteer↔Beneficiary chat.
+	Pool     *pgxpool.Pool
+	Notifier *notify.Notifier
 }
 
-func NewVolunteerCheckinHandler(pool *pgxpool.Pool, n *notify.Notifier, cvc *casevolchat.Store) *VolunteerCheckinHandler {
-	return &VolunteerCheckinHandler{Pool: pool, Notifier: n, CaseVolChat: cvc}
+func NewVolunteerCheckinHandler(pool *pgxpool.Pool, n *notify.Notifier) *VolunteerCheckinHandler {
+	return &VolunteerCheckinHandler{Pool: pool, Notifier: n}
 }
 
 type checkinReq struct {
@@ -80,7 +77,6 @@ func (h *VolunteerCheckinHandler) CheckIn(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This signup isn't awaiting check-in (already checked in, not yet approved, or not yours)."})
 		return
 	}
-	ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": "joined"})
 }
 
@@ -135,6 +131,5 @@ func (h *VolunteerCheckinHandler) CheckOut(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "error": "This signup isn't awaiting check-out (not checked in yet, already submitted, or not yours)."})
 		return
 	}
-	ensureCaseVolChat(c.Request.Context(), h.CaseVolChat, h.Notifier, id)
 	c.JSON(http.StatusOK, gin.H{"success": true, "id": id, "status": "completion_requested"})
 }

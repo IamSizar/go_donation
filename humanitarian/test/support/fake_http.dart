@@ -27,10 +27,23 @@ enum HttpBehaviour {
 }
 
 class FakeHttpOverrides extends HttpOverrides {
-  FakeHttpOverrides(this.behaviour, {this.body = '{}', this.status});
+  FakeHttpOverrides(
+    this.behaviour, {
+    this.body = '{}',
+    this.status,
+    this.respond,
+  });
 
   final HttpBehaviour behaviour;
   final String body;
+
+  /// Answers one request by METHOD and URL, overriding [body] and [status].
+  ///
+  /// Added for OPOS #26433, where one screen makes two calls that must answer
+  /// differently: the thread's messages load (200) and the accept or decline
+  /// write the server refuses (409 with a code). Returning null falls back to
+  /// [body] and [status] for that request. Null keeps the original behaviour.
+  final FakeHttpAnswer? Function(String method, Uri url)? respond;
 
   /// An exact status to answer with, overriding the one [behaviour] implies.
   ///
@@ -83,6 +96,17 @@ class FakeHttpOverrides extends HttpOverrides {
       _FakeHttpClientImpl(this);
 }
 
+/// One routed answer from [FakeHttpOverrides.respond].
+class FakeHttpAnswer {
+  const FakeHttpAnswer(this.status, this.body);
+
+  /// The HTTP status to answer with.
+  final int status;
+
+  /// The response body, usually JSON.
+  final String body;
+}
+
 class _FakeHttpClientImpl implements HttpClient {
   _FakeHttpClientImpl(this.overrides);
   final FakeHttpOverrides overrides;
@@ -98,7 +122,7 @@ class _FakeHttpClientImpl implements HttpClient {
       // What an unreachable backend actually looks like to the caller.
       throw const SocketException('Network is unreachable');
     }
-    return _FakeRequestImpl(overrides);
+    return _FakeRequestImpl(overrides, overrides.respond?.call(method, url));
   }
 
   // http's IOClient closes its client after each request, so this one really
@@ -114,8 +138,11 @@ class _FakeHttpClientImpl implements HttpClient {
 }
 
 class _FakeRequestImpl implements HttpClientRequest {
-  _FakeRequestImpl(this.overrides);
+  _FakeRequestImpl(this.overrides, this.answer);
   final FakeHttpOverrides overrides;
+
+  /// The routed answer for this request, or null to use the defaults.
+  final FakeHttpAnswer? answer;
 
   @override
   final HttpHeaders headers = _FakeHeadersImpl();
@@ -141,7 +168,8 @@ class _FakeRequestImpl implements HttpClientRequest {
   Encoding encoding = utf8;
 
   @override
-  Future<HttpClientResponse> close() async => _FakeResponseImpl(overrides);
+  Future<HttpClientResponse> close() async =>
+      _FakeResponseImpl(overrides, answer);
 
   @override
   void add(List<int> data) => _record(data);
@@ -164,17 +192,22 @@ class _FakeRequestImpl implements HttpClientRequest {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakeResponseImpl extends Stream<List<int>> implements HttpClientResponse {
-  _FakeResponseImpl(this.overrides);
+class _FakeResponseImpl extends Stream<List<int>>
+    implements HttpClientResponse {
+  _FakeResponseImpl(this.overrides, this.answer);
   final FakeHttpOverrides overrides;
+  final FakeHttpAnswer? answer;
+
+  String get _body => answer?.body ?? overrides.body;
 
   @override
   int get statusCode =>
+      answer?.status ??
       overrides.status ??
       (overrides.behaviour == HttpBehaviour.serverError ? 500 : 200);
 
   @override
-  int get contentLength => utf8.encode(overrides.body).length;
+  int get contentLength => utf8.encode(_body).length;
 
   /// Advertises the content type the real server sends.
   ///
@@ -214,7 +247,7 @@ class _FakeResponseImpl extends Stream<List<int>> implements HttpClientResponse 
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    return Stream<List<int>>.fromIterable([utf8.encode(overrides.body)]).listen(
+    return Stream<List<int>>.fromIterable([utf8.encode(_body)]).listen(
       onData,
       onError: onError,
       onDone: onDone,
@@ -264,13 +297,9 @@ class _FakeHeadersImpl implements HttpHeaders {
 }
 
 /// Runs [body] with every HTTP request faked according to [overrides].
-Future<T> withHttp<T>(
-  FakeHttpOverrides overrides,
-  Future<T> Function() body,
-) {
+Future<T> withHttp<T>(FakeHttpOverrides overrides, Future<T> Function() body) {
   return HttpOverrides.runZoned(
     body,
     createHttpClient: overrides.createHttpClient,
   );
 }
-

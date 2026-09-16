@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, isSuperAdmin } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { useGlobalAlerts } from '../lib/globalAlerts'
+import { useGlobalAlerts } from '../lib/globalAlertsContext'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 
@@ -455,8 +455,22 @@ export default function EventsFeed() {
     return () => { cancelled = true }
   }, [])
 
+  // The "today" / "7d" filters need a wall-clock reading, and `Date.now()`
+  // may not be called while rendering — an impure read makes the memo's
+  // result depend on whenever React happened to re-render (react-hooks/
+  // purity). The clock is therefore state, sampled on mount and refreshed on
+  // an interval. Before, `now` was re-read whenever this memo recomputed,
+  // which in practice was every feed poll (~5s) — so a 30s tick keeps the
+  // cutoff about as fresh, against a boundary that is 24 hours or 7 days
+  // away, and has the bonus of still moving when the feed is quiet.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+
   const visible = useMemo(() => {
-    const now = Date.now()
+    const now = nowMs
     const cutoff =
       range === RANGE_TODAY ? now - 24 * 3600 * 1000 :
       range === RANGE_7D ? now - 7 * 24 * 3600 * 1000 :
@@ -479,7 +493,7 @@ export default function EventsFeed() {
       }
       return true
     })
-  }, [rows, range, topic, search, hideRead, deletedIds])
+  }, [rows, range, topic, search, hideRead, deletedIds, nowMs])
 
   return (
     <div className="card events-feed">

@@ -672,9 +672,14 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 
 	var total int
 	if err := s.Pool.QueryRow(ctx,
+		// OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		// donor with two profile rows was counted twice. LATERAL takes one.
 		`SELECT COUNT(*) FROM donations d
 		   LEFT JOIN users u ON u.id = d.user_id
-		   LEFT JOIN user_profiles up ON up.user_id = d.user_id`+where,
+		   LEFT JOIN LATERAL (
+		          SELECT p.full_name FROM user_profiles p
+		           WHERE p.user_id = d.user_id ORDER BY p.id LIMIT 1
+		        ) up ON TRUE`+where,
 		args...,
 	).Scan(&total); err != nil {
 		return nil, err
@@ -702,7 +707,11 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 		       d.payment_status, d.delivery_status, d.payment_method, d.transaction_date
 		  FROM donations d
 		  LEFT JOIN users u ON u.id = d.user_id
-		  LEFT JOIN user_profiles up ON up.user_id = d.user_id
+		  -- OPOS #26603: one profile row per donor, oldest wins (see the count above).
+		  LEFT JOIN LATERAL (
+		         SELECT p.full_name FROM user_profiles p
+		          WHERE p.user_id = d.user_id ORDER BY p.id LIMIT 1
+		       ) up ON TRUE
 		  LEFT JOIN campaigns c ON c.id = d.campaign_id`+where+`
 		 ORDER BY d.transaction_date DESC, d.id DESC
 		 LIMIT $`+itoa(limIdx)+` OFFSET $`+itoa(offIdx),

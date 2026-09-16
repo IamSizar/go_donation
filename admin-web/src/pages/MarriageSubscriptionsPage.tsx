@@ -122,33 +122,42 @@ export default function MarriageSubscriptionsPage() {
   const toast = useToast()
 
   const [items, setItems] = useState<Package[]>([])
-  const [loading, setLoading] = useState(true)
+  // Both loading flags are derived from which reload tick last came back, so
+  // neither loader has to set one synchronously inside its effect.
+  const [tick, setTick] = useState(0)
+  const [loadedTick, setLoadedTick] = useState(-1)
+  const loading = loadedTick !== tick
+  const reload = () => setTick((n) => n + 1)
   const [err, setErr] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT })
 
   const [purchases, setPurchases] = useState<Purchase[]>([])
-  const [purchasesLoading, setPurchasesLoading] = useState(true)
+  const [purchasesTick, setPurchasesTick] = useState(0)
+  const [loadedPurchasesTick, setLoadedPurchasesTick] = useState(-1)
+  const purchasesLoading = loadedPurchasesTick !== purchasesTick
+  const reloadPurchases = () => setPurchasesTick((n) => n + 1)
   const [busyPurchaseId, setBusyPurchaseId] = useState<number | null>(null)
 
   const load = () => {
-    setLoading(true)
     api
       .get<{ items: Package[] }>('/api/admin/marriage/subscription-packages')
       .then((res) => { setItems(res.data.items ?? []); setErr(null) })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }
   const loadPurchases = () => {
-    setPurchasesLoading(true)
     api
       .get<{ items: Purchase[] }>('/api/admin/marriage/subscription-purchases?status=pending')
       .then((res) => setPurchases(res.data.items ?? []))
       .catch(() => setPurchases([]))
-      .finally(() => setPurchasesLoading(false))
+      .finally(() => setLoadedPurchasesTick(purchasesTick))
   }
-  useEffect(() => { load(); loadPurchases() }, [])
+  // Two independent lists, so two ticks: bumping one re-runs only its effect,
+  // the way calling one loader used to refetch only its own list.
+  useEffect(load, [tick])
+  useEffect(loadPurchases, [purchasesTick])
 
   const patchItem = (id: number, patch: Partial<Package>) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -167,7 +176,7 @@ export default function MarriageSubscriptionsPage() {
         price_iqd: p.price_iqd, active: p.active,
       })
       toast.success(t('marriageSubscriptions.saved'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -180,7 +189,7 @@ export default function MarriageSubscriptionsPage() {
     try {
       await api.delete(`/api/admin/marriage/subscription-packages/${id}`)
       toast.success(t('marriageSubscriptions.deleted'))
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     }
@@ -196,7 +205,7 @@ export default function MarriageSubscriptionsPage() {
       await api.post('/api/admin/marriage/subscription-packages', draft)
       toast.success(t('marriageSubscriptions.added'))
       setDraft({ ...EMPTY_DRAFT })
-      load()
+      reload()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -217,7 +226,7 @@ export default function MarriageSubscriptionsPage() {
       })
     } catch (e) {
       toast.error(describeError(e))
-      load()
+      reload()
     }
   }
 
@@ -226,7 +235,7 @@ export default function MarriageSubscriptionsPage() {
     try {
       await api.post(`/api/admin/marriage/subscription-purchases/${id}/confirm`, {})
       toast.success(t('marriageSubscriptions.purchase_confirmed'))
-      loadPurchases()
+      reloadPurchases()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
@@ -248,7 +257,7 @@ export default function MarriageSubscriptionsPage() {
     try {
       await api.post(`/api/admin/marriage/subscription-purchases/${id}/reject`, {})
       toast.success(t('marriageSubscriptions.purchase_rejected'))
-      loadPurchases()
+      reloadPurchases()
     } catch (e) {
       toast.error(describeError(e))
     } finally {
