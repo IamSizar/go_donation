@@ -131,6 +131,92 @@ was written.
 
 ---
 
+## 2026-09-15 — OPOS #26496: codes on the chat-group handlers' inline refusals (branch `fix/chat-group-admin-refusal-codes`)
+
+**What was asked:** some chat-group refusals, on both admin and member routes, were still written inline as `{success:false, error}` without a `code`. Each needed a machine code, with its status and English sentence unchanged. Test-first, not pushed.
+
+**What was changed** (branch cut from `origin/main` `b0c9eb8`):
+- **`backend/internal/handlers/chat_group.go`** adds three helpers next to `chatErr` / `respondChatErr` (#107, #118):
+  - `chatErrUnauthorized`: 401 `Unauthorized.`, code **`unauthorized`** (new code).
+  - `chatInvalidInput(msg)`: 400 with the handler's own sentence, code **`group_invalid_input`**.
+  - `h.chatServerErr(c, err)`: logs, then answers 500 `Database error.` with code **`server_error`**. It never maps a sentinel.
+- **Call sites.** Every inline refusal in `chat_group.go`, `chat_group_admin.go`, `chat_group_admin_connect.go` and `chat_group_connect.go` now goes through those helpers.
+  - The 400 sentences are `Invalid JSON.`, `kind and at least one member are required.`, `user_id is required.`, `Invalid user id.`, `Message body is required.`, `A decline reason is required.`, and also the member route's `context_type, context_id, and message are required.`.
+  - The 500s are on the admin and member group lists, admin messages, contact blocks, the admin connect-request list, the member connect-request list, and member mark-read.
+  - The admin connect-request list used to log the error itself. That `log.Printf` was removed, because `chatServerErr` logs it, and so was the now-unused `log` import.
+- **New test file `backend/internal/handlers/chat_group_inline_refusal_codes_test.go`** (existing chat-group test files are near 500 lines):
+  - `TestChatGroupHandlers_UnauthorizedCarriesItsCode` needs no DB. It calls all 18 handlers with no user.
+  - `TestChatGroupRoutes_InlineBadRequestCarriesItsCode` covers 11 route and body cases.
+  - `TestChatGroupRoutes_DatabaseErrorCarriesItsCode` covers 7 routes. Each handler's store uses a pool whose `search_path` is a temporary schema of views over every public table except the one that query reads. Auth and lifecycle keep the real pool. The schema is dropped in `t.Cleanup`.
+
+**For admin-web (not edited):** `unauthorized` is a new code. Add `error.unauthorized` to the error map. `group_invalid_input` and `server_error` are already known.
+
+**What was run:**
+- **RED** on a throwaway DB, before any handler change. All three tests failed on `code = <nil>`: 18/18, 11/11 and 7/7 subtests, e.g. `code = <nil>, want "unauthorized" (body map[error:Unauthorized. success:false])`.
+- `gofmt -l` on the 5 changed files printed nothing. `go build ./...` and `go vet ./...` passed.
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m` on a fresh DB: `ok` for both packages.
+- `-v -run 'TestChatGroupHandlers_UnauthorizedCarriesItsCode|TestChatGroupRoutes_InlineBadRequestCarriesItsCode|TestChatGroupRoutes_DatabaseErrorCarriesItsCode'` on a fresh DB: PASS=39, FAIL=0, SKIP=0.
+- `go test ./... -count=1 -p 1 -timeout 45m` on a fresh DB: exit 0, 22 packages `ok`, no FAIL lines.
+- Review (`ecc:go-reviewer`): **APPROVE**. No CRITICAL, HIGH or MEDIUM findings. One LOW, fixed: `chatServerErr`'s doc said "reads" although `MarkRead` writes.
+
+**After a harness watchdog stalled the session** (commit `a031cd5` was already in place), the checks were re-run on two more fresh DBs, since the earlier background jobs were gone:
+- `origin/main` was still `b0c9eb8`, so the merge was a no-op.
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`: `ok` for both packages (11.7s, 23.1s).
+- the same `-v -run` regex: PASS=39, FAIL=0, SKIP=0.
+- The full `./...` run was not repeated; the coordinator is running it on main after the merge.
+- The reviewer agent was not re-run. The diff was re-read instead and confirms: every English sentence and status is unchanged, the three helpers add no entry to the `chatErrResponses` table so no sentinel shadows another, and all 500s are still logged (the one removed `log.Printf` is replaced by `chatServerErr`'s own).
+
+**External actions:** none. Nothing was pushed. Each throwaway DB (`godonation_26496_{red,pkg,run,full}` and `godonation_26496b_{pkg,run}`) was dropped and confirmed gone with `psql -lqt`.
+
+**Still open:** the admin-web locale key for `unauthorized`.
+
+**Traps:**
+- A 500 inside `AdminMessages` / `AdminContactBlocks` cannot be reached with a closed pool, because `GroupKind` fails first through `chatErr`. That is why the test uses the missing-table schema.
+- The worktree guard rejects compound shell commands that mention `git`. Run `git grep` on its own.
+
+---
+
+## 2026-09-15 — OPOS #26495: messages_screen.dart split under the 500-line limit, no behaviour change (branch `refactor/split-messages-screen`)
+
+**What was asked:** `humanitarian/lib/modules/chat/screens/messages_screen.dart` had 726 lines against the 500-line limit. The request was to split it into widgets under `modules/chat/widgets/`, following the #26473 pattern. It was a pure refactor.
+
+**What was changed** (branch cut from `origin/main` `b0c9eb8`; not pushed):
+- **`a87e47b` refactor(chat): split messages_screen.dart into chat widgets.** Module map:
+
+  | File | Lines | Holds |
+  |---|---|---|
+  | `screens/messages_screen.dart` | 279 (was 726) | `supportChatError`, `supportChatUnavailable`, `openSupportChat`, `MessagesScreen` (guest prompt, support tiles, thread sections, `ChatGroupsSection`, refresh); new file header |
+  | `widgets/chat_thread_tiles.dart` (new) | 270 | `ChatThreadSectionLabel`, `ChatThreadAvatar`, `ChatThreadTile`, `OutgoingPendingChatTile` (formerly `_SectionLabel`, `_Avatar`, `_ThreadTile`, `_OutgoingPendingTile`) |
+  | `widgets/chat_request_card.dart` (new) | 164 | `IncomingChatRequestCard` (formerly `_IncomingRequestCard`), with the #26433 refusal copy through `chatInviteRefusalMessage` |
+  | `widgets/messages_support_tiles.dart` (new) | 85 | `BotAssistantCard` (formerly `_BotAssistantCard`) |
+
+  - The screen imports all three new files, and `chat_request_card.dart` imports `chat_thread_tiles.dart` for the avatar. Nothing imports back.
+  - The support-chat and ticket-form tiles and their two `ValueListenableBuilder`s stay inline in the screen. Wrapping them in a widget would have added a node to the `ListView` children and moved `openSupportChat` and its notifiers, so the tree would no longer be identical.
+  - The section assembly (the `Obx` / `AppAsync` builder) stays in the screen for the same reason.
+  - Every moved widget gained `super.key`; nothing passes a key.
+- **Two source-reading tests were repointed; no assertion was weakened.**
+  - `test/modules/chat/chat_thread_other_name_test.dart` now reads the screen plus the two thread widget files.
+  - `test/modules/chatgroups/messages_screen_chat_groups_wiring_test.dart` now looks for `const BotAssistantCard()`.
+  - Both had failed after the split: `Expected: true Actual: <false>` and `Expected: not <-1> Actual: <-1>`.
+
+**Proof of no change** (Python against `git show HEAD:…`, comments, imports and blank lines ignored, renames normalized, lines compared as sorted multisets):
+- The only differing lines are the six constructors gaining `super.key`, plus `dart format` re-wrapping three call and constructor lines made longer by the new names.
+- All 96 original comment lines are present.
+
+**What was run** (from `humanitarian/`):
+- `flutter analyze`, before and after: `6 issues found.`
+- `flutter test test/modules/chat/ test/notifications/`: `00:03 +49: All tests passed!`
+- Full `flutter test`: `00:54 +1077: All tests passed!`
+- **Trap:** `dart format lib/modules/chat/widgets` also reformats the untouched `chat_lifecycle_notice.dart`. That change was reverted, so format only the files you changed.
+
+**Review** (`ecc:flutter-reviewer`): **APPROVE**. It found 0 CRITICAL, HIGH or MEDIUM issues, and one LOW that is informational only. It confirmed the bodies are verbatim, imports are correct and there is no cycle.
+
+**External actions:** none. Nothing was pushed and no PR was opened. OPOS was unavailable to this agent, so #26495 was not moved.
+
+**Still open:** push, open a PR, and update OPOS #26495.
+
+---
+
 ## 2026-09-15 — OPOS #26400 (Phase 6c): admin-web connect-request inbox (branch `feat/admin-connect-request-inbox`)
 
 **What was asked:** the connect-request inbox in admin-web, test-first. It needed:
