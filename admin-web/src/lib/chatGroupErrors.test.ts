@@ -47,6 +47,7 @@ describe('CHAT_GROUP_ERROR_KEYS', () => {
       'not_group_member',
       'sensitive_data_required',
       'server_error',
+      'team_member_role_not_allowed',
       'unauthorized',
     ])
   })

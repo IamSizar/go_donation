@@ -5,7 +5,10 @@
 //     see only a staff-assigned label, never a real name, phone, avatar, or
 //     user id. Staff always sees real identities via the Admin* methods.
 //   - kind='team' — volunteer team coordination. Real names, ordinary group
-//     chat, staff curates membership.
+//     chat, staff curates membership. Because the names are real, a team group
+//     is for VOLUNTEERS AND STAFF ONLY: a donor or beneficiary account is
+//     refused with ErrTeamMemberRole on every path that adds a member (Zaid's
+//     decision, 2026-09-16). Those two belong in a masked group.
 //
 // The masking guarantee is structural, not a filter someone could forget:
 // GroupMessage (the type every non-staff response is built from) has no
@@ -56,6 +59,21 @@ var (
 	// machine-readable refusal. Enforced in exactly one place,
 	// insertMemberRow.
 	ErrGuestMember = errors.New("chatgroups: guest accounts cannot be chat-group members")
+	// ErrTeamMemberRole is returned when a caller tries to put a donor or a
+	// beneficiary account into a kind='team' group (Zaid's decision,
+	// 2026-09-16). A team group serves real names to its members, so a donor
+	// and a beneficiary in one would see each other's real identity — what
+	// OPOS #25284 built the masked kind to prevent. Those two belong in a
+	// masked group, where members see labels; masked groups are unchanged and
+	// still take any mix.
+	//
+	// Who someone is comes from users.role_id (1 donor, 2 beneficiary,
+	// 3 volunteer) and users.staff_tier, never from the group's own
+	// role_in_group, which is unconstrained free text staff type. A staff
+	// account is allowed whatever its role_id. Enforced in exactly two places,
+	// insertMemberRow and addMemberInTx's reactivation branch, so every path
+	// that adds a member is covered.
+	ErrTeamMemberRole = errors.New("chatgroups: a team group can only include volunteers and staff")
 	// ErrUnknownContext is returned when a connect request names a
 	// beneficiary case or donation that does not exist — never created, or
 	// moved to the Trash, which deletes the row from its source table

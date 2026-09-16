@@ -737,6 +737,9 @@ const en = {
       person_label: 'Person',
       role_label: 'Role in the group',
       role_placeholder: 'Choose a role',
+      // Why a team group's rows offer only two roles. The server refuses a
+      // grantor or a recipient in a team group (team_member_role_not_allowed).
+      team_roles_note: 'A team group shows real names, so it is for volunteers and staff only.',
       label_label: 'Label shown to other members',
       label_placeholder: 'e.g. Donor 1',
       label_hint: 'Optional. Leave it blank and a label such as "Donor 1" is given automatically.',
@@ -1560,6 +1563,7 @@ const en = {
     // error.server. connect_request_not_found is for the one refusal still
     // sent without a code: a plain 404 for a missing connect request.
     guest_member_not_allowed: 'Guest accounts cannot join a chat group. Remove the guest account from the members and try again.',
+    team_member_role_not_allowed: 'A team group shows real names, so only volunteers and staff can join one. Put a grantor or a recipient in a masked group instead.',
     connect_context_not_found: 'The case or donation this request is about could not be found, so no group was opened for it.',
     group_member_conflict: 'One of these people is already a member of this group. Remove the repeated person and try again.',
     group_label_conflict: "Another member of this group already has this label. Each member's label must be different.",

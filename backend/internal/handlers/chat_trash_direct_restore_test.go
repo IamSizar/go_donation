@@ -26,7 +26,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -170,31 +169,6 @@ func stampChatThread(t *testing.T, pool *pgxpool.Pool, threadID, staffID int64, 
 	}
 }
 
-// seedSupportChat inserts an open kind='support' thread: a user and the staff
-// account that answers them, with no campaign. It removes what it wrote in its
-// own t.Cleanup, as seedDonorChat does.
-func seedSupportChat(t *testing.T, pool *pgxpool.Pool) chatFixture {
-	t.Helper()
-	user := makeLifecycleUser(t, pool, "user")
-	agent := makeLifecycleUser(t, pool, "employee")
-	var id int64
-	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by, kind)
-		 VALUES ($1, $2, 'active', $1, 'support') RETURNING id`, user, agent).Scan(&id); err != nil {
-		t.Fatalf("insert support thread: %v", err)
-	}
-	t.Cleanup(func() {
-		ctx := context.Background()
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_contact_blocks WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_reads WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_messages WHERE thread_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM trash_items WHERE source_table = 'chat_threads' AND row_id = $1`, id)
-		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, id)
-	})
-	return chatFixture{chatlifecycle.KindDonor, "chat_threads", "chat_messages", id, user,
-		fmt.Sprintf("/api/chats/%d/messages", id), "thread_id"}
-}
-
 // ─── A direct chat comes back closed ────────────────────────────────────
 
 // TestTrashRestore_OpenDirectChatComesBackClosed is the owner's decision end
@@ -209,11 +183,27 @@ func TestTrashRestore_OpenDirectChatComesBackClosed(t *testing.T) {
 	f := seedDonorChat(t, pool)
 	participant := tokenFor(t, pool, f.SenderID)
 
+	// Written straight to the table, not through f.SendPath: the send route
+	// now refuses a kind='direct' thread outright (OPOS #25284,
+	// chat_direct_kind_gate_test.go). That refusal is the reason this test's
+	// subject exists — the Trash was the remaining way back into one — so the
+	// fixture must stay direct and its history must be seeded around the gate.
+	var lastMessageID int64
 	for _, text := range []string{"first message", "second message"} {
-		if code, body := doJSON(t, r, http.MethodPost, f.SendPath, participant,
-			map[string]string{"body": text}); code != http.StatusOK {
-			t.Fatalf("seed message %q: status %d body %v", text, code, body)
+		if err := pool.QueryRow(context.Background(),
+			`INSERT INTO chat_messages (thread_id, sender_user_id, sender_role, body)
+			 VALUES ($1, $2, 1, $3) RETURNING id`, f.ThreadID, f.SenderID, text,
+		).Scan(&lastMessageID); err != nil {
+			t.Fatalf("seed message %q: %v", text, err)
 		}
+	}
+	// The sender's own read marker, which the send route would have written.
+	// This test asserts chat_reads survives the delete/restore round trip, so
+	// the row has to exist before the round trip starts.
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO chat_reads (thread_id, user_id, last_read_msg_id) VALUES ($1, $2, $3)`,
+		f.ThreadID, f.SenderID, lastMessageID); err != nil {
+		t.Fatalf("seed chat_reads: %v", err)
 	}
 	before := readChatThreadState(t, pool, f.ThreadID)
 	if before.Lifecycle != chatlifecycle.StateOpen || before.ArchivedAt != trashRestoreNull {
