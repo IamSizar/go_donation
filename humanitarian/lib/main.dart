@@ -72,23 +72,39 @@ Future<void> main() async {
   // Android, but on iOS the user-facing prompt only includes the types
   // you ask for. Without these the system shows a stripped-down prompt
   // and may not grant banner/sound — silently dropping later pushes.
-  final settings = await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-    provisional: false,
-  );
-  debugPrint('[push] permission status: ${settings.authorizationStatus}');
+  //
+  // On Android 13+ this same call is what requests the POST_NOTIFICATIONS
+  // runtime permission (the manifest only declares it). Until the user grants
+  // it, Android drops every notification silently — no error anywhere.
+  //
+  // Wrapped: this runs before runApp(), so an exception here — the plugin
+  // raises one when it cannot find the current Activity, and a permission
+  // request already in flight is also an error — would abort main() and leave
+  // the user staring at the native splash screen. Push setup failing must
+  // never cost the app its launch; the permission can be granted later from
+  // system settings, and the rest of startup still runs.
+  try {
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    debugPrint('[push] permission status: ${settings.authorizationStatus}');
 
-  // iOS-only: tell the system to display foreground notifications as
-  // banner/list/sound. Without this, an incoming push while the app is
-  // open is delivered to onMessage but the OS does NOT show any UI —
-  // which is what makes admins think "nothing happened".
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+    // iOS-only: tell the system to display foreground notifications as
+    // banner/list/sound. Without this, an incoming push while the app is
+    // open is delivered to onMessage but the OS does NOT show any UI —
+    // which is what makes admins think "nothing happened".
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+  } catch (e) {
+    debugPrint('[push] permission/presentation setup failed: $e');
+  }
 
   // Print the FCM token (NOT the APNs token — they're different strings).
   // Admins paste this into the /push admin form.
