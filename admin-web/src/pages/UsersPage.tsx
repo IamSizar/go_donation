@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ActionsMenu from '../components/ActionsMenu'
+import DateCell from '../components/DateCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
 import { askForText, askToConfirm } from '../lib/dialogs'
@@ -25,7 +26,6 @@ import FieldRuleCell from '../components/FieldRuleCell'
 import type { FieldSpec } from '../components/EditModal'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateParts } from '../lib/dates'
 
 const PER_PAGE = 20
 
@@ -417,18 +417,9 @@ export default function UsersPage() {
     {
       key: 'created',
       header: t('col.created'),
-      // Stacked date over time rather than one long line, which is what made
-      // this the third-widest column. Same treatment, same helper and same
-      // .cell-stack class DonationsPage and VolunteersPage already use.
-      cell: (u) => {
-        const { date, time } = formatDateParts(u.created_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
+      cell: (u) => <DateCell value={u.created_at} />,
     },
     {
       // Note #4 — was 5 loose inline buttons (View/Edit/Password/Force

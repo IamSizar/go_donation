@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
+import DateCell from '../components/DateCell'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { MediaPost } from '../lib/api-types'
@@ -14,7 +15,7 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateOnly, formatDateTime } from '../lib/dates'
+import { formatDateOnly } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 
 const MEDIA_CSV_COLUMNS: CsvColumn<MediaPost>[] = [
@@ -285,7 +286,7 @@ export default function MediaPage() {
     {
       key: 'created',
       header: t('col.created'),
-      cell: (m) => <span className="muted">{formatDateTime(m.created_at)}</span>,
+      cell: (m) => <DateCell value={m.created_at} />,
     },
     {
       key: 'actions',

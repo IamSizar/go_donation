@@ -14,6 +14,7 @@
 // is ALLOWED to do changed — only where the controls that do it live.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ActionsMenu from '../components/ActionsMenu'
+import DateCell from '../components/DateCell'
 import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
 import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
@@ -28,7 +29,6 @@ import { formatPhone } from '../lib/phone'
 import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateParts } from '../lib/dates'
 import { isStaffAccount } from '../lib/staffAccounts'
 import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
@@ -284,17 +284,9 @@ export default function StaffPage() {
     {
       key: 'created',
       header: t('col.created'),
-      // OPOS #25297 — stacked date over time, matching UsersPage/
-      // DonationsPage/VolunteersPage's convention for this column.
-      cell: (u) => {
-        const { date, time } = formatDateParts(u.created_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
+      cell: (u) => <DateCell value={u.created_at} />,
     },
     {
       key: 'actions',

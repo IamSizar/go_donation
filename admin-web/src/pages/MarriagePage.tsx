@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError } from '../lib/api'
 import type { MarriageProfile } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -13,7 +14,6 @@ import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
 import PageHead from '../components/PageHead'
-import { formatDateParts } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
 
@@ -222,17 +222,9 @@ export default function MarriagePage() {
     {
       key: 'created',
       header: t('col.created'),
-      // OPOS #25297 — stacked date over time, matching UsersPage/
-      // DonationsPage/VolunteersPage's convention for this column.
-      cell: (p) => {
-        const { date, time } = formatDateParts(p.created_at)
-        return (
-          <div className="cell-stack">
-            <span className="muted">{date}</span>
-            {time && <span className="muted" style={{ fontSize: '0.85em' }}>{time}</span>}
-          </div>
-        )
-      },
+      // Client item C3 — one shared DateCell for every table timestamp:
+      // the date on top, the time underneath. See components/DateCell.tsx.
+      cell: (p) => <DateCell value={p.created_at} />,
     },
     {
       key: 'actions', header: t('common.actions'), width: '170px',

@@ -9,9 +9,9 @@ import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
+import DateCell from '../components/DateCell'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateTime } from '../lib/dates'
 
 type MeetingRequest = {
   id: number
@@ -102,7 +102,7 @@ export default function MarriageMeetingRequestsPage() {
       cell: (r) => r.message ? <span>{r.message}</span> : <span className="muted">—</span>,
     },
     { key: 'status', header: t('col.status'), cell: (r) => <StatusBadge status={r.status} /> },
-    { key: 'created', header: t('col.created'), cell: (r) => <span className="muted">{formatDateTime(r.created_at)}</span> },
+    { key: 'created', header: t('col.created'), cell: (r) => <DateCell value={r.created_at} /> },
     {
       key: 'actions',
       header: t('common.actions'),
@@ -114,7 +114,10 @@ export default function MarriageMeetingRequestsPage() {
             <button className="secondary" onClick={() => decline(r)} disabled={busyId === r.id}>{t('page.marriage_requests.decline')}</button>
           </div>
         ) : (
-          <span className="muted">{formatDateTime(r.decided_at) ?? '—'}</span>
+          // A decided request shows when it was decided; DateCell prints the
+          // em dash itself when the backend left decided_at null (the old
+          // `?? '—'` never fired — formatDateTime returns '' for null).
+          <DateCell value={r.decided_at} />
         ),
     },
   ]

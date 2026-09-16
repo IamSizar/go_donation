@@ -22,11 +22,11 @@
 import { Inbox } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import PageHead from '../components/PageHead'
+import DateCell from '../components/DateCell'
 import ConnectRequestPanel from '../components/connectRequests/ConnectRequestPanel'
 import { describeConnectRequestError } from '../lib/chatGroupErrors'
 import { listConnectRequests, type ConnectRequest, type ConnectRequestStatus } from '../lib/chatGroupsApi'
 import { CONNECT_REQUEST_FILTERS, STATUS_TONE, requesterDisplayName } from '../lib/connectRequestForm'
-import { formatDateTime } from '../lib/dates'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 
 type ListState =
@@ -210,9 +210,7 @@ function RequestRow({ request, isSelected, onSelect }: RowProps) {
       <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         <span className={`badge ${STATUS_TONE[request.status]}`}>{statusLabel(request.status)}</span>
         <strong style={{ overflowWrap: 'anywhere' }}>{requesterDisplayName(request, t)}</strong>
-        <time className="muted" dateTime={request.created_at} style={{ marginInlineStart: 'auto' }}>
-          {formatDateTime(request.created_at)}
-        </time>
+        <DateCell value={request.created_at} style={{ marginInlineStart: 'auto', alignItems: 'flex-end' }} />
       </span>
       <span className="muted" style={{ overflowWrap: 'anywhere' }}>
         {t(`chat_groups.inbox.context_${request.context_type}`)} · <span>{request.context_label}</span>
