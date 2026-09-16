@@ -68,6 +68,11 @@ func TestChatLifecycle_ArchiveHidesFromParticipantsOnly(t *testing.T) {
 		participantList string
 		staffList       string
 	}{
+		// Direct, deliberately: this case checks the STAFF oversight list, and
+		// GET /api/admin/chats lists kind='direct' threads unless asked for
+		// ?kind=support (chat.Store.ListAllThreads). Nothing here sends a
+		// message, so the send refusal on a direct thread (OPOS #25284) does
+		// not apply.
 		{chatlifecycle.KindDonor, seedDonorChat(t, pool), "/api/admin/chats/%d/lifecycle",
 			"/api/chats", "/api/admin/chats"},
 		{chatlifecycle.KindMarriage, seedMarriageChat(t, pool), "/api/admin/marriage/chats/%d/lifecycle",

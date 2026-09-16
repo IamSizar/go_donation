@@ -63,14 +63,29 @@ type pendingInvite struct {
 // seedPendingInvite inserts a pending kind='direct' thread, exactly the shape
 // RetireAllDirectThreads selects, and removes it afterwards.
 func seedPendingInvite(t *testing.T, pool *pgxpool.Pool) pendingInvite {
+	return seedPendingInviteOfKind(t, pool, chat.KindDirect)
+}
+
+// seedPendingSupportInvite inserts the same pending thread as a SUPPORT one.
+//
+// It exists because a pending direct invite can no longer be accepted at all
+// (OPOS #25284 — chat.Store.AcceptThread refuses it, pinned by
+// chat_direct_kind_gate_test.go). A support thread is the only invite left on
+// chat_threads that a successful accept can be demonstrated on, so it is what
+// the "the gate must not refuse everything" controls use.
+func seedPendingSupportInvite(t *testing.T, pool *pgxpool.Pool) pendingInvite {
+	return seedPendingInviteOfKind(t, pool, chat.KindSupport)
+}
+
+func seedPendingInviteOfKind(t *testing.T, pool *pgxpool.Pool, kind string) pendingInvite {
 	t.Helper()
 	donor := makeLifecycleUser(t, pool, "user")
 	owner := makeLifecycleUser(t, pool, "user")
 	var id int64
 	if err := pool.QueryRow(context.Background(),
 		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by, kind)
-		 VALUES ($1, $2, 'pending', $1, 'direct') RETURNING id`, donor, owner).Scan(&id); err != nil {
-		t.Fatalf("insert pending chat thread: %v", err)
+		 VALUES ($1, $2, 'pending', $1, $3) RETURNING id`, donor, owner, kind).Scan(&id); err != nil {
+		t.Fatalf("insert pending %s chat thread: %v", kind, err)
 	}
 	t.Cleanup(func() {
 		ctx := context.Background()
@@ -251,10 +266,14 @@ func TestChatInviteAccept_ArchivedOpenInviteRefused(t *testing.T) {
 
 // TestChatInviteAccept_OpenInviteStillAccepts is the control: without it,
 // "every accept is refused" would pass every test above.
+//
+// On a SUPPORT invite, since a direct one is now refused by kind whatever its
+// lifecycle says (see seedPendingSupportInvite). The route, handler and store
+// path are the same; only the column differs.
 func TestChatInviteAccept_OpenInviteStillAccepts(t *testing.T) {
 	pool := newLifecyclePool(t)
 	r := newInviteAcceptRouter(pool)
-	inv := seedPendingInvite(t, pool)
+	inv := seedPendingSupportInvite(t, pool)
 
 	code, body := doJSON(t, r, http.MethodPost, fmt.Sprintf("/api/chats/%d/accept", inv.ThreadID),
 		tokenFor(t, pool, inv.Invitee), nil)

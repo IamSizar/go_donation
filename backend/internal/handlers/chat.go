@@ -172,11 +172,9 @@ func (h *ChatHandler) Request(c *gin.Context) {
 
 	thread, recipient, isNew, err := h.Store.RequestThread(c.Request.Context(), donorID, ownerID, campaignID, user.UserID)
 	if err != nil {
-		if errors.Is(err, chat.ErrDirectChatRetired) {
-			c.JSON(http.StatusGone, gin.H{"success": false, "error": "Direct messaging has been retired. Ask staff to connect you instead."})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
+		// chat.ErrDirectChatRetired lands on chatErr's 410 Gone, the same
+		// answer the send and accept paths now give for the same reason.
+		h.chatErr(c, err)
 		return
 	}
 
@@ -422,9 +420,11 @@ func (h *ChatHandler) PostMessage(c *gin.Context) {
 	if h.refuseContactDetails(c, thread, user, req.Body) {
 		return
 	}
+	// chatErr, not a flat 500: a DIRECT thread is refused in the store with
+	// chat.ErrDirectChatRetired and must reach the app as the 410 it is.
 	msg, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, user.RoleID, req.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatErr(c, err)
 		return
 	}
 	// Notify the other participant(s).
@@ -453,6 +453,13 @@ const chatInviteDeclinedCode = "chat_invite_declined"
 
 func (h *ChatHandler) chatErr(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, chat.ErrDirectChatRetired):
+		// 410 Gone: the conversation is not refused to this person, it no
+		// longer exists as a thing anyone may write into (OPOS #25284). Sending
+		// and accepting answer exactly as requesting a new chat has since
+		// Phase 4, so one client branch covers all three.
+		c.JSON(http.StatusGone, gin.H{"success": false,
+			"error": "Direct messaging has been retired. Ask staff to connect you instead."})
 	case errors.Is(err, chat.ErrInviteDeclined):
 		// Promises nothing further: direct donor chats are retired, so a
 		// declined one cannot be requested again.
@@ -560,9 +567,13 @@ func (h *ChatHandler) AdminPostMessage(c *gin.Context) {
 		return
 	}
 	// Admin posts as "support" (sender_role = RoleSupport).
+	// The retirement holds for STAFF too, exactly as the pause above does: a
+	// staff reply into a retired direct thread would deliver a message its two
+	// participants cannot answer, and would revive the surface the policy
+	// closed. chatErr turns the store's refusal into the same 410.
 	msg, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, chat.RoleSupport, req.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		h.chatErr(c, err)
 		return
 	}
 	// Notify BOTH the donor and owner that support replied.
