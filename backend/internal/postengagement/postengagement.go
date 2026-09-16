@@ -227,7 +227,12 @@ func (s *Store) ListComments(ctx context.Context, postID int64, onlyApproved boo
 		`SELECT c.id, c.post_id, c.user_id, COALESCE(u.full_name, 'User'),
 		        c.body, c.status, (c.flagged = 1), c.created_at
 		   FROM post_comments c
-		   LEFT JOIN user_profiles u ON u.user_id = c.user_id
+		   -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
+		   -- commenter with two profile rows repeated every comment they made.
+		   LEFT JOIN LATERAL (
+		          SELECT p.full_name FROM user_profiles p
+		           WHERE p.user_id = c.user_id ORDER BY p.id LIMIT 1
+		        ) u ON TRUE
 		  WHERE `+where+`
 		  ORDER BY c.created_at DESC, c.id DESC
 		  LIMIT `+itoa(limit),
@@ -255,7 +260,12 @@ func (s *Store) AdminListComments(ctx context.Context, statusFilter string, limi
 		`SELECT c.id, c.post_id, c.user_id, COALESCE(u.full_name, 'User'),
 		        COALESCE(p.title, ''), c.body, c.status, (c.flagged = 1), c.created_at
 		   FROM post_comments c
-		   LEFT JOIN user_profiles u ON u.user_id = c.user_id
+		   -- OPOS #26603: one profile row per commenter, oldest wins. The alias
+		   -- is pf, not p, because p is already the media_posts alias here.
+		   LEFT JOIN LATERAL (
+		          SELECT pf.full_name FROM user_profiles pf
+		           WHERE pf.user_id = c.user_id ORDER BY pf.id LIMIT 1
+		        ) u ON TRUE
 		   LEFT JOIN media_posts p ON p.id = c.post_id
 		  WHERE `+where+`
 		  ORDER BY (c.status = 'pending') DESC, c.created_at DESC, c.id DESC
@@ -306,7 +316,11 @@ func (s *Store) ActivityFeed(ctx context.Context, kindFilter string, limit int) 
 		            c.user_id, COALESCE(u.full_name, 'User') AS user_name,
 		            c.body, c.status, (c.flagged = 1) AS flagged, c.created_at
 		       FROM post_comments c
-		       LEFT JOIN user_profiles u ON u.user_id = c.user_id
+		       -- OPOS #26603: one profile row per commenter, oldest wins.
+		       LEFT JOIN LATERAL (
+		              SELECT pf.full_name FROM user_profiles pf
+		               WHERE pf.user_id = c.user_id ORDER BY pf.id LIMIT 1
+		            ) u ON TRUE
 		       LEFT JOIN media_posts p ON p.id = c.post_id
 		     UNION ALL
 		     SELECT 'like', 0, l.post_id,
@@ -315,7 +329,11 @@ func (s *Store) ActivityFeed(ctx context.Context, kindFilter string, limit int) 
 		            l.user_id, COALESCE(u.full_name, 'User'),
 		            '', '', false, l.created_at
 		       FROM post_likes l
-		       LEFT JOIN user_profiles u ON u.user_id = l.user_id
+		       -- OPOS #26603: one profile row per liker, oldest wins.
+		       LEFT JOIN LATERAL (
+		              SELECT pf.full_name FROM user_profiles pf
+		               WHERE pf.user_id = l.user_id ORDER BY pf.id LIMIT 1
+		            ) u ON TRUE
 		       LEFT JOIN media_posts p ON p.id = l.post_id
 		   ) a
 		  WHERE ($1 = '' OR a.kind = $1)

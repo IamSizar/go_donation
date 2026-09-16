@@ -24,15 +24,6 @@
 // into it on mount — the same split i18n already uses between translate() and
 // useI18n().
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { AnimatePresence } from 'framer-motion'
-import AskDialog from '../components/AskDialog'
-
 // ─── Request / answer shapes ───
 
 /** Fields both kinds of ask share. */
@@ -76,7 +67,7 @@ export type DialogAnswer = string | null | boolean
 
 // ─── The module-level asking side ───
 
-type Pending = {
+export type Pending = {
   id: number
   request: DialogRequest
   resolve: (answer: DialogAnswer) => void
@@ -84,15 +75,34 @@ type Pending = {
 
 let nextRequestId = 1
 
+/** The id the next queued request takes. <DialogHost /> stamps its entries. */
+export function takeRequestId(): number {
+  return nextRequestId++
+}
+
 // Set by <DialogHost /> while it is mounted. Null before/after.
 let enqueueRequest: ((request: DialogRequest) => Promise<DialogAnswer>) | null = null
+
+/**
+ * <DialogHost /> registers itself here on mount and clears it on unmount.
+ *
+ * It lives in its own module — DialogHost.tsx — because a file that exports a
+ * component may not also export functions (react-refresh/only-export-
+ * components), and askForText/askToConfirm are called from plain async code in
+ * lib/api.ts with no hooks in sight. So the host reaches the queue through
+ * this setter instead of assigning the module variable directly.
+ */
+export function setDialogEnqueue(
+  fn: ((request: DialogRequest) => Promise<DialogAnswer>) | null,
+) {
+  enqueueRequest = fn
+}
 
 // ask — hands the request to the mounted host, or resolves as a cancel when
 // there is no host. Cancelling is the only safe answer to "nobody can ask":
 // it aborts the action instead of letting it run ungated.
 function ask(request: DialogRequest, cancelled: DialogAnswer): Promise<DialogAnswer> {
   if (!enqueueRequest) {
-    // eslint-disable-next-line no-console
     console.error('dialogs: no <DialogHost /> is mounted — treating the ask as cancelled.')
     return Promise.resolve(cancelled)
   }
@@ -120,53 +130,4 @@ export async function askForText(options: TextAsk): Promise<string | null> {
 export async function askToConfirm(options: ConfirmAsk): Promise<boolean> {
   const answer = await ask({ ...options, kind: 'confirm' }, false)
   return answer === true
-}
-
-// ─── The rendering side ───
-
-/**
- * DialogHost — mount once at the app root, inside I18nProvider (the dialog
- * localizes its own buttons).
- *
- * Holds a FIFO queue rather than a single slot. Nothing in the app opens two
- * dialogs at once today — every caller awaits — but a dropped request would be
- * a promise that never settles, which is an await that hangs forever and a
- * frozen action. Queueing makes that unrepresentable.
- */
-export function DialogHost() {
-  const [queue, setQueue] = useState<Pending[]>([])
-  // Guards against a double-settle (a click landing at the same time as an
-  // Escape) resolving one request and dequeuing two.
-  const settledIdRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    enqueueRequest = (request) =>
-      new Promise<DialogAnswer>((resolve) => {
-        setQueue((q) => [...q, { id: nextRequestId++, request, resolve }])
-      })
-    return () => {
-      enqueueRequest = null
-    }
-  }, [])
-
-  const current = queue[0]
-
-  const settle = useCallback(
-    (answer: DialogAnswer) => {
-      if (!current || settledIdRef.current === current.id) return
-      settledIdRef.current = current.id
-      current.resolve(answer)
-      setQueue((q) => q.filter((p) => p.id !== current.id))
-    },
-    [current],
-  )
-
-  // AnimatePresence keeps the exit animation alive after the request leaves the
-  // queue; the key makes a second queued dialog a fresh mount (fresh focus,
-  // empty input) rather than a re-render of the previous one.
-  return (
-    <AnimatePresence>
-      {current && <AskDialog key={current.id} request={current.request} onSettle={settle} />}
-    </AnimatePresence>
-  )
 }

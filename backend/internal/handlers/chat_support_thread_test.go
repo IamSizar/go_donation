@@ -16,6 +16,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/karam-flutter/humanitarian-backend/internal/chat"
 )
 
@@ -95,10 +97,13 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("support thread: %v", err)
 	}
-	direct, _, _, err := store.RequestThread(ctx, donor.id, owner.id, nil, donor.id)
-	if err != nil {
-		t.Fatalf("donor thread: %v", err)
-	}
+	// Phase 4 Task 1 gated store.RequestThread to always refuse
+	// (chat.ErrDirectChatRetired) — it can no longer be used to create a
+	// donor↔owner thread fixture. This test's subject is ListAllThreads'
+	// kind-based split, not thread creation, so the fixture is inserted
+	// directly, the same way makeContactThread does in
+	// chat_contact_block_test.go.
+	direct := insertDirectChatThreadFixture(t, pool, donor.id, owner.id)
 
 	has := func(items []chat.AdminThreadView, id int64) bool {
 		for _, it := range items {
@@ -118,7 +123,7 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 		t.Fatalf("list support: %v", err)
 	}
 
-	if !has(donorList, direct.ID) {
+	if !has(donorList, direct) {
 		t.Error("the donor oversight list lost its own thread")
 	}
 	if has(donorList, support.ID) {
@@ -127,7 +132,7 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 	if !has(supportList, support.ID) {
 		t.Error("the support view does not list the support request, which is its only job")
 	}
-	if has(supportList, direct.ID) {
+	if has(supportList, direct) {
 		t.Error("a donor↔owner thread leaked into the support view")
 	}
 
@@ -140,4 +145,30 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 	if has(fallback, support.ID) {
 		t.Error("an unknown kind included support rows; it must fall back to 'direct'")
 	}
+}
+
+// insertDirectChatThreadFixture inserts a bare 'direct'-kind chat_threads row
+// (the default kind — see migrations/119_chat_support_threads.sql) directly,
+// bypassing store.RequestThread, which Phase 4 Task 1 gated to always return
+// chat.ErrDirectChatRetired. Only a fixture for exercising OTHER store
+// methods (here, ListAllThreads' kind filter) against a pre-existing
+// donor↔owner thread — never a substitute for testing RequestThread itself.
+func insertDirectChatThreadFixture(t *testing.T, pool *pgxpool.Pool, donorID, ownerID int64) int64 {
+	t.Helper()
+	ctx := context.Background()
+	var id int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO chat_threads (donor_user_id, owner_user_id, status, initiated_by)
+		 VALUES ($1, $2, 'pending', $1) RETURNING id`,
+		donorID, ownerID,
+	).Scan(&id); err != nil {
+		t.Fatalf("insert direct chat thread fixture: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_reads WHERE thread_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_messages WHERE thread_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM chat_threads WHERE id = $1`, id)
+	})
+	return id
 }
