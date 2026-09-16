@@ -34,18 +34,21 @@ export default function ReceiptsPage() {
   const toast = useToast()
   const [items, setItems] = useState<Receipt[]>([])
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(false)
+  // Which reload tick last came back. `loading` is derived from it below
+  // rather than set at the top of the fetch effect.
+  const [loadedTick, setLoadedTick] = useState(-1)
   const [err, setErr] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [tick, setTick] = useState(0)
 
+  const loading = loadedTick !== tick
+
   useEffect(() => {
-    setLoading(true)
     api
       .get<{ items: Receipt[] }>('/api/admin/aid-receipts')
       .then((res) => { setItems(res.data.items ?? []); setErr(null) })
       .catch((e) => setErr(describeError(e)))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadedTick(tick))
   }, [tick])
 
   // Load users once for the recipient / delivered-by pickers.

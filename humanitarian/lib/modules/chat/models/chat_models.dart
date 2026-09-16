@@ -18,6 +18,11 @@ class ChatThread {
   // if any (null = unclaimed, any admin may still reply as "Support").
   final String? assignedStaffName;
 
+  /// Migration 117 — the staff-controlled lifecycle: open | paused | ended.
+  /// Read by the invite answers (OPOS #26433), which stop offering Accept on a
+  /// closed thread. Defaults to open, so an older server leaves Accept working.
+  final String lifecycle;
+
   const ChatThread({
     required this.id,
     required this.status,
@@ -33,6 +38,7 @@ class ChatThread {
     required this.lastMessageAt,
     required this.unreadCount,
     required this.assignedStaffName,
+    this.lifecycle = 'open',
   });
 
   bool get isActive => status == 'active';
@@ -50,9 +56,10 @@ class ChatThread {
       myRole: (m['my_role'] ?? '').toString(),
       incomingPending: m['incoming_pending'] == true,
       otherUserId: int.tryParse('${m['other_user_id']}') ?? 0,
-      otherName: (m['other_name'] ?? 'User').toString().trim().isEmpty
-          ? 'User #${m['other_user_id']}'
-          : (m['other_name']).toString(),
+      // Only the server's trimmed name, or '' — no fallback words here
+      // (OPOS #26483). The screen names an unnamed other party in the
+      // reader's language through `chatThreadOtherName`.
+      otherName: (m['other_name'] ?? '').toString().trim(),
       otherPhone: m['other_phone']?.toString(),
       lastMessage: m['last_message']?.toString(),
       lastMessageAt: DateTime.tryParse((m['last_message_at'] ?? '').toString()),
@@ -61,6 +68,7 @@ class ChatThread {
           (m['assigned_staff_name'] as String?)?.trim().isEmpty == true
           ? null
           : m['assigned_staff_name'] as String?,
+      lifecycle: (m['lifecycle'] ?? 'open').toString(),
     );
   }
 }
@@ -70,6 +78,14 @@ class ChatMessage {
   final int threadId;
   final int senderUserId;
   final int senderRole; // 0 support/admin, 1 donor, 2 beneficiary, 3 volunteer
+  /// The sender's name as the server sent it, trimmed. Empty when the server
+  /// sent none: a staff account with no profile name, or a name the sender's
+  /// privacy settings hide from this viewer.
+  ///
+  /// Deliberately no fallback word here (OPOS #26435). An English "Support"
+  /// baked in at parse time reached Arabic screens; the model stays
+  /// independent of the reader's language, and the screen names an unnamed
+  /// sender through `chatSenderName`.
   final String senderName;
   final String body;
   final DateTime? createdAt;
@@ -87,15 +103,12 @@ class ChatMessage {
   bool get isSupport => senderRole == 0;
 
   factory ChatMessage.fromMap(Map<String, dynamic> m) {
-    final rawName = (m['sender_name'] ?? '').toString().trim();
     return ChatMessage(
       id: int.tryParse('${m['id']}') ?? 0,
       threadId: int.tryParse('${m['thread_id']}') ?? 0,
       senderUserId: int.tryParse('${m['sender_user_id']}') ?? 0,
       senderRole: int.tryParse('${m['sender_role'] ?? 0}') ?? 0,
-      senderName: rawName.isEmpty
-          ? (int.tryParse('${m['sender_role'] ?? 0}') == 0 ? 'Support' : 'User')
-          : rawName,
+      senderName: (m['sender_name'] ?? '').toString().trim(),
       body: (m['body'] ?? '').toString(),
       createdAt: DateTime.tryParse((m['created_at'] ?? '').toString()),
     );

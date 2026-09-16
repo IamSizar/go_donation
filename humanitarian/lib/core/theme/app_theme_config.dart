@@ -43,13 +43,16 @@ class AppThemeConfig {
 
   /// The Arabic-script family, used for ar / ckb / kmr.
   ///
-  /// KNOWN GAP: this asset is bundled at weight 400 only, so every
-  /// FontWeight.w600 in the app is synthesised for three of our four
-  /// languages — which damages Arabic letterforms considerably more than it
-  /// does Latin. Replacing this with a family shipping 400/600/700 (IBM Plex
-  /// Sans Arabic and Noto Sans Arabic are both free and good) is the single
-  /// highest-impact typographic fix available.
-  static const String arabicScriptFontFamily = 'Kurdfont';
+  /// OPOS #25612 — was `Kurdfont`, bundled at weight 400 only, so every
+  /// FontWeight.w600 in the app was synthesised (faux-bolded) for three of
+  /// our four languages. Replaced with `NotoKufiArabic`, a variable font
+  /// registered in pubspec.yaml at weights 300/400/600 (every weight the
+  /// type scale — core/design/tokens.dart's AppType.* — actually uses), so
+  /// Arabic/Kurdish text now renders real per-weight glyphs instead of a
+  /// synthesized approximation. Verified to cover the same Kurdish
+  /// Sorani/Badini-specific characters the old font did, with broader
+  /// overall glyph coverage.
+  static const String arabicScriptFontFamily = 'NotoKufiArabic';
 
   /// What used to be the teal→blue hero ramp.
   ///
@@ -387,12 +390,39 @@ class AppThemeConfig {
   /// Note that Kurdish Sorani and Badini are registered as `ar_IQ` and
   /// `ar_TR` (see AppLocaleService), so testing the language code alone
   /// correctly catches all three right-to-left languages.
+  ///
+  /// OPOS #25281 — also corrects each style's `height` to the Arabic-script
+  /// leading tokens (see `AppType.lead*Ar`). `.apply(fontFamily:)` alone
+  /// swaps the glyphs but leaves the LATIN-tuned line-height untouched, so
+  /// Arabic's taller x-height and diacritics were rendering inside a line
+  /// box sized for a shorter Latin one — the systemic cause behind reports
+  /// of Arabic text "overlapping" on wrapped headings/titles.
   static ThemeData applyLocaleFont(ThemeData theme, Locale? locale) {
     final fontFamily = _fontFamilyForLocale(locale);
     if (fontFamily == null) return theme;
+    final isArabicScript = fontFamily == arabicScriptFontFamily;
+    TextTheme apply(TextTheme t) {
+      final withFont = t.apply(fontFamily: fontFamily);
+      if (!isArabicScript) return withFont;
+      return withFont.copyWith(
+        displayLarge: withFont.displayLarge?.copyWith(
+          height: AppType.leadDisplayAr,
+        ),
+        headlineMedium: withFont.headlineMedium?.copyWith(
+          height: AppType.leadTitleAr,
+        ),
+        headlineSmall: withFont.headlineSmall?.copyWith(
+          height: AppType.leadTitleAr,
+        ),
+        bodyLarge: withFont.bodyLarge?.copyWith(height: AppType.leadBodyAr),
+        bodyMedium: withFont.bodyMedium?.copyWith(height: AppType.leadDenseAr),
+        bodySmall: withFont.bodySmall?.copyWith(height: AppType.leadDenseAr),
+      );
+    }
+
     return theme.copyWith(
-      textTheme: theme.textTheme.apply(fontFamily: fontFamily),
-      primaryTextTheme: theme.primaryTextTheme.apply(fontFamily: fontFamily),
+      textTheme: apply(theme.textTheme),
+      primaryTextTheme: apply(theme.primaryTextTheme),
     );
   }
 

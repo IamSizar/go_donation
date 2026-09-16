@@ -1038,7 +1038,15 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 
 	var total int
 	if err := s.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id`+where,
+		// OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so an
+		// account with two profile rows was counted twice and the paged list
+		// below repeated it. LATERAL takes the oldest row only. p.* keeps
+		// every column the projection and the search predicate read.
+		`SELECT COUNT(*) FROM users u
+		   LEFT JOIN LATERAL (
+		          SELECT p.* FROM user_profiles p
+		           WHERE p.user_id = u.id ORDER BY p.id LIMIT 1
+		        ) up ON TRUE`+where,
 		args...,
 	).Scan(&total); err != nil {
 		return nil, err
@@ -1061,7 +1069,11 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 		       COALESCE(up.recipient_code, ''), COALESCE(up.volunteer_code, ''),
 		       COALESCE(up.grantor_code, '')
 		  FROM users u
-		  LEFT JOIN user_profiles up ON up.user_id = u.id`+where+`
+		  -- OPOS #26603: one profile row per account, oldest wins (see the count above).
+		  LEFT JOIN LATERAL (
+		         SELECT p.* FROM user_profiles p
+		          WHERE p.user_id = u.id ORDER BY p.id LIMIT 1
+		       ) up ON TRUE`+where+`
 		 ORDER BY u.id DESC
 		 LIMIT $`+strconvItoa(limIdx)+` OFFSET $`+strconvItoa(offIdx),
 		args...,

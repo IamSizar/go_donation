@@ -27,13 +27,12 @@
 // per-form buttons and the bar's حفظ stays disabled there — which is the
 // truthful state, not a gap.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
 
 /** What a page hands over: run the page's save. May be async. */
 export type SaveHandler = () => void | Promise<unknown>
 
-type SaveActionCtx = {
+export type SaveActionCtx = {
   /** The handler the page on screen registered, or null when there is none. */
   handler: SaveHandler | null
   /** True while that handler is running, so the bar can disable itself. */
@@ -43,25 +42,7 @@ type SaveActionCtx = {
   setBusy: (b: boolean) => void
 }
 
-const SaveActionContext = createContext<SaveActionCtx | null>(null)
-
-export function SaveActionProvider({ children }: { children: ReactNode }) {
-  const [handler, setHandler] = useState<SaveHandler | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  // Stored in a state cell that holds the function itself, so `register` has to
-  // wrap it — React treats a bare function passed to a setter as an updater.
-  const register = useCallback((h: SaveHandler | null) => {
-    setHandler(() => h)
-    setBusy(false)
-  }, [])
-
-  const value = useMemo<SaveActionCtx>(
-    () => ({ handler, busy, register, setBusy }),
-    [handler, busy, register],
-  )
-  return <SaveActionContext.Provider value={value}>{children}</SaveActionContext.Provider>
-}
+export const SaveActionContext = createContext<SaveActionCtx | null>(null)
 
 /**
  * Page side: offer this page's save to the shared bar button.

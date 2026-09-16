@@ -1733,7 +1733,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             passportPhotoPath: _passportPhotoPath,
             graduationCertPhotoPath: _graduationCertPhotoPath,
             cvPhotoPath: _cvPhotoPath,
-          ).then((uploaded) {
+          ).then((result) {
             // The result used to be DISCARDED. Registration succeeded and the
             // user was routed onward, so a failed document upload was silent
             // and permanent — they believed their ID and proof documents were
@@ -1745,11 +1745,20 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             // not hold up the flow. Get.snackbar is an overlay rather than
             // part of this route, so it survives the navigation below and
             // lands over whatever screen the user reaches.
-            if (uploaded) return;
+            if (result.allSucceeded) return;
+            // OPOS #25276 — name the personal photo specifically when it's
+            // the one that failed, since that's the one that shows up
+            // everywhere the user's profile does; a generic "documents"
+            // message buries the one failure that is actually visible to
+            // them under all the optional supporting paperwork.
+            final message = result.failedFields.contains('personal_photo')
+                ? 'Your registration was saved, but your photo did not upload. You can add it from your profile.'
+                      .tr
+                : 'Your registration was saved, but your documents did not upload. You can add them from your profile.'
+                      .tr;
             Get.snackbar(
               'Registration'.tr,
-              'Your registration was saved, but your documents did not upload. You can add them from your profile.'
-                  .tr,
+              message,
               duration: const Duration(seconds: 6),
             );
           }),

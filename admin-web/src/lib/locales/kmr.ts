@@ -63,7 +63,6 @@ const kmr: DeepPartial<typeof en> = {
     receipts: 'پسوولێن هاریکاریێ',
     messages: 'پەیام',
     staff_chat: 'گفتوگۆیا کارمەندان',
-    case_volunteer_chats: 'گفتوگۆیێن دۆسیێ ↔ خۆبەخش',
     volunteers: 'خۆبەخش',
     volunteer_board: 'تابلۆیا خۆبەخشان',
     tasks: 'ئەرکان',
@@ -848,12 +847,6 @@ const kmr: DeepPartial<typeof en> = {
     staff_chat: {
       subtitle: 'پەیامێن ڕاستەوخۆ ناڤبەرا کارمەندێن داشبۆردێ — بەرێوەبەر ↔ کارمەند, یان هەر جوتەکا دن.',
       new: '+ گفتوگۆیەکا نوو', empty: 'هێشتا چ گفتوگۆ نینە.', pick_someone: 'گفتوگۆیێ دەست پێبکە ب…',
-    },
-    case_volunteer_chats: {
-      subtitle: 'خۆدانەیی ڤەدبیت دەمێ تۆمارکرنا خۆبەخشەکێ ب دۆسیەکێڤە هاتبیت گرێدان و هاتبیت پەسەندکرن.',
-      empty: 'هێشتا چ گفتوگۆ نینە.',
-      volunteer_paren: '(خۆبەخش)',
-      beneficiary_paren: '(مستەحەق)',
     },
     partners: { title: 'هەڤپیشە', search_placeholder: 'گەڕیان ب ناڤ / جۆر', new: '+ هەڤپیشەیا نوو' },
     media: { title: 'میدیا', search_placeholder: 'گەڕیان ب سەرنڤیس / ناڤەرۆک', new: '+ بابەتا نوو' },
