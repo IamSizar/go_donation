@@ -15,7 +15,7 @@ creates the profiles and a pending request, under the same rules as the
 accounts (idempotent, `-cleanup`-able, nothing without `-confirm`).
 
 **Branch** `feat/seed-marriage-fixtures`, cut from `origin/main` `7a8f9aa`.
-Commit `76f78a6`. NOT pushed.
+Commit `b3d8784`. NOT pushed.
 
 ### What it seeds now, on top of the ten accounts
 - **Two marriage profiles**: **B** (Female, Baghdad, 27) and **D2** (Male,
@@ -79,7 +79,7 @@ and the package tests then fail with confusing "created 9, want 10" /
 is pre-existing behaviour, not something this branch introduced.
 
 ### Still open
-- Nothing pushed; no PR. Commit `76f78a6` sits on the branch.
+- Nothing pushed; no PR. Commit `b3d8784` sits on the branch.
 - OPOS was not used (unavailable in that session), so there is no task row.
 
 ---
