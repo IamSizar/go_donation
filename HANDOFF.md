@@ -6,6 +6,150 @@
 
 ---
 
+## 2026-09-16 — OPOS #26601: the three `user_profiles` writers stop racing each other into duplicate rows (branch `fix/user-profiles-writer-race`)
+
+**What was asked:** close the check-then-insert race in the three writers named
+in #26497's "still open" list, test-first, without a UNIQUE constraint, a
+migration, or deleting anybody's second row — and without touching any read
+query, because another agent is fixing the remaining joins. Branch cut from
+`origin/main` `e7c9f77`. Not pushed. OPOS was unavailable in this session.
+
+**The lock approach chosen:** `pg_advisory_xact_lock(hashtext('user_profiles:'
+|| $1::bigint::text)::bigint)`, the advisory-lock option rather than `SELECT …
+FOR UPDATE`, used identically in all three writers. One new exported helper,
+`users.LockUserProfileWrite(ctx, tx, userID)` in
+`backend/internal/users/profile.go`, carries the whole rationale in its doc
+comment. `hashtext` returns an int4 and `pg_advisory_xact_lock` wants one
+bigint or two int4s, hence the cast; the key is namespaced with the table name
+so it cannot collide with another advisory lock. An `_xact_` lock is released
+by COMMIT *and* by ROLLBACK, so no error path leaks it.
+
+**What was changed** (code commit `972948d`; this entry is a second commit,
+because `git commit --amend` is blocked by this environment's safety gate):
+
+- **`backend/internal/users/profile.go`** — `UpsertProfile` now opens its
+  transaction FIRST, takes the lock as the transaction's first statement, and
+  only then runs the existence check. The check used to run on the pool,
+  outside the transaction, which is why moving it was mandatory: a lock guarding
+  a decision made on another connection guards nothing. `GetProfileRow`'s body
+  was parameterised into `getProfileRow(ctx, q rowQuerier, userID)` (a
+  one-method interface satisfied by both `*pgxpool.Pool` and `pgx.Tx`) so the
+  transaction can run the identical query. `GetProfileRow`'s own behaviour and
+  signature are unchanged. The `UserExists` call still runs on the pool before
+  `Begin` — it reads `users`, takes no lock, and has no bearing on ordering.
+- **`backend/internal/users/registration.go`** — `SubmitRegistration` takes the
+  lock immediately after `Begin`/`defer Rollback`, before its `SELECT 1 FROM
+  user_profiles` check and well before its `UPDATE users` at the end.
+- **`backend/internal/handlers/admin_edit.go`** — `User` takes the lock
+  immediately after `Begin`/`defer Rollback`, i.e. **before** the
+  `UPDATE users SET phone` / `SET email` statements, not just before the profile
+  block. It is taken **unconditionally**, even on a save with no profile
+  change, so every transaction that touches this pair of resources takes them in
+  one order. The file now imports `internal/users`.
+
+**The deadlock trap #127's audit warned about, and how it is handled.**
+`admin_edit.go` updates the `users` row BEFORE its profile block while
+`SubmitRegistration` updates it AFTER. If the lock were taken in the middle of
+either, those two could hold `users` and the profile key in opposite orders and
+deadlock. The fix is that in all three writers the lock is the **first**
+statement of the transaction, and each transaction takes it exactly once — so
+there is only ever one acquisition order. That reasoning is written into
+`LockUserProfileWrite`'s doc comment and repeated at each of the three call
+sites.
+
+**Tests first — two new files, no changes to existing tests:**
+- `backend/internal/users/user_profiles_writer_race_test.go` —
+  `TestUpsertProfileWriterRaceCreatesOneRow`,
+  `TestSubmitRegistrationWriterRaceCreatesOneRow`.
+- `backend/internal/handlers/admin_edit_user_profile_race_test.go` —
+  `TestUserProfileEditWriterRaceCreatesOneRow` (drives the real PATCH route
+  through `newUserEditRouter`, with a body of profile columns only so nothing
+  but the profile block writes).
+
+**How the race is made deterministic without a single sleep** — worth reading
+before writing another concurrency test here, because it generalises. The test
+opens its own transaction holding `SELECT … FROM users WHERE id = $1 FOR
+UPDATE` on the target. An INSERT into `user_profiles` must take FOR KEY SHARE
+on that parent row to satisfy `fk_user_profiles_user` (migration 002), and FOR
+UPDATE conflicts with it — so every writer that reaches its INSERT parks there.
+Both writers are launched, and the test waits, **by polling
+`pg_stat_activity` for `wait_event_type = 'Lock'` and pacing itself with
+`pg_sleep(0.02)` inside the database**, until two backends are blocked. That is
+the proof both goroutines got as far as they can, which on the old code is
+after both have already decided "no row". Then the holding transaction commits.
+Unfixed: both insert → 2 rows. Fixed: the second writer is parked on the
+advisory lock instead, sees the first one's row, and UPDATEs it → 1 row.
+Goroutines never call `t.Fatalf`; they hand results back on a channel.
+
+**RED**, on a brand-new `godonation_wrace_red_26601`, `-run WriterRace -count=1
+-p 1 -timeout 45m -v`, all three failing before any production edit:
+- `user_profiles_writer_race_test.go:205: user 8 has 2 user_profiles rows after two concurrent UpsertProfile calls, want exactly 1`
+- `user_profiles_writer_race_test.go:229: user 9 has 2 user_profiles rows after two concurrent SubmitRegistration calls, want exactly 1`
+- `admin_edit_user_profile_race_test.go:156: user 11 has 2 user_profiles rows after two concurrent PATCHes, want exactly 1`
+
+**GREEN**, on a brand-new `godonation_wrace_green_26601`, same flags:
+**3 `--- PASS`, 0 FAIL, 0 SKIP** (`ok` users 1.172s, handlers 0.671s).
+
+**Flakiness check**, brand-new `godonation_wrace_flake_26601`, same `-run` with
+`-count=3`: 9 `--- PASS`, 0 FAIL, 0 SKIP.
+
+**Package suites**, brand-new `godonation_wrace_suite_26601`, `go test
+./internal/users/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`: `ok`
+users 1.174s, `ok` handlers 16.996s.
+
+**Format, build, vet:** `gofmt -l` on the five changed/added files prints
+nothing; `go build ./...` and `go vet ./...` both exit 0.
+
+**Review:** the reviewer agent was skipped at the coordinator's instruction
+(those runs keep stalling here). The diff was re-read by hand against three
+questions. (1) Is the lock the first statement of each transaction? Yes in all
+three — in `admin_edit.go` it sits between `defer tx.Rollback` and the
+`users.phone` UPDATE. (2) Does any path take it twice, or take these resources
+in two orders? No: one call per transaction, always first, and none of the
+three nests inside another's transaction (each opens its own from the pool).
+(3) Does an error still roll back? Yes: every new failure path returns before
+`tx.Commit`, so the existing `defer tx.Rollback` fires, and an `_xact_` advisory
+lock is released by the rollback as well as by a commit.
+
+**Databases created and dropped:** `godonation_wrace_red_26601`,
+`godonation_wrace_green_26601`, `godonation_wrace_flake_26601`,
+`godonation_wrace_suite_26601`. All dropped; `psql -lqt` lists no
+`godonation_wrace%` database.
+
+**External actions taken:** none. Nothing pushed, no PR, no OPOS update.
+
+**What is still open:**
+- **The commit is local and unpushed**, and unreviewed by a human.
+- **Two more `INSERT INTO user_profiles` sites exist and were deliberately left
+  alone**, because neither is a check-then-insert on an existing account:
+  `users/users.go:817` (`InsertGuest`, inserts the profile for the `users` row
+  it just created in the same transaction) and
+  `handlers/admin_status.go:341` (admin "create user", same shape — and note
+  its result is discarded with `_, _ =`). If either ever starts writing to a
+  pre-existing account, it needs the same lock.
+- **~21 duplicating join sites and the `beneficiary/beneficiary.go:193` scalar
+  subquery remain**, per #26497's audit table. Untouched here by instruction.
+- **UNIQUE on `user_profiles.user_id`** still needs a human decision on
+  deduping existing pairs. This branch adds no migration and deletes no rows;
+  an account that already has two profile rows keeps working exactly as before.
+- The full `go test ./...` was NOT run here — only the two packages touched.
+
+**Traps:**
+- **The `FOR UPDATE`-on-`users` trick only parks a writer that reaches an
+  INSERT into `user_profiles`.** If a test body includes `phone` or `email`,
+  the admin-edit handler's `UPDATE users` blocks FIRST — before the lock and
+  before the profile block — and the test would be measuring the wrong wait.
+  The committed test sends profile columns only, on purpose.
+- **Never run these packages twice against one database** (inherited trap from
+  #26474/#26497): the fixtures only delete their own `users` rows, so a second
+  run against the same DB sees the first run's leftovers. Every run above used
+  a brand-new database.
+- `pg_stat_activity`'s waiting-backend count is per database, which is why each
+  run needs its own throwaway DB — a second test process on the same database
+  would make the barrier fire early.
+
+---
+
 ## 2026-09-16 — OPOS #26492, #26493, #26477, #26496: admin-web chat follow-ups (branch `fix/admin-web-chat-followups`)
 
 **What was asked:** three unrelated dashboard fixes, each test-first, each its

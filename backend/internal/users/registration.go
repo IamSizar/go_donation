@@ -147,6 +147,14 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 	}
 	defer tx.Rollback(ctx)
 
+	// FIRST statement of the transaction — before the existence check below and
+	// before the UPDATE on `users` further down. See LockUserProfileWrite: the
+	// other writers take `users` and the profile in the opposite order, so a
+	// lock taken anywhere but first would deadlock against them.
+	if err := LockUserProfileWrite(ctx, tx, userID); err != nil {
+		return "", err
+	}
+
 	// Upsert the profile row (name/address/DOB). user_profiles columns are
 	// NOT NULL, so a fresh insert seeds gender='' and profile_picture='0'.
 	var one int
