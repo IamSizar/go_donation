@@ -1,0 +1,342 @@
+// Connect-request flow: a donor/beneficiary/volunteer asks staff to open a
+// chat, staff approves or declines. Approval creates the chat_group_threads
+// group AND stamps the request approved in ONE transaction, reusing the same
+// insertMembers helper CreateGroup uses (chatgroups.go) — there is never an
+// "approved, no group yet" dangling state. See chat_group_connect_requests in
+// the migration for the full column list and constraints this file relies on.
+
+package chatgroups
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// ConnectRequestStatus is a chat_group_connect_requests.status value.
+type ConnectRequestStatus string
+
+const (
+	RequestPending  ConnectRequestStatus = "pending"
+	RequestApproved ConnectRequestStatus = "approved"
+	RequestDeclined ConnectRequestStatus = "declined"
+)
+
+// ConnectRequest mirrors one chat_group_connect_requests row, resolved for
+// an admin inbox. Context resolution (turning context_id into a campaign
+// title / case number / donation amount) belongs in the handler layer in a
+// later phase — this type carries the raw ids, not a bare "context_id" the
+// admin-web page would have to make sense of unassisted.
+//
+// RequesterName is the requester's user_profiles.full_name. Only the admin
+// reads, ListConnectRequests and GetConnectRequest, load it; it is nil
+// everywhere else, and nil when the requester has no profile. It is tagged
+// json:"-" so this type never puts a real name on the wire by itself: the
+// admin handler copies it into its response only for a caller who may view
+// sensitive data (user decision D6, part of OPOS #26410).
+type ConnectRequest struct {
+	ID             int64                `json:"id"`
+	RequesterID    int64                `json:"requester_user_id"`
+	ContextType    string               `json:"context_type"`
+	ContextID      int64                `json:"context_id"`
+	TargetHint     *int64               `json:"target_hint,omitempty"`
+	Message        string               `json:"message"`
+	GroupID        *int64               `json:"group_id,omitempty"`
+	Status         ConnectRequestStatus `json:"status"`
+	DeclineReason  string               `json:"decline_reason,omitempty"`
+	DecidedByStaff *int64               `json:"decided_by_staff_id,omitempty"`
+	CreatedAt      time.Time            `json:"created_at"`
+	RequesterName  *string              `json:"-"`
+}
+
+// submitConnectRequestSQL writes a connect request only when the case or
+// donation it names exists. The existence check is the INSERT's own WHERE
+// EXISTS, one statement, so there is no gap between a separate check and the
+// insert for the row to be moved to the Trash in.
+//
+// context_type picks the table: 'case' is beneficiary_cases, 'donation' is
+// donations; any other value matches neither branch (SubmitConnectRequest
+// refuses it before the query runs anyway). Every parameter is cast so each
+// has one type, since $2 and $3 are both inserted and compared. donations.id
+// is INTEGER and context_id BIGINT; that comparison is exact, so an id beyond
+// INTEGER's range matches nothing instead of overflowing.
+const submitConnectRequestSQL = `
+	INSERT INTO chat_group_connect_requests (requester_user_id, context_type, context_id, target_hint, message)
+	SELECT $1::integer, $2::varchar, $3::bigint, $4::bigint, $5::text
+	 WHERE ($2::varchar = 'case' AND EXISTS (SELECT 1 FROM beneficiary_cases WHERE id = $3::bigint))
+	    OR ($2::varchar = 'donation' AND EXISTS (SELECT 1 FROM donations WHERE id = $3::bigint))
+	ON CONFLICT (requester_user_id, context_type, context_id) WHERE status = 'pending'
+	DO UPDATE SET message = EXCLUDED.message
+	RETURNING id`
+
+// SubmitConnectRequest records a member's request that staff connect them
+// about one donation or beneficiary case, and returns the request's id.
+// Resubmitting while one from the same user for the same context is still
+// pending updates that row's message rather than creating a second one for
+// staff to triage — enforced by the partial unique index in the migration.
+//
+// The case or donation must exist (OPOS #26351). An id that names no row —
+// never created, or moved to the Trash, which deletes the row from its source
+// table (handlers.trashRow) — fails with ErrUnknownContext and writes
+// nothing. Existence is the ONLY rule on the context, by the user's decision:
+// the app offers this request on every case and donation, so a case in any
+// verification_status or public_visibility, and the requester's own case, is
+// accepted. Donations have no ownership rule either: a campaign owner asks
+// about donations other people made.
+//
+// Fails with ErrInvalidInput for a context_type other than "donation" or
+// "case", and with a plain error for a blank message.
+func (s *Store) SubmitConnectRequest(ctx context.Context, requesterID int64, contextType string, contextID int64, targetHint *int64, message string) (int64, error) {
+	if contextType != "donation" && contextType != "case" {
+		return 0, fmt.Errorf("chatgroups: context_type %q: %w", contextType, ErrInvalidInput)
+	}
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return 0, errors.New("message must not be empty")
+	}
+	var id int64
+	err := s.Pool.QueryRow(ctx, submitConnectRequestSQL,
+		requesterID, contextType, contextID, targetHint, message,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// WHERE EXISTS matched nothing, so nothing was inserted. It is the only
+		// way to get no row back: an ON CONFLICT update returns its row too.
+		return 0, fmt.Errorf("chatgroups: %s %d: %w", contextType, contextID, ErrUnknownContext)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("chatgroups: submitting connect request for user %d: %w", requesterID, err)
+	}
+	return id, nil
+}
+
+// ApproveConnectRequest creates the group AND stamps the request approved in
+// ONE transaction — there is never an "approved, no group yet" state. Fails
+// if the request is not currently pending.
+//
+// Members go through insertMembers, so a guest account anywhere in members
+// fails the whole approval with ErrGuestMember and leaves the request pending
+// (OPOS #26355). That includes the requester, who must be a member: a pending
+// request whose requester is a guest — e.g. one filed before
+// POST /api/chat-groups/connect-requests was guest-gated — can never be
+// approved, only declined.
+func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind Kind, memberTitle string, staffID int64, members []MemberInput) (int64, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: begin transaction: %w", requestID, err)
+	}
+	defer tx.Rollback(ctx)
+
+	var status string
+	var requesterID int64
+	if err := tx.QueryRow(ctx,
+		`SELECT status, requester_user_id FROM chat_group_connect_requests WHERE id = $1 FOR UPDATE`, requestID,
+	).Scan(&status, &requesterID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
+		}
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: %w", requestID, err)
+	}
+	if status != string(RequestPending) {
+		return 0, fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrAlreadyDecided)
+	}
+	if kind != KindMasked && kind != KindTeam {
+		return 0, fmt.Errorf("chatgroups: kind %q: %w", kind, ErrInvalidInput)
+	}
+	requesterIncluded := false
+	for _, m := range members {
+		if m.UserID == requesterID {
+			requesterIncluded = true
+			break
+		}
+	}
+	if !requesterIncluded {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: requester %d not in members: %w", requestID, requesterID, ErrInvalidInput)
+	}
+
+	title := memberTitle
+	if kind == KindMasked {
+		title = ""
+	}
+	var groupID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO chat_group_threads (kind, member_title, created_by_staff_id)
+		 VALUES ($1, $2, $3) RETURNING id`,
+		string(kind), title, staffID,
+	).Scan(&groupID); err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: creating group: %w", requestID, err)
+	}
+	if err := insertMembers(ctx, tx, groupID, kind, staffID, members); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE chat_group_connect_requests
+		    SET status = 'approved', group_id = $2, decided_by_staff_id = $3, decided_at = now()
+		  WHERE id = $1`,
+		requestID, groupID, staffID,
+	); err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: %w", requestID, err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO chat_group_audit_log (group_id, action, actor_staff_id, target_user_id)
+		 VALUES ($1, 'created', $2, NULL)`,
+		groupID, staffID,
+	); err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: recording audit: %w", requestID, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("chatgroups: approving connect request %d: commit: %w", requestID, err)
+	}
+	return groupID, nil
+}
+
+// DeclineConnectRequest marks a request declined with a reason, shown back
+// to the requester. Fails if the request is not currently pending.
+func (s *Store) DeclineConnectRequest(ctx context.Context, requestID, staffID int64, reason string) error {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return errors.New("decline_reason must not be empty")
+	}
+	ct, err := s.Pool.Exec(ctx, `
+		UPDATE chat_group_connect_requests
+		   SET status = 'declined', decline_reason = $3, decided_by_staff_id = $2, decided_at = now()
+		 WHERE id = $1 AND status = 'pending'`,
+		requestID, staffID, reason,
+	)
+	if err != nil {
+		return fmt.Errorf("chatgroups: declining connect request %d: %w", requestID, err)
+	}
+	if ct.RowsAffected() == 0 {
+		// The UPDATE's WHERE clause can't tell "no such request" apart from
+		// "found but not pending" on its own — look the row up to tell which
+		// sentinel applies.
+		var status string
+		if err := s.Pool.QueryRow(ctx,
+			`SELECT status FROM chat_group_connect_requests WHERE id = $1`, requestID,
+		).Scan(&status); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrNotFound)
+			}
+			return fmt.Errorf("chatgroups: declining connect request %d: %w", requestID, err)
+		}
+		return fmt.Errorf("chatgroups: connect request %d: %w", requestID, ErrAlreadyDecided)
+	}
+	return nil
+}
+
+// adminConnectRequestSelect is the admin inbox's read of a connect request:
+// every column ConnectRequest carries plus the requester's profile name, for
+// RequesterName. ListConnectRequests and GetConnectRequest share it, and
+// scanAdminConnectRequest reads it, so the two reads cannot drift apart.
+//
+// The name comes through a LATERAL subquery scoped to each request's own
+// requester, not a plain join: user_profiles.user_id carries no UNIQUE
+// constraint, so a requester with two profile rows would otherwise list their
+// request twice. ORDER BY id LIMIT 1 names them from the oldest profile row. A
+// requester with no profile gets NULL, because LEFT JOIN ... ON true keeps the
+// request when the subquery finds nothing.
+//
+// Scoped per request rather than joined to a DISTINCT ON view of the whole
+// table, which scanned and sorted every profile on every call — including
+// GetConnectRequest's single-request read. user_profiles.user_id still has no
+// index, so each lookup scans that table; an index is the remaining fix.
+// Every request column is qualified with r. because user_profiles has an id
+// of its own.
+const adminConnectRequestSelect = `
+	SELECT r.id, r.requester_user_id, r.context_type, r.context_id, r.target_hint,
+	       r.message, r.group_id, r.status, r.decline_reason, r.decided_by_staff_id, r.created_at,
+	       p.full_name
+	  FROM chat_group_connect_requests r
+	  LEFT JOIN LATERAL (SELECT up.full_name
+	                       FROM user_profiles up
+	                      WHERE up.user_id = r.requester_user_id
+	                      ORDER BY up.id
+	                      LIMIT 1) p ON true`
+
+// scanAdminConnectRequest reads one row of adminConnectRequestSelect.
+func scanAdminConnectRequest(row pgx.Row) (ConnectRequest, error) {
+	var r ConnectRequest
+	err := row.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
+		&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt,
+		&r.RequesterName)
+	return r, err
+}
+
+// ListConnectRequests lists requests for the admin inbox, newest first,
+// optionally filtered by status ("" for all statuses), each with the
+// requester's name loaded (see adminConnectRequestSelect).
+func (s *Store) ListConnectRequests(ctx context.Context, status string) ([]ConnectRequest, error) {
+	query := adminConnectRequestSelect
+	args := []any{}
+	if status != "" {
+		query += ` WHERE r.status = $1`
+		args = append(args, status)
+	}
+	query += ` ORDER BY r.created_at DESC`
+
+	rows, err := s.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests: %w", err)
+	}
+	defer rows.Close()
+
+	out := []ConnectRequest{}
+	for rows.Next() {
+		r, err := scanAdminConnectRequest(rows)
+		if err != nil {
+			return nil, fmt.Errorf("chatgroups: scanning connect request row: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests: %w", err)
+	}
+	return out, nil
+}
+
+// GetConnectRequest reads one request by id for the admin inbox, with the
+// requester's name loaded (see adminConnectRequestSelect).
+func (s *Store) GetConnectRequest(ctx context.Context, id int64) (ConnectRequest, error) {
+	r, err := scanAdminConnectRequest(s.Pool.QueryRow(ctx, adminConnectRequestSelect+` WHERE r.id = $1`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ConnectRequest{}, fmt.Errorf("chatgroups: connect request %d: %w", id, ErrNotFound)
+	}
+	if err != nil {
+		return ConnectRequest{}, fmt.Errorf("chatgroups: getting connect request %d: %w", id, err)
+	}
+	return r, nil
+}
+
+// ListConnectRequestsForUser returns every request requesterID has ever
+// submitted, newest first — unlike ListConnectRequests (staff-only, no
+// requester filter), this shows a user their own request history
+// regardless of status.
+func (s *Store) ListConnectRequestsForUser(ctx context.Context, requesterID int64) ([]ConnectRequest, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT id, requester_user_id, context_type, context_id, target_hint,
+		       message, group_id, status, decline_reason, decided_by_staff_id, created_at
+		  FROM chat_group_connect_requests
+		 WHERE requester_user_id = $1
+		 ORDER BY created_at DESC`, requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests for user %d: %w", requesterID, err)
+	}
+	defer rows.Close()
+
+	out := []ConnectRequest{}
+	for rows.Next() {
+		var r ConnectRequest
+		if err := rows.Scan(&r.ID, &r.RequesterID, &r.ContextType, &r.ContextID, &r.TargetHint,
+			&r.Message, &r.GroupID, &r.Status, &r.DeclineReason, &r.DecidedByStaff, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("chatgroups: scanning connect request row: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("chatgroups: listing connect requests for user %d: %w", requesterID, err)
+	}
+	return out, nil
+}

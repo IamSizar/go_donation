@@ -119,7 +119,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Note #41 — Messages moved to the persistent top bar (shown on every
     // tab, not just its own screen), so its unread badge needs the
     // controller registered up-front here too, same as Notifications.
-    if (!Get.isRegistered<ChatController>()) {
+    //
+    // OPOS #26423 — except for a guest. The server gives a guest session an
+    // empty chat list and refuses thread messages (OPOS #26354), so a guest's
+    // ChatController would fetch /chats on start and poll it every 5 seconds
+    // for the whole session, for a badge that can never show anything. The
+    // top bar shows a guest's Messages door with no badge instead (see
+    // _TopBarActions), and Messages shows a guest a sign-in prompt.
+    if (!isGuestMode() && !Get.isRegistered<ChatController>()) {
       Get.put(ChatController());
     }
     _currentIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
@@ -297,7 +304,7 @@ class _CompactBottomNavBar extends StatelessWidget {
   static const double _barHeight = 52;
 
   /// Clearance below the labels, clamped between [_minClearance] and
-  /// [_maxClearance].
+  /// [_maxClearance] — **on iOS only** (see [_clearanceFor]).
   ///
   /// Two different things constrain this, and getting it wrong in either
   /// direction is visible:
@@ -314,21 +321,37 @@ class _CompactBottomNavBar extends StatelessWidget {
   ///     which is why the clipping looks asymmetric.
   ///
   /// 20pt clears both the indicator and the corner mask while still sitting
-  /// 14pt lower than the full inset.
+  /// 14pt lower than the full inset. This trade-off only holds on iOS: the
+  /// home indicator is a translucent overlay, not an opaque bar, so content
+  /// merely needs to clear the indicator itself, not the whole inset.
   static const double _minClearance = 6;
   static const double _maxClearance = 20;
 
-  /// The device's real bottom inset, clamped.
+  /// The device's real bottom inset, clamped **on iOS only**.
   ///
   /// Read from [View], not from MediaQuery: an ancestor can legitimately
   /// consume the padding (Scaffold does), after which MediaQuery reports 0
   /// and any calculation based on it silently produces a bar that looks fine
   /// in code and wrong on screen. The view is the ground truth.
+  ///
+  /// Android's system navigation (3-button bar, gesture pill, or an OEM
+  /// skin's own variant) is reported through the exact same inset, but
+  /// unlike iOS's home indicator it can be an OPAQUE bar drawn on top of the
+  /// app's own surface — and its height varies far more widely (24–48dp+)
+  /// than iOS's fixed ~34pt. Applying the iOS [_maxClearance] cap there
+  /// leaves the last several points of the tab bar's icons/labels sitting
+  /// behind that opaque bar, i.e. obstructed — which is exactly the reported
+  /// bug, and why it only showed up on some Android devices (whichever ones
+  /// report an inset above 20pt: gesture nav, taller OEM bars, or Android 15
+  /// where edge-to-edge is mandatory). Android must therefore always clear
+  /// its own full reported inset, uncapped.
   static double _clearanceFor(BuildContext context) {
     final view = View.of(context);
     final inset = view.viewPadding.bottom / view.devicePixelRatio;
-    return inset <= 0
-        ? _minClearance
+    if (inset <= 0) return _minClearance;
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    return isAndroid
+        ? (inset < _minClearance ? _minClearance : inset)
         : inset.clamp(_minClearance, _maxClearance);
   }
 
@@ -708,10 +731,23 @@ class _TopBarActions extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// The Messages door, badged with [unread] conversations needing attention.
+  Widget _messagesButton({required int unread}) => _TopBarIconButton(
+    icon: Icons.forum_outlined,
+    badgeCount: unread,
+    tooltip: 'Messages'.tr,
+    onTap: () => Get.to(() => const MessagesScreen()),
+  );
+
   @override
   Widget build(BuildContext context) {
     final notifications = Get.find<NotificationsController>();
-    final chats = Get.find<ChatController>();
+    // Null for a guest: DashboardScreen registers no ChatController for one
+    // (OPOS #26423), so there is no chat unread count and Get.find would
+    // throw. The registration is checked rather than assumed.
+    final chats = Get.isRegistered<ChatController>()
+        ? Get.find<ChatController>()
+        : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -719,7 +755,7 @@ class _TopBarActions extends StatelessWidget {
           // Summed, not "any unread": a single dot would say something is
           // waiting without saying how much, and both counts are already
           // rendered as numbers when expanded.
-          final pending = notifications.unreadCount + chats.totalUnread;
+          final pending = notifications.unreadCount + (chats?.totalUnread ?? 0);
           return _TopBarIconButton(
             icon: expanded ? Icons.close_rounded : Icons.more_horiz_rounded,
             badgeCount: expanded ? 0 : pending,
@@ -786,14 +822,17 @@ class _TopBarActions extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: DashboardTopBar._gap),
-                          Obx(
-                            () => _TopBarIconButton(
-                              icon: Icons.forum_outlined,
-                              badgeCount: chats.totalUnread,
-                              tooltip: 'Messages'.tr,
-                              onTap: () => Get.to(() => const MessagesScreen()),
+                          // Kept for a guest too, because Messages is where
+                          // support is reached from. A guest's door has no
+                          // badge and no Obx: without a ChatController there is
+                          // nothing to observe, and GetX throws on an Obx that
+                          // reads no observable.
+                          if (chats == null)
+                            _messagesButton(unread: 0)
+                          else
+                            Obx(
+                              () => _messagesButton(unread: chats.totalUnread),
                             ),
-                          ),
                           const SizedBox(width: DashboardTopBar._gap),
                           // "Ninth: Improve the Home Interface Design" — the profile photo
                           // sits top-right and opens the account hub.

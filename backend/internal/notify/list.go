@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ type Notification struct {
 
 // ListFilter narrows the notifications query.
 type ListFilter struct {
-	UserID     int64  // 0 = anonymous (only system-wide rows)
+	UserID     int64  // 0 = anonymous (only system-wide rows); a guest never gets chat-type rows
 	RoleID     int    // 0 = don't filter
 	Category   string // "" = all  | "normal","urgent","payment","campaign","system","reminder"
 	Type       string // "" = all
@@ -43,8 +44,74 @@ type ListFilter struct {
 	Limit      int    // default 50
 }
 
+// ─── Guests and conversations (OPOS #26424) ─────────────────────────────
+
+// chatNotificationTypes is every notification_type the backend writes about a
+// conversation. A guest account never sees these rows. Guests must not read
+// chats, and several of these rows carry the message itself as their body (an
+// 80-character preview), so listing them would hand a guest the chat that
+// auth.RequireNotGuest refuses on the chat routes.
+//
+// An explicit list rather than a LIKE 'chat%' prefix, so a type is hidden only
+// because someone decided it is a conversation. chat_types_test.go builds
+// every conversation template and fails if its type is missing here.
+//
+//   - chat_request, chat_accepted, chat_message: the donor ↔ campaign-owner
+//     chat, and the support chat, whose staff replies are chat_message rows
+//     from "Support" and cannot be told apart by type;
+//   - chat_group_message: masked and team chat groups;
+//   - marriage_chat_request, marriage_chat_accepted, marriage_chat_message:
+//     the staff-mediated marriage chat;
+//   - marriage_meeting_declined: the refusal of a request to open that chat.
+//     Its approval arrives as marriage_chat_request, so both outcomes hide;
+//   - staff_chat_message: the internal staff chat.
+//
+// Deliberately NOT here: support_request_submitted, support_ticket_replied and
+// support_ticket_<status>. They belong to support TICKETS, which a guest may
+// still read at GET /api/support/mine, and they never quote the reply.
+var chatNotificationTypes = []string{
+	"chat_request",
+	"chat_accepted",
+	"chat_message",
+	"chat_group_message",
+	"marriage_chat_request",
+	"marriage_chat_accepted",
+	"marriage_chat_message",
+	"marriage_meeting_declined",
+	"staff_chat_message",
+}
+
+// ChatNotificationTypes returns a copy of the chat-type list, so a caller can
+// bind it as a query argument without being able to edit the shared list.
+func ChatNotificationTypes() []string {
+	return slices.Clone(chatNotificationTypes)
+}
+
+// GuestChatExclusionSQL returns a WHERE predicate that drops chat-type rows
+// when the user is a guest and keeps every row otherwise. It expects
+// app_notifications aliased as n. userIDArg and typesArg are placeholders such
+// as "$2", never values: the caller binds the user id and
+// ChatNotificationTypes() to them.
+//
+// The filter lives in SQL, not in Go after the fetch, so LIMIT and the unread
+// filter only ever count rows the caller may see. Guest status comes from
+// users.is_guest, the column the token resolver reads on every request, so an
+// upgraded account sees its chat notifications again straight away.
+//
+// COALESCE keeps an untyped row (notification_type NULL) visible. Without it,
+// "NULL = ANY(...)" is NULL, and NOT NULL would drop that row for a guest.
+func GuestChatExclusionSQL(userIDArg, typesArg string) string {
+	return `NOT (COALESCE(n.notification_type, '') = ANY(` + typesArg + `::text[])
+	         AND EXISTS (SELECT 1 FROM users guest_u
+	                      WHERE guest_u.id = ` + userIDArg + ` AND guest_u.is_guest))`
+}
+
 // List returns notifications visible to the user, with effective read status
 // computed against app_notification_reads for broadcast rows (user_id IS NULL).
+//
+// A guest account's list leaves out chat-type rows (GuestChatExclusionSQL).
+// The unread filter is the same query, so a guest's unread count excludes them
+// too. Every other caller and every other type is unaffected.
 func (n *Notifier) List(ctx context.Context, f ListFilter) ([]Notification, error) {
 	limit := f.Limit
 	if limit <= 0 || limit > 200 {
@@ -125,6 +192,11 @@ func (n *Notifier) List(ctx context.Context, f ListFilter) ([]Notification, erro
 	if f.UserID > 0 {
 		uidArg := nextArg(f.UserID)
 		where = append(where, "(n.user_id = "+uidArg+" OR n.user_id IS NULL)")
+		// OPOS #26424 — a guest never sees chat-type rows. The user id gets a
+		// fresh placeholder so each one takes its type from a single column.
+		guestUserArg := nextArg(f.UserID)
+		chatTypesArg := nextArg(chatNotificationTypes)
+		where = append(where, GuestChatExclusionSQL(guestUserArg, chatTypesArg))
 	} else {
 		where = append(where, "n.user_id IS NULL")
 	}

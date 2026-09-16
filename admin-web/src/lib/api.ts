@@ -303,7 +303,7 @@ export async function withMainAdminConfirmation<T>(
       autoComplete: 'one-time-code',
     })
     if (code == null || !code.trim()) {
-      throw new Error(translate('perm.main_admin_confirm_required'))
+      throw new Error(translate('perm.main_admin_confirm_required'), { cause: e })
     }
     return await send({ confirmation_code: code.trim() })
   }
@@ -344,7 +344,7 @@ export async function withSectionUnlock<T>(send: () => Promise<T>): Promise<T> {
     // Nothing was delivered: say when it clears, and do not ask for a code.
     if (data?.code === 'perm_section_blocked_wait') {
       const minutes = Math.max(1, Math.ceil((data.retry_after ?? 60) / 60))
-      throw new Error(translate('perm.unlock_wait', { minutes }))
+      throw new Error(translate('perm.unlock_wait', { minutes }), { cause: e })
     }
     if (data?.code !== 'perm_section_blocked_sms' && data?.code !== 'perm_section_blocked_email') {
       throw e
@@ -359,7 +359,7 @@ export async function withSectionUnlock<T>(send: () => Promise<T>): Promise<T> {
       inputMode: 'numeric',
       autoComplete: 'one-time-code',
     })
-    if (code == null || !code.trim()) throw new Error(translate('perm.unlock_required'))
+    if (code == null || !code.trim()) throw new Error(translate('perm.unlock_required'), { cause: e })
 
     // A failure here is the server's refusal of the unlock code itself
     // (perm_unlock_invalid / perm_unlock_attempts), and it is thrown on

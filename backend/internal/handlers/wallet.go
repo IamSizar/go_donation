@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/wallet"
 )
@@ -22,10 +24,17 @@ import (
 type WalletHandler struct {
 	Wallet   *wallet.Store
 	Notifier *notify.Notifier
+	// Pool + Events back logWalletTopUp's admin-notification-feed entry (see
+	// logAdminUserEvent in admin_status_events.go for the sibling pattern this
+	// mirrors). Both nil-safe: a handler wired without them just skips logging
+	// rather than panicking, matching logAdminUserEvent's own "best-effort"
+	// contract.
+	Pool   *pgxpool.Pool
+	Events *events.Store
 }
 
-func NewWalletHandler(w *wallet.Store, n *notify.Notifier) *WalletHandler {
-	return &WalletHandler{Wallet: w, Notifier: n}
+func NewWalletHandler(w *wallet.Store, n *notify.Notifier, pool *pgxpool.Pool, ev *events.Store) *WalletHandler {
+	return &WalletHandler{Wallet: w, Notifier: n, Pool: pool, Events: ev}
 }
 
 // GET /api/wallet — the current user's balance. Always 0 for a guest (never
@@ -102,6 +111,13 @@ func (h *WalletHandler) AdminTopUp(c *gin.Context) {
 		return
 	}
 
+	// Durable, attributed record of who credited whose wallet and when,
+	// surfaced on the same admin Notification Center feed as every other
+	// sensitive account action (role/tier/password/status changes) — see
+	// OPOS #25290. The wallet_transactions ledger row already carries
+	// created_by/created_at, but nothing before this surfaced it to staff.
+	h.logWalletTopUp(c, targetID, req.AmountIQD, newBalance)
+
 	if h.Notifier != nil {
 		amount, balance := req.AmountIQD, newBalance
 		go func() {
@@ -117,5 +133,58 @@ func (h *WalletHandler) AdminTopUp(c *gin.Context) {
 		"status":      "success",
 		"user_id":     targetID,
 		"balance_iqd": newBalance,
+	})
+}
+
+// logWalletTopUp appends an admin-sourced row to app_events for a wallet
+// credit, mirroring logAdminUserEvent (admin_status_events.go) — same feed,
+// same denormalize-name/phone-so-the-row-survives-deletion shape, same
+// best-effort contract (a logging failure must never fail the top-up itself,
+// so every error here is swallowed). Kept as its own small method rather than
+// sharing logAdminUserEvent directly: that one is a method on
+// *AdminStatusHandler, and WalletHandler has no reference to one.
+func (h *WalletHandler) logWalletTopUp(c *gin.Context, targetID, amountIQD, newBalanceIQD int64) {
+	if h.Events == nil || h.Pool == nil {
+		return
+	}
+	ctx := c.Request.Context()
+
+	var name, phone string
+	_ = h.Pool.QueryRow(ctx,
+		`SELECT COALESCE(p.full_name, ''), COALESCE(u.phone, '')
+		   FROM users u
+		   LEFT JOIN user_profiles p ON p.user_id = u.id
+		  WHERE u.id = $1`, targetID).Scan(&name, &phone)
+
+	meta := map[string]any{"new_balance_iqd": newBalanceIQD}
+	if actor, ok := auth.UserFromGin(c); ok && actor != nil {
+		meta["actor_user_id"] = actor.UserID
+		meta["actor_phone"] = actor.Phone
+		meta["actor_tier"] = actor.StaffTier
+		var actorName string
+		_ = h.Pool.QueryRow(ctx,
+			`SELECT COALESCE(full_name, '') FROM user_profiles WHERE user_id = $1`,
+			actor.UserID).Scan(&actorName)
+		if disp := firstNonEmpty(actorName, actor.Phone); disp != "" {
+			meta["actor_name"] = disp
+		}
+	}
+
+	amount := float64(amountIQD)
+	tid := targetID
+	_, _ = h.Events.Insert(ctx, events.Event{
+		EventType:    "admin_wallet_topup",
+		Module:       "wallet",
+		Action:       "topup",
+		Source:       "admin",
+		UserID:       &tid,
+		Name:         name,
+		Number:       phone,
+		NumberDigits: digitsOnly(phone),
+		EntityID:     &tid,
+		Amount:       &amount,
+		Currency:     "IQD",
+		Metadata:     meta,
+		CreatedAtMs:  time.Now().UnixMilli(),
 	})
 }

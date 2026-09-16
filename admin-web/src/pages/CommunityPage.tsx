@@ -50,7 +50,10 @@ const COMMUNITY_FIELDS: FieldSpec[] = [
 
 export default function CommunityPage() {
   const [resp, setResp] = useState<Resp | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Which request last came back. `loading` is derived from it below rather
+  // than set at the top of the fetch effect, which costs a second render and
+  // is what `react-hooks/set-state-in-effect` objects to.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [city, setCity] = useState('')
   const [category, setCategory] = useState('')
@@ -63,17 +66,20 @@ export default function CommunityPage() {
   const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
 
+  // Every dependency of the fetch effect below, so the page reads as loading
+  // from the render that changes any of them.
+  const requestKey = `${city}|${category}|${q}|${refreshTick}`
+  const loading = loadedKey !== requestKey
+
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setErr(null)
     api
       .get<Resp>('/api/community', { params: { city: city || undefined, category: category || undefined, q: q || undefined, limit: 100 } })
-      .then((res) => { if (!cancelled) setResp(res.data) })
+      .then((res) => { if (!cancelled) { setResp(res.data); setErr(null) } })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => { if (!cancelled) setLoadedKey(requestKey) })
     return () => { cancelled = true }
-  }, [city, category, q, refreshTick])
+  }, [city, category, q, refreshTick, requestKey])
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
@@ -175,7 +181,9 @@ export default function CommunityPage() {
           <button onClick={() => setCreating(true)}>{t('page.community.new')}</button>
         </div>
       </PageHead>
-      {err && <div className="error-box">{err}</div>}
+      {/* Hidden while a newer request is in flight, which is what clearing the
+          error at the top of the fetch effect used to achieve. */}
+      {!loading && err && <div className="error-box">{err}</div>}
       <Table<CommunityEntry> rows={items} columns={columns} rowKey={(e) => e.id} loading={loading} empty={t('empty.community')} />
       <EditModal
         open={modalOpen}
