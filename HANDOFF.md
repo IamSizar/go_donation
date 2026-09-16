@@ -34,7 +34,14 @@
 - `go test ./... -count=1 -p 1 -timeout 45m` on a fresh DB: exit 0, 22 packages `ok`, no FAIL lines.
 - Review (`ecc:go-reviewer`): **APPROVE**. No CRITICAL, HIGH or MEDIUM findings. One LOW, fixed: `chatServerErr`'s doc said "reads" although `MarkRead` writes.
 
-**External actions:** none. Nothing was pushed. Each throwaway DB (`godonation_26496_{red,pkg,run,full}`) was dropped and confirmed gone with `psql -lqt`.
+**After a harness watchdog stalled the session** (commit `a031cd5` was already in place), the checks were re-run on two more fresh DBs, since the earlier background jobs were gone:
+- `origin/main` was still `b0c9eb8`, so the merge was a no-op.
+- `go test ./internal/chatgroups/ ./internal/handlers/ -count=1 -p 1 -timeout 45m`: `ok` for both packages (11.7s, 23.1s).
+- the same `-v -run` regex: PASS=39, FAIL=0, SKIP=0.
+- The full `./...` run was not repeated; the coordinator is running it on main after the merge.
+- The reviewer agent was not re-run. The diff was re-read instead and confirms: every English sentence and status is unchanged, the three helpers add no entry to the `chatErrResponses` table so no sentinel shadows another, and all 500s are still logged (the one removed `log.Printf` is replaced by `chatServerErr`'s own).
+
+**External actions:** none. Nothing was pushed. Each throwaway DB (`godonation_26496_{red,pkg,run,full}` and `godonation_26496b_{pkg,run}`) was dropped and confirmed gone with `psql -lqt`.
 
 **Still open:** the admin-web locale key for `unauthorized`.
 
