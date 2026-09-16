@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useI18n } from '../lib/i18n'
 
-type Theme = 'dark' | 'light'
+import { applyTheme, type Theme } from './theme'
+
 const KEY = 'theme'
 
 // Dark is what the dashboard has always been, so it stays the default: no
@@ -14,13 +15,6 @@ function stored(): Theme {
   } catch {
     return 'dark'
   }
-}
-
-/** Applied before React mounts too — see the inline script in index.html — so
- *  a light-theme user doesn't get a dark flash on every page load. */
-export function applyTheme(theme: Theme) {
-  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light')
-  else document.documentElement.removeAttribute('data-theme')
 }
 
 export default function ThemeToggle() {

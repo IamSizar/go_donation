@@ -70,7 +70,7 @@ func postAccountStatusAs(
 	r.POST("/api/admin/users/:id/account_status",
 		auth.RequireAdmin(tokenStore),
 		auth.RequirePermission(permissions.New(pool), "users", "archive"),
-		NewAdminStatusHandler(pool, nil, nil, nil).UserAccountStatus,
+		NewAdminStatusHandler(pool, nil, nil).UserAccountStatus,
 	)
 
 	session, err := tokenStore.IssueToken(context.Background(), actorID, "test-agent", "127.0.0.1")

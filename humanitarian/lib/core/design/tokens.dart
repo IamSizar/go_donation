@@ -321,6 +321,23 @@ abstract final class AppType {
   static const double leadBody = 1.5;
   static const double leadDense = 1.45;
 
+  // OPOS #25281 — Arabic-script leading (ar/ckb/kmr, rendered in
+  // [AppThemeConfig.arabicScriptFontFamily]). Arabic's taller x-height,
+  // ligatures and diacritic marks need more vertical room than the Latin
+  // values above give them, which is what read to users as text "overlapping"
+  // on any wrapped multi-line string using [leadDisplay]/[leadTitle] — the
+  // two tightest values, meant for short single-line Latin headings.
+  // `dashboard_screen.dart` independently discovered this same font renders
+  // at roughly 1.45 "naturally" for its own nav-bar text before being
+  // deliberately clamped to fit a fixed-height bar; these values follow that
+  // same empirical finding rather than a guess, applied via
+  // [AppThemeConfig.applyLocaleFont] so every screen using the shared
+  // TextTheme gets it, not just the one bar that first noticed.
+  static const double leadDisplayAr = 1.35;
+  static const double leadTitleAr = 1.45;
+  static const double leadBodyAr = 1.65;
+  static const double leadDenseAr = 1.6;
+
   // Weights. Hierarchy is carried by weight as much as size.
   //
   // Note: Flutter's FontWeight only exposes hundreds (w100…w900), unlike CSS

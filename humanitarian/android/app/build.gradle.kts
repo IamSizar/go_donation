@@ -66,8 +66,40 @@ android {
             // android/upload-keystore.jks, both gitignored. LOSING THAT FILE
             // MEANS THE APP CAN NEVER BE UPDATED ON PLAY under this identity,
             // so it belongs in a password manager, not only on one laptop.
-            signingConfig = signingConfigs.getByName("release")
+            //
+            // findByName, not getByName: Gradle configures EVERY build type on
+            // every build, so getByName threw "SigningConfig with name 'release'
+            // not found" for a plain debug build in any checkout without
+            // key.properties (a fresh clone, a git worktree). The loud,
+            // release-only failure is kept by the task-graph check below.
+            signingConfig = signingConfigs.findByName("release")
         }
+    }
+}
+
+// A release build without the signing material must still fail loudly (see the
+// comment on keystoreProperties above), and say what is missing. The check
+// fires for any build whose task graph includes this app's release-variant
+// tasks — assembleRelease and bundleRelease (flutter build apk/appbundle), and
+// also :app:test and :app:check, which pull release tasks in; that errs on the
+// safe side. Debug and profile builds sign with the debug key and need no
+// secrets, so they keep working in a checkout without key.properties.
+//
+// It asks whether the release build type actually has a signing config, not
+// whether key.properties exists, so it stays right if signing ever moves to
+// another source.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { task ->
+        task.project == project && task.name.contains("Release")
+    }
+    val releaseSigning = android.buildTypes.getByName("release").signingConfig
+    if (buildsRelease && releaseSigning == null) {
+        throw GradleException(
+            "No release signing config: android/key.properties is missing, so " +
+                "this release build cannot be signed with the upload key. Put " +
+                "key.properties and the keystore it names back in android/ " +
+                "(see the comment above buildTypes.release).",
+        )
     }
 }
 

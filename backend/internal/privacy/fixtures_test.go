@@ -184,44 +184,6 @@ func makeComment(t *testing.T, pool *pgxpool.Pool, postID, userID int64) int64 {
 	return id
 }
 
-// ─── Case ↔ volunteer chat ──────────────────────────────────────────────
-
-// makeCaseVolThread builds the whole chain the thread's foreign keys need:
-// a mission, the volunteer's signup on it, and a case owned by the
-// beneficiary.
-func makeCaseVolThread(t *testing.T, pool *pgxpool.Pool, volunteerID, beneficiaryID int64) int64 {
-	t.Helper()
-	ctx := context.Background()
-
-	var missionID int64
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_missions (title) VALUES ('K8 test mission') RETURNING id`,
-	).Scan(&missionID); err != nil {
-		t.Fatalf("insert mission: %v", err)
-	}
-	var signupID int64
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO volunteer_mission_signups (user_id, mission_id) VALUES ($1, $2) RETURNING id`,
-		volunteerID, missionID,
-	).Scan(&signupID); err != nil {
-		t.Fatalf("insert signup: %v", err)
-	}
-	caseID := makeCase(t, pool, beneficiaryID)
-
-	var threadID int64
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO case_volunteer_chat_threads
-		   (signup_id, case_id, volunteer_user_id, beneficiary_user_id)
-		 VALUES ($1, $2, $3, $4) RETURNING id`,
-		signupID, caseID, volunteerID, beneficiaryID,
-	).Scan(&threadID); err != nil {
-		t.Fatalf("insert case-volunteer thread: %v", err)
-	}
-	t.Cleanup(func() {
-		bg := context.Background()
-		_, _ = pool.Exec(bg, `DELETE FROM case_volunteer_chat_threads WHERE id = $1`, threadID)
-		_, _ = pool.Exec(bg, `DELETE FROM volunteer_mission_signups WHERE id = $1`, signupID)
-		_, _ = pool.Exec(bg, `DELETE FROM volunteer_missions WHERE id = $1`, missionID)
-	})
-	return threadID
-}
+// Case ↔ volunteer chat — RETIRED by OPOS #25284 Phase 4. makeCaseVolThread
+// (its only caller was TestCaseVolunteerChatHidesTheCounterpartName in
+// enforcement_test.go, removed alongside it) is gone; see casevolchat.go.
