@@ -105,6 +105,59 @@ func TestUploadRejectsUnknownExtensions(t *testing.T) {
 	}
 }
 
+// OPOS #25291 — "News & Media post bug": the Media admin form has offered
+// "Video" as a post_type since the seed data, but this handler had no video
+// extension at all, so the upload always 400'd — a video post could only
+// ever work by pasting an already-hosted external URL by hand. This locks
+// in that video files are now actually storable.
+func TestUploadAcceptsVideoExtensions(t *testing.T) {
+	for _, name := range []string{"a.mp4", "b.mov", "c.webm"} {
+		t.Run(name, func(t *testing.T) {
+			rec := doUpload(t, name, []byte("not a real video, but extension-only validation doesn't care"))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status %d for %s, want 200: %s", rec.Code, name, rec.Body.String())
+			}
+			var body map[string]any
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("response is not JSON: %v", err)
+			}
+			if _, ok := body["path"]; !ok {
+				t.Errorf("no stored path returned: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+// A video file bigger than the 5 MB image/PDF ceiling must still succeed —
+// video needs its OWN, larger ceiling (MaxVideoBytes) — but an image file
+// that size must still be rejected: the larger ceiling is scoped to video
+// extensions only, not loosened for every caller of this shared endpoint.
+func TestUploadEnforcesPerCategorySizeLimits(t *testing.T) {
+	overImageCap := bytes.Repeat([]byte{0}, 6*1024*1024) // 6 MB > 5 MB image cap, < 50 MB video cap
+
+	t.Run("a 6 MB video succeeds", func(t *testing.T) {
+		rec := doUpload(t, "clip.mp4", overImageCap)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d, want 200 — video gets its own larger size ceiling: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("a 6 MB image is still rejected", func(t *testing.T) {
+		rec := doUpload(t, "photo.png", overImageCap)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d, want 400 — the video ceiling must not leak to images", rec.Code)
+		}
+	})
+
+	t.Run("a 51 MB video is rejected", func(t *testing.T) {
+		overVideoCap := bytes.Repeat([]byte{0}, 51*1024*1024)
+		rec := doUpload(t, "huge.mp4", overVideoCap)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status %d, want 400 — even video has a ceiling", rec.Code)
+		}
+	})
+}
+
 // Documents a gap that this change does NOT close, so nobody reads the tests
 // above and concludes uploads are content-verified. Validation is by extension
 // only: a file whose bytes are HTML but whose name ends in .png is accepted.
