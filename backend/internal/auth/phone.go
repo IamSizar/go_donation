@@ -77,7 +77,25 @@ func NormalizePhone(raw string) string {
 	}
 
 	// Explicit "+"/"00" international prefix — already <dialcode><number>.
-	// Basic E.164 sanity range: 7-15 digits total (country code + number).
+	//
+	// Iraq gets its own exact rule rather than the generic range below: the
+	// app always sends the dial code explicitly (the country picker
+	// prepends "+964"), so this branch — not the bare-input one above — is
+	// the one every real Iraqi submission actually goes through. Before this
+	// check existed, "+964773800028" (a 9-digit national number, one short)
+	// passed the generic 7-15 total-digit range and was accepted, which is
+	// exactly the bug reported in OPOS #25268: a too-short Iraqi number
+	// reaching an "accepted" registration.
+	if national := strings.TrimPrefix(p, iraqDialCode); national != p {
+		if len(national) != 10 {
+			return ""
+		}
+		return p
+	}
+
+	// Any other country: basic E.164 sanity range, 7-15 digits total
+	// (country code + number). A precise per-country length table is not
+	// attempted here — Iraq is the concrete failure being fixed.
 	if len(p) < 7 || len(p) > 15 {
 		return ""
 	}
