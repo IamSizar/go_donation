@@ -458,7 +458,6 @@ class AppTranslations extends Translations {
         'Could not read your location. Make sure location is turned on for '
         'this app, then try again.',
     // Everything below crosses the network and takes a recovery clause.
-    'error_role_change_failed': 'Could not change your account type.',
     'error_history_load_failed': 'Could not load your record.',
     'error_otp_send_failed': 'Could not send the verification code.',
     'error_otp_verify_failed': 'Could not verify that code.',
@@ -670,6 +669,8 @@ class AppTranslations extends Translations {
     // "your whole submission was lost".
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'Your registration was saved, but your documents did not upload. You can add them from your profile.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'Your registration was saved, but your photo did not upload. You can add it from your profile.',
     // L2 — same shape, same reason, for the donor's optional social links:
     // reassure first, then name the one thing that did not happen and where to
     // do it instead. "Privacy settings" is the screen that owns these three
@@ -2863,6 +2864,11 @@ class AppTranslations extends Translations {
     'activity_submitting': 'Submitting…',
     'activity_submitted': 'Thanks! Your suggestion was sent for review.',
     'activity_submit_failed': 'Could not submit. Please try again.',
+    // OPOS #25280 — a timed-out or dropped-connection request may have
+    // already reached the server; unlike activity_submit_failed, this does
+    // NOT claim the submission failed.
+    'activity_submit_unconfirmed':
+        "We couldn't confirm this went through. Check the list before trying again.",
     // K16 — the category field is a picker over the curated sub-categories
     // now, and they are scoped to the sectors ticked above it, so this is what
     // the field says before a sector is chosen.
@@ -3215,12 +3221,8 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'Events dashboard',
     'Gender cannot be changed after sign-up.':
         'Gender cannot be changed after sign-up.',
-    'Account type': 'Account type',
-    'Switch account type?': 'Switch account type?',
     'You can switch to @type yourself, but only staff can switch you back.':
         'You can switch to @type yourself, but only staff can switch you back.',
-    'Account type updated.': 'Account type updated.',
-    'Account type unchanged.': 'Account type unchanged.',
     'Nothing saved yet.': 'Nothing saved yet.',
     'Remove': 'Remove',
     'Select a project': 'Select a project',
@@ -3644,7 +3646,6 @@ class AppTranslations extends Translations {
     'error_gps_capture_failed':
         'تعذّر تحديد موقعك. تأكّد من تفعيل خدمة الموقع لهذا التطبيق ثم حاول '
         'مرة أخرى.',
-    'error_role_change_failed': 'تعذّر تغيير نوع حسابك.',
     'error_history_load_failed': 'تعذّر تحميل سجلك.',
     'error_otp_send_failed': 'تعذّر إرسال رمز التحقق.',
     'error_otp_verify_failed': 'تعذّر التحقق من الرمز.',
@@ -3779,6 +3780,8 @@ class AppTranslations extends Translations {
     'Registration': 'التسجيل',
     'Your registration was saved, but your documents did not upload. You can add them from your profile.':
         'تم حفظ تسجيلك، لكن لم يتم رفع مستنداتك. يمكنك إضافتها من ملفك الشخصي.',
+    'Your registration was saved, but your photo did not upload. You can add it from your profile.':
+        'تم حفظ تسجيلك، لكن لم يتم رفع صورتك. يمكنك إضافتها من ملفك الشخصي.',
     'Your registration was saved, but your social links did not. You can add them from Privacy settings.':
         'تم حفظ تسجيلك، لكن لم يتم حفظ روابط التواصل. يمكنك إضافتها من إعدادات الخصوصية.',
     'Could not save that preference. Please try again.':
@@ -5790,6 +5793,8 @@ class AppTranslations extends Translations {
     'activity_submitting': 'جارٍ الإرسال…',
     'activity_submitted': 'شكرًا! تم إرسال اقتراحك للمراجعة.',
     'activity_submit_failed': 'تعذّر الإرسال. حاول مرة أخرى.',
+    'activity_submit_unconfirmed':
+        'لم نتمكن من التأكد من وصول الطلب. تحقق من القائمة قبل المحاولة مرة أخرى.',
     // K16 — حقل التصنيف صار قائمة اختيار من الفئات الفرعية المعتمدة.
     'activity_pick_sector_first': 'اختر قطاعًا في الأعلى لعرض فئاته الفرعية.',
     'activity_need_fields': 'يرجى إدخال الاسم واختيار فئة فرعية.',
@@ -6093,12 +6098,8 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'لوحة الفعاليات',
     'Gender cannot be changed after sign-up.':
         'لا يمكن تغيير الجنس بعد إنشاء الحساب.',
-    'Account type': 'نوع الحساب',
-    'Switch account type?': 'تغيير نوع الحساب؟',
     'You can switch to @type yourself, but only staff can switch you back.':
         'يمكنك التحويل إلى @type بنفسك، لكن لا يمكن إرجاعك إلا عن طريق الموظفين.',
-    'Account type updated.': 'تم تحديث نوع الحساب.',
-    'Account type unchanged.': 'لم يتغيّر نوع الحساب.',
     'Nothing saved yet.': 'لا توجد عناصر محفوظة بعد.',
     'Remove': 'إزالة',
     'Select a project': 'اختر مشروعًا',
@@ -8399,9 +8400,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردی هاوسەرگیری',
     'Gender cannot be changed after sign-up.':
         'ڕەگەز ناتوانرێت بگۆڕدرێت دوای دروستکردنی هەژمار.',
-    'Account type': 'جۆری هەژمار',
-    'Account type updated.': 'جۆری هەژمار نوێکرایەوە.',
-    'Account type unchanged.': 'جۆری هەژمار نەگۆڕا.',
     'Nothing saved yet.': 'هێشتا هیچ شتێک پاشەکەوت نەکراوە.',
     'Remove': 'لابردن',
     'Select a project': 'پڕۆژەیەک هەڵبژێرە',
@@ -10673,9 +10671,6 @@ class AppTranslations extends Translations {
     'Marriage dashboard': 'داشبۆردا زەواجێ',
     'Gender cannot be changed after sign-up.':
         'زایەند پشتی چێکرنا هەژماری ناهێتە گهۆڕین.',
-    'Account type': 'جۆرێ هەژماری',
-    'Account type updated.': 'جۆرێ هەژماری هاتە نویکرن.',
-    'Account type unchanged.': 'جۆرێ هەژماری نەهاتە گهۆڕین.',
     'Nothing saved yet.': 'هێشتا چ تشت نەهاتیە پاراستن.',
     'Remove': 'ژێبرن',
     'Select a project': 'پرۆژەکێ هەلبژێرە',
