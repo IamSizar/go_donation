@@ -379,7 +379,8 @@ String? _chatEntityForType(String type) {
   if (type.startsWith('marriage_chat')) return 'marriage_chat_thread';
   if (type.startsWith('chat_group')) return 'chat_group_thread';
   if (type.startsWith('chat_')) return 'chat_thread';
-  if (type == 'staff_chat_message') return null;
+  // staff_chat_message falls through on purpose: internal staff chat has no
+  // screen in this app, so it is not a chat destination here.
   return null;
 }
 
