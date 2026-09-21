@@ -310,7 +310,8 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                   children: DonationsSection._quickAmounts.map((amount) {
                     final isSelected = amount == _selectedAmount;
                     return _DonationAmountChip(
-                      label: '${formatAmount(amount)} ${localizedCurrency('IQD')}',
+                      label:
+                          '${formatAmount(amount)} ${localizedCurrency('IQD')}',
                       isSelected: isSelected,
                       onTap: () {
                         AppHaptics.selection();
@@ -595,21 +596,40 @@ class DonationFeaturedCampaignCard extends StatelessWidget {
                         // Card shows only the headline; the summary/description
                         // moved to CampaignDetailScreen (opened on tap) so the
                         // list stays scannable — see task-3-brief.md.
+                        //
+                        // Title and category badge share a Wrap, not a Row. As
+                        // the last child of a Row the badge was laid out at its
+                        // full natural width FIRST and the title got what was
+                        // left, so a real Badini category ('چاودێریا پزیشکی')
+                        // left the title 62 px (about 19 lines) and a long
+                        // admin-typed one left it 0 px. In a Wrap a short title
+                        // and a short badge still sit on one line, so the card
+                        // stays as compact as the owner asked (see the height
+                        // guard in donation_featured_campaign_card_test.dart);
+                        // only when they do not fit together does the badge drop
+                        // below the title instead of crushing it.
                         Expanded(
-                          child: Text(
-                            campaign.title,
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 20,
-                            ),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                campaign.title,
+                                style: TextStyle(
+                                  color: AppThemeConfig.text(context),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              _DonationTypeBadge(
+                                label: campaign.category.trim().isNotEmpty
+                                    ? campaign.category
+                                    : 'Campaign'.tr,
+                                color: mist,
+                              ),
+                            ],
                           ),
-                        ),
-                        _DonationTypeBadge(
-                          label: campaign.category.trim().isNotEmpty
-                              ? campaign.category
-                              : 'Campaign'.tr,
-                          color: mist,
                         ),
                       ],
                     ),
@@ -905,20 +925,32 @@ class _SelectedDonationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      option.title.tr,
-                      style: TextStyle(
-                        color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                      ),
+                    // A Wrap, not a trailing Row child — same reason as the list
+                    // card above: the Row sized the badge first and starved the
+                    // title of width. Here they share a line when they fit and
+                    // the badge drops under the title when they do not.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          option.title.tr,
+                          style: TextStyle(
+                            color: AppThemeConfig.text(context),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 22,
+                          ),
+                        ),
+                        _DonationTypeBadge(
+                          label: option.typeLabel,
+                          color:
+                              (option.color ?? AppThemeConfig.accent(context)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-              _DonationTypeBadge(
-                label: option.typeLabel,
-                color: (option.color ?? AppThemeConfig.accent(context)),
               ),
             ],
           ),

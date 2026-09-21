@@ -6,6 +6,63 @@
 
 ---
 
+## 2026-09-21 — Contribute tab: the category badge no longer squeezes a campaign's title (OPOS #28166)
+
+**Asked for:** "fix it", following the audit OPOS #28157 (which followed the campaign-detail
+fix, PR #150). Branch `fix/donation-card-title-squeezed-by-badge`, cut from `main`,
+**NOT pushed at time of writing** (see the PR link in OPOS #28166).
+
+### What was found
+`donations_section.dart` put the campaign title (`Expanded`) and `_DonationTypeBadge(category)`
+in one `Row` in TWO places: the campaign list card (`DonationFeaturedCampaignCard`) and the
+selected-campaign card (`_SelectedDonationCard`). A Row sizes the non-flex badge first. Measured
+on the real widget (real NotoKufiArabic, 360dp, ar_SA, text scale 1.3): the title kept 157 px with
+no category, 110 px with seeded 'رعاية طبية', 62 px x 690 px with seeded Badini 'چاودێریا پزیشکی',
+0 px with a long admin-typed category (and RenderFlex overflow).
+
+### What was changed
+* Both Rows now put the title and the badge in a `Wrap` (spacing 8): short title + short badge
+  still share a line, so the list card stays as compact as the owner asked; when they do not fit,
+  the badge drops under the title. Files: `humanitarian/lib/modules/donations/screens/donations_section.dart`.
+* **First attempt was wrong and is not what shipped:** stacking the badge under the title ALWAYS
+  made the list card 222 px tall and tripped the existing guard `card height stays compact now the
+  description is gone` (`lessThan(213)`). The guard encodes an owner request, so the layout was
+  changed to a `Wrap` instead of loosening the limit.
+* New test `humanitarian/test/widgets/donation_badge_title_squeeze_test.dart`: pumps the real
+  `DonationsSection`, both cards, 4 scenarios (seeded Arabic, seeded Badini, long admin-typed at
+  scale 1.3, long admin-typed at scale 2.0).
+
+### Verification
+```
+RED on the old code: all 8 cases fail; title width 110/122, 61/73, 0 x4 (needs > 140)
+GREEN with the fix:  donation_badge_title_squeeze_test + donation_featured_campaign_card_test = 11 passed
+humanitarian $ flutter test    -> 13:44 +1300: All tests passed!
+humanitarian $ flutter analyze -> 6 issues found (unchanged info-level baseline; 0 in touched files)
+```
+Simulator (iPhone 16, iOS 18.5, ar_SA, scale 1.3): selected card shows the Badini badge under a
+readable 3-line title; the list shows a real, long-titled, 100%-funded campaign with the badge
+under the title, and a short-titled campaign with title and badge on one line. NOT run on Android.
+
+### Traps
+* `flutter_test` uses the Ahem font (every glyph a full em), so widths are meaningless unless a
+  test loads the real font - the new test does (`FontLoader('NotoKufiArabic')` from
+  `assets/fonts/NotoKufiArabic-Variable.ttf`).
+* The full `flutter test` took ~10 minutes and looked hung when the Mac was at load average ~100
+  (other apps + a Playwright Chromium). It was progressing; check `flutter_tester` PIDs changing
+  before killing it.
+* A `// ignore: rule - explanation` on ONE line does not parse; put the explanation on its own line.
+* The audit's scanner initially missed this very Row: an apostrophe inside a `//` comment
+  desynchronised its string tracking. Strip comments before scanning Dart with a script.
+* This entry and PR #150's entry are both inserted above the "2026-09-16 - Client item C3" heading,
+  so merging both PRs will produce a trivial HANDOFF.md conflict - keep both entries.
+
+### Still open
+* `beneficiary_entitlements_screen.dart:210` `_StatusChip` is a LATENT risk (about 30 px left for
+  the title at scale 2.0 in Sorani, by estimate) - not reproduced, not changed.
+* ~45 other scanner candidates were only judged safe by pattern (see OPOS #28157).
+
+---
+
 ## 2026-09-16 — Client item C3: one stacked date cell for every dashboard table
 
 **Asked for:** finish client item C3 in `docs/client-feedback-2026-09.md` —
