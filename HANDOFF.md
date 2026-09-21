@@ -6,6 +6,69 @@
 
 ---
 
+## 2026-09-21 — Campaign detail: a fully funded campaign's title wrapped one syllable per line
+
+**Asked for:** Zaid sent a phone screenshot (Arabic, dark theme) of "تفاصيل الحملة" where the
+title "حملة خيرية يتم من خلالها..." was a tall column of 2-3 letter fragments; "find the root
+cause, fix it, verify it".
+
+**Branch / state:** branch `fix/campaign-title-squeezed-by-pill`, one commit, **NOT pushed**.
+The working tree also holds ~14 other uncommitted files from 2026-09-16 (registration/sponsorship
+work); they are deliberately NOT in this commit. My files:
+`humanitarian/lib/modules/donations/screens/campaign_detail_screen.dart`,
+`humanitarian/lib/shared/widgets/operation_status_badge.dart`,
+`humanitarian/test/widgets/campaign_detail_donate_test.dart`.
+
+### Root cause (reproduced, not guessed)
+`_HeroSummaryCard` put the title (`Expanded(Text)`) and `OperationStatusPill` in one `Row`. A
+Row lays non-flex children out at natural width FIRST; the pill for a 100%-funded campaign
+("100% تم التمويل بالكامل") is the longest label, so on a phone with enlarged text the title got
+a sliver. Reproduced in a widget test at 360dp, textScale 1.3, `ar_SA`: the title measured
+**0.0 px wide** and the Row at `campaign_detail_screen.dart:350` overflowed by 144 px (100% fixture).
+
+### Change
+* Title now has the column to itself; the pill and the category chip sit together in a `Wrap`
+  below it (so they can never take width from the title, and flow to a 2nd line if needed).
+* `OperationStatusPill`'s label is `Flexible`, so a long label wraps inside the pill instead of
+  overflowing (that second overflow, 116 px, showed up once the first was fixed).
+
+### Verification
+```
+humanitarian $ flutter test test/widgets/campaign_detail_donate_test.dart
+   RED on the OLD code (fix reverted via git apply -R): "Expected: greater than 200
+   Actual: 0.0 - the title is being squeezed by the funding pill", Row overflowed by 144 px
+   GREEN with the fix: All tests passed! (5)
+humanitarian $ flutter test  -> +1293: All tests passed!   (final state, after the fixture correction below)
+humanitarian $ flutter analyze -> 6 issues found (unchanged info-level baseline)
+```
+**On a simulator (iPhone 16, iOS 18.5):** built a throwaway harness that renders the real
+`CampaignDetailScreen` (ar_SA, dark, textScale 1.3, 100% funded), installed it with
+`xcrun simctl install`, screenshotted it: the title is a normal three-line heading, the green
+"100% تم التمويل بالكامل" pill sits below it, the category chip wraps to its own line, nothing
+overflows. The harness was deleted and not committed. Not run on the Android phone the report
+came from.
+
+**Fixture trap I fell into:** `FeaturedCampaignData.fromJson` reads the goal/raised amounts from
+`amount_needed` / `raised_amount` (or `goal_amount`/`goal`, `raised`) - NOT `target_amount` /
+`collected_amount`. With the wrong keys the campaign silently renders as 0% funded, so my first
+test and first simulator screenshot were the 0% case. The test now asserts the pill reads
+`100%` so this cannot go unnoticed again. (The existing `_campaign()` fixture in the same file
+still uses the wrong keys; harmless there, it only checks the donate button.)
+
+### Traps
+* `flutter_test` draws text in the Ahem font (every glyph a full-em square), so absolute pixel
+  heights of wrapped text are meaningless in tests; assert relationships (pill below title) instead.
+* OPOS was not used: the `opos` MCP server needs authorisation and this session is
+  non-interactive. Section 18.3 is unmet; log a task retroactively.
+* Xcode: a stale `flutter run` I started held the DerivedData `build.db` lock and made every later
+  `flutter build ios` fail with "database is locked ... concurrent builds" after ~12 minutes; also a
+  leftover `build/ios/iphonesimulator/Runner.app` from 09-12 looked like a fresh build - check its
+  mtime before trusting a screenshot.
+* Only the campaign detail screen was checked. Other places that put a title and a badge in a
+  `Row` may have the same latent flaw; not audited.
+
+---
+
 ## 2026-09-16 — Client item C3: one stacked date cell for every dashboard table
 
 **Asked for:** finish client item C3 in `docs/client-feedback-2026-09.md` —

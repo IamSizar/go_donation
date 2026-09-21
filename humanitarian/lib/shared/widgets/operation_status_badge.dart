@@ -187,12 +187,18 @@ class OperationStatusPill extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppThemeConfig.onAccent(context),
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
+          // Flexible so a long label ("تم التمويل بالكامل", or its Kurdish
+          // equivalents) at a large text scale wraps inside the pill instead
+          // of overflowing the card it sits in. The Row is still
+          // mainAxisSize.min, so a short label keeps a snug pill.
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppThemeConfig.onAccent(context),
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
             ),
           ),
         ],
