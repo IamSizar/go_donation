@@ -247,7 +247,19 @@ class MediaPostsController extends GetxController {
   /// loaded.
   List<Map<String, dynamic>> get visiblePosts {
     final slug = selectedCategory.value;
-    if (slug == null || slug.isEmpty) return posts;
+    // `.toList()` on the unfiltered branch too, not just a bare `return
+    // posts` — GetX's Obx only tracks an RxList as a dependency when it is
+    // actually indexed/iterated inside the Obx closure, and returning the
+    // reference untouched does neither. Every screen that reads
+    // [visiblePosts] evaluates it once at the top of its Obx and never
+    // touches `posts` again directly, so without this the outer Obx had no
+    // subscription on `posts` at all: toggleLike/toggleSaved's `posts.refresh()`
+    // (in-place mutation, no card added or removed) notified no listener, and
+    // the engagement bar never visually updated after a tap — confirmed
+    // live (server-side state toggled correctly on every tap; the card was
+    // frozen until the next full fetchPosts() reload). The filtered branch
+    // below was already fine, since `.where().toList()` iterates `posts`.
+    if (slug == null || slug.isEmpty) return posts.toList();
     return posts
         .where((p) => (p['category_slug'] ?? '').toString() == slug)
         .toList(growable: false);

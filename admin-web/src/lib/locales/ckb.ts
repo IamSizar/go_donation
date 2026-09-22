@@ -59,7 +59,7 @@ const ckb: DeepPartial<typeof en> = {
     marriage: 'هاوسەرگیری',
     marriage_requests: 'داواکاریەکانی هاوسەرگیری',
     marriage_chats: 'گفتوگۆکانی هاوسەرگیری',
-    marriage_support: 'پشتیوانی بەشی ڕووداوەکان',
+    marriage_support: 'چاتی پشتیوانی',
     marriage_subscriptions: 'بەشداریی هاوسەرگیری',
     partners: 'هاوبەشەکان',
     media: 'میدیا',

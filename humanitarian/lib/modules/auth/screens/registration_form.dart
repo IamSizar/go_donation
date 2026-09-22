@@ -388,7 +388,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   /// name costs nothing.
   Future<void> _saveAvatarIfChanged() async {
     if (_avatarPath == null && !_removeAvatar) return;
-    final userId = int.tryParse(sharedPreferences.getString('user_id') ?? '');
+    // Client note — a picked avatar never reached the server at all, and the
+    // picture only ever changed after a full app restart (which re-fetches
+    // the account and repopulates SharedPreferences from scratch, papering
+    // over this). Root cause: 'user_id' is not a key this app ever WRITES —
+    // every other read site in the app uses 'id_user' (see auth_navigation.dart
+    // setString('id_user', ...) at login). This read always returned null, so
+    // updateUserProfile() below was never even called.
+    final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
     if (userId == null || userId <= 0) return;
     await updateUserProfile(
       userId: userId,

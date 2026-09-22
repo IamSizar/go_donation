@@ -1093,18 +1093,23 @@ class _FeaturedCampaignsSection extends StatelessWidget {
           // height here (a Column under a ListView), so nesting it inside
           // would make OverflowBox report an infinite height and corrupt the
           // rest of the list's layout.
-          // MEASURED, not guessed. The card's content — badge, two-line
-          // title, location, funding block, progress bar and the "view &
-          // contribute" row — comes to 229pt at the default text scale and
-          // 262pt at 1.3x. Both numbers were read off the overflow amount
-          // reported when the box was deliberately shrunk to 120pt.
+          // MEASURED, not guessed — but the original measurement here was
+          // wrong: the card actually re-measures to ~247pt at the default
+          // text scale (confirmed live: the 240 box below reported "bottom
+          // overflowed by 7.0 pixels" on every card, real device, real data,
+          // no accessibility text-size override). Rebased to 254pt at 1.0x
+          // (247 + a real 7pt of headroom, not zero) with the same ~115pt
+          // per unit of scale growth the original author used above 1.0x —
+          // that rate already ran ahead of its own 262pt-at-1.3x claim
+          // (which needed only ~73pt/unit), so it was already erring
+          // generous there and needs no change.
           //
           // This box was a flat 340. That left ~110pt of dead space under
           // every card at normal text size — the empty band the owner
           // reported — while STILL being too short for anyone using large
           // text, where the content would clip.
           //
-          // So the height follows the text instead of ignoring it: 240 at
+          // So the height follows the text instead of ignoring it: 254 at
           // 1.0x, growing ~115pt per unit of scale, which keeps roughly a
           // dozen points of headroom over the measured content at 1.0x, 1.3x
           // and 2.0x. The Spacer inside the card is untouched — it aligns the
@@ -1115,7 +1120,7 @@ class _FeaturedCampaignsSection extends StatelessWidget {
           ).scale(1).clamp(1.0, 2.0);
           return SizedBox(
             key: const ValueKey('featured-campaigns-strip'),
-            height: 240 + 115 * (textScale - 1),
+            height: 254 + 115 * (textScale - 1),
             child: AppAsync<List<dynamic>>(
               loading: campaignsController.isLoading.value,
               error: campaignsController.errorMessage.value,

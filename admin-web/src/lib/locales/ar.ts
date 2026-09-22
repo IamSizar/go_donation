@@ -50,7 +50,7 @@ const ar: DeepPartial<typeof en> = {
     marriage: 'الزواج',
     marriage_requests: 'طلبات الزواج',
     marriage_chats: 'محادثات الزواج',
-    marriage_support: 'دعم قسم الفعاليات',
+    marriage_support: 'محادثة الدعم',
     marriage_subscriptions: 'اشتراكات الزواج',
     partners: 'الشركاء',
     media: 'الأخبار والإعلام',

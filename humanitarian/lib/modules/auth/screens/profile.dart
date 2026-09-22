@@ -136,7 +136,15 @@ class _ProfileSectionState extends State<ProfileSection> {
       () => const RegistrationFormPage(editMode: true),
     );
     if (result == true && mounted) {
-      setState(() {});
+      // Client note — a changed profile picture only showed up after a full
+      // app restart. A bare setState() here just re-renders with whatever
+      // was already cached (`profile_picture_url` / `profile_image_path`),
+      // which RegistrationFormPage.editMode never updates itself — only a
+      // real app launch's _refreshProfileFromServer() (initState above) did,
+      // which is exactly the "close and reopen" workaround the client found.
+      // Calling the same refresh here fetches the account fresh and writes
+      // the new picture into prefs immediately, the same way a restart does.
+      await _refreshProfileFromServer();
     }
   }
 

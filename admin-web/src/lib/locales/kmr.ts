@@ -65,7 +65,7 @@ const kmr: DeepPartial<typeof en> = {
     marriage: 'هاوسەرگیری',
     marriage_requests: 'داخوازێن هەڤسەریێ',
     marriage_chats: 'گفتوگۆیێن هەڤسەریێ',
-    marriage_support: 'پشتەڤانیا بەشێ چالاکیان',
+    marriage_support: 'چاتا پشتەڤانیێ',
     marriage_subscriptions: 'بەشداریێن هەڤسەریێ',
     partners: 'هەڤپیشە',
     media: 'میدیا',

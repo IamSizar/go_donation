@@ -50,7 +50,7 @@ const en = {
     marriage: 'Marriage',
     marriage_requests: 'Marriage Requests',
     marriage_chats: 'Marriage Chats',
-    marriage_support: 'Events Support',
+    marriage_support: 'Support Chat',
     marriage_subscriptions: 'Marriage Subscriptions',
     partners: 'Partners',
     media: 'Media',

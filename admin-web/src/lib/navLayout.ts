@@ -42,9 +42,12 @@ export const NAV: NavItem[] = [
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
   { to: '/marriage-requests', tKey: 'nav.marriage_requests', module: 'marriage' },
   { to: '/marriage-chats', tKey: 'nav.marriage_chats', module: 'marriage' },
-  // Gated on 'marriage' like the rest of the group rather than on 'messages':
-  // it is the events section's own inbox, and the staff who run that section
-  // are the ones who answer it.
+  // Still gated on 'marriage' (kept deliberately — see DEFAULT_NAV_SECTIONS
+  // above for why this moved OUT of the Marriage group while staying gated
+  // on that permission: changing who can already see it is a separate,
+  // owner-level decision this fix does not make). It stopped being the
+  // events section's own inbox the moment /chats/support became every
+  // role's "message staff" chat — see the note where it is grouped now.
   { to: '/marriage-support', tKey: 'nav.marriage_support', module: 'marriage' },
   { to: '/marriage-subscriptions', tKey: 'nav.marriage_subscriptions', module: 'marriage' },
   { to: '/partners',      tKey: 'nav.partners',       module: 'partners' },
@@ -193,7 +196,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'marriage', tKey: 'nav_group.marriage',
-    items: ['/marriage', '/marriage-requests', '/marriage-chats', '/marriage-support', '/marriage-subscriptions'],
+    items: ['/marriage', '/marriage-requests', '/marriage-chats', '/marriage-subscriptions'],
   },
   {
     kind: 'group', key: 'comments_activities', tKey: 'nav_group.comments_activities',
@@ -201,7 +204,18 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'communication_support', tKey: 'nav_group.communication_support',
-    items: ['/messages', '/staff-chat', '/chat-groups', '/chat-groups/connect-requests', '/notifications', '/push', '/support', '/contact'],
+    // Client note — a beneficiary's "Contact support" chat (Messages tab,
+    // `chat_support` tile -> POST /api/chats/support) landed here too, since
+    // that endpoint is the ONE shared "message staff" thread for every role
+    // (see backend/internal/handlers/chat.go SupportThread: "Powers the
+    // volunteer<->support and marriage<->tech pairs") -- not just marriage.
+    // /marriage-support (MessagesPage kind="support") is the only admin inbox
+    // for ANY of those threads, so it moved out of the Marriage-only group
+    // into this one, next to the ticket-based /support, and its label
+    // changed from "Events Support" to something that does not imply
+    // marriage-only. Nothing server-side changed; this is purely where staff
+    // find it.
+    items: ['/messages', '/marriage-support', '/staff-chat', '/chat-groups', '/chat-groups/connect-requests', '/notifications', '/push', '/support', '/contact'],
   },
   {
     kind: 'group', key: 'monitoring_reports', tKey: 'nav_group.monitoring_reports',
