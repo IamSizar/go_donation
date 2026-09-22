@@ -343,6 +343,14 @@ const en = {
     confirm_delete: 'Delete this category?',
     need_en: 'English name is required.',
     active: 'Active (shown in the app)',
+    icon_label: 'Icon (shown in the app’s category grid)',
+    icon: {
+      food: 'Food', groceries: 'Groceries', clothing: 'Clothing',
+      accessories: 'Accessories', electronics: 'Electronics', home: 'Home',
+      beauty: 'Beauty', toys: 'Toys & kids', books: 'Books',
+      health: 'Health & medical', sports: 'Sports & fitness', tools: 'Tools',
+      gifts: 'Gifts', pets: 'Pets', stationery: 'Stationery', other: 'Other',
+    },
   },
   gallery: {
     add_image: 'Add image',

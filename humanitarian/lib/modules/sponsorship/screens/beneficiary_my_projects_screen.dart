@@ -16,6 +16,7 @@
 // active one filled with the primary colour, driving a single AppAsync below
 // it. The app must not gain a second convention for the same idea.
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_projects_controller.dart';
@@ -158,7 +159,8 @@ class _FilterStrip extends StatelessWidget {
     // or with longer translations — same construction as the sponsorship
     // schedule's filter row.
     return SizedBox(
-      height: 44,
+      // See pillRowHeight's doc comment — this used to be a hardcoded 44.
+      height: pillRowHeight(context, verticalPadding: 10),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),

@@ -326,6 +326,15 @@ const ckb: DeepPartial<typeof en> = {
     confirm_delete: 'ئەم جۆرە بسڕیتەوە؟',
     need_en: 'ناوی ئینگلیزی پێویستە.',
     active: 'چالاک (لە ئەپدا پیشان دەدرێت)',
+    // ─── Machine-drafted Kurdish — UNREVIEWED (see TRANSLATION_REQUEST.md) ───
+    icon_label: 'ئایکۆن (لە شەبەکەی جۆرەکانی ئەپدا پیشان دەدرێت)',
+    icon: {
+      food: 'خۆراک', groceries: 'بەرهەمی بازاڕ', clothing: 'جلوبەرگ',
+      accessories: 'ئاکسێسواری', electronics: 'ئەلیکترۆنی', home: 'ماڵ',
+      beauty: 'جوانی', toys: 'یاری و منداڵ', books: 'کتێب',
+      health: 'تەندروستی', sports: 'وەرزش', tools: 'ئامێر',
+      gifts: 'دیاری', pets: 'ئاژەڵی ماڵی', stationery: 'کەلوپەلی نووسین', other: 'هیتر',
+    },
   },
   gallery: {
     add_image: 'زیادکردنی وێنە',

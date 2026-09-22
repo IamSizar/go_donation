@@ -22,6 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marketplace/controllers/marketplace_controller.dart';
@@ -41,7 +43,8 @@ class CatalogueFilterBar extends StatelessWidget {
       final query = controller.catalogueQuery.value;
 
       return SizedBox(
-        height: 40,
+        // See pillRowHeight's doc comment — this used to be a hardcoded 40.
+        height: pillRowHeight(context),
         // Cancels the list's 20px side padding so a chip dragged toward the
         // edge does not disappear early — the same reason
         // case_category_capsules wraps its row.
@@ -174,10 +177,20 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // THE BUG THIS FIXES: this chip used to be a plain StatelessWidget that
+    // read `active` straight into `Material.color`/text `color` — selecting
+    // or deselecting a chip repainted it in the new colour on the very next
+    // frame, with nothing in between. Swapping the raw values for their
+    // Animated* counterparts is enough on its own: Flutter tweens from
+    // whatever the widget's OLD color/style/scale was to the new one across
+    // every rebuild, which is what "morphing" means here — no
+    // AnimationController or extra state to manage for a chip that has none.
+    final duration = AppMotion.resolve(context, AppMotion.snapDuration);
+    const curve = Curves.easeOutCubic;
     final foreground = active ? Colors.white : AppThemeConfig.text(context);
     return Material(
       key: Key(chipKey),
-      color: active ? AppThemeConfig.primary : AppThemeConfig.surface(context),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -185,22 +198,51 @@ class _Chip extends StatelessWidget {
           AppHaptics.selection();
           onTap();
         },
-        child: Padding(
+        child: AnimatedContainer(
+          duration: duration,
+          curve: curve,
+          decoration: BoxDecoration(
+            color: active ? AppThemeConfig.primary : AppThemeConfig.surface(context),
+            borderRadius: BorderRadius.circular(20),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
+              AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: curve,
                 style: TextStyle(
                   color: foreground,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
+                child: Text(label),
               ),
               if (icon != null) ...[
                 const SizedBox(width: 5),
-                Icon(icon, size: 15, color: foreground),
+                AnimatedSwitcher(
+                  duration: duration,
+                  switchInCurve: curve,
+                  switchOutCurve: curve,
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  // Keyed on `active` too, not just the icon identity: the
+                  // colour is baked into the Icon widget itself (Icon has no
+                  // separate animated-color path the way Text does via
+                  // AnimatedDefaultTextStyle), so without this key
+                  // AnimatedSwitcher would see "same IconData, same widget
+                  // type" and skip the transition — the one thing that
+                  // actually changes on toggle.
+                  child: Icon(
+                    icon,
+                    key: ValueKey(active),
+                    size: 15,
+                    color: foreground,
+                  ),
+                ),
               ],
             ],
           ),

@@ -335,6 +335,14 @@ const ar: DeepPartial<typeof en> = {
     confirm_delete: 'حذف هذه الفئة؟',
     need_en: 'الاسم الإنجليزي مطلوب.',
     active: 'مفعّلة (تظهر في التطبيق)',
+    icon_label: 'الأيقونة (تظهر في شبكة الأقسام بالتطبيق)',
+    icon: {
+      food: 'طعام', groceries: 'بقالة', clothing: 'ملابس',
+      accessories: 'إكسسوارات', electronics: 'إلكترونيات', home: 'المنزل',
+      beauty: 'جمال', toys: 'ألعاب وأطفال', books: 'كتب',
+      health: 'صحة وطبي', sports: 'رياضة ولياقة', tools: 'أدوات',
+      gifts: 'هدايا', pets: 'حيوانات أليفة', stationery: 'قرطاسية', other: 'أخرى',
+    },
   },
   gallery: {
     add_image: 'إضافة صورة',

@@ -117,7 +117,8 @@ class _CaseCategoryCapsulesState extends State<CaseCategoryCapsules> {
     // made OverflowBox try to report an infinite height and corrupted the
     // rest of the list's layout (overlapping/missing sections below it).
     return SizedBox(
-      height: 40,
+      // See pillRowHeight's doc comment — this used to be a hardcoded 40.
+      height: pillRowHeight(context),
       child: FullBleedHorizontal(
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
@@ -157,7 +158,9 @@ class _CapsuleSkeleton extends StatelessWidget {
     // rather than as chips.
     const widths = <double>[54, 92, 76, 110];
     return SizedBox(
-      height: 40,
+      // Matches the real row's pillRowHeight, or the skeleton is the wrong
+      // height and the content that replaces it shifts everything below.
+      height: pillRowHeight(context),
       child: AppSkeleton(
         child: ListView.separated(
           scrollDirection: Axis.horizontal,

@@ -301,7 +301,8 @@ class _CategoryChips extends StatelessWidget {
       );
     }
     return SizedBox(
-      height: 40,
+      // See pillRowHeight's doc comment — this used to be a hardcoded 40.
+      height: pillRowHeight(context),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: chips.length,

@@ -349,3 +349,40 @@ abstract final class AppType {
   static const FontWeight wLabel = FontWeight.w600;
   static const FontWeight wAction = FontWeight.w600;
 }
+
+/// Reserved height for a horizontally-scrolling row of single-line pill
+/// chips (`Material` → `Padding` → `Text`, one line, no wrap) — found in
+/// case_category_capsules.dart, catalogue_filter_bar.dart, and the filter
+/// rows in news_activities_screen.dart, our_work_screen.dart,
+/// partners_screen.dart, sponsorship_schedule_screen.dart and
+/// beneficiary_my_projects_screen.dart. Every one of those hardcoded its
+/// row's outer `SizedBox(height: …)` — 40 or 44 — as a guess for "one line
+/// of ~13pt bold text plus this chip's own vertical padding" at the
+/// DEFAULT text scale.
+///
+/// THE BUG THIS FIXES: that hardcoded number does not grow at a larger
+/// Dynamic Type / accessibility text-size setting, even though the text
+/// inside each chip does — so a shopper with large system text enabled saw
+/// the chip's own label clipped top and bottom by the row's fixed height,
+/// on every one of those seven rows. The `FullBleedHorizontal` pattern
+/// these rows use genuinely needs SOME fixed height passed in (an
+/// unbounded one corrupts the rest of the list's layout — see the comment
+/// on `case_category_capsules.dart`'s `_buildRow`), so the fix is to
+/// compute that fixed number from the real, current text metrics instead
+/// of a value picked once for one text size.
+double pillRowHeight(
+  BuildContext context, {
+  double fontSize = 13,
+  double verticalPadding = 9,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: 'M',
+      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800),
+    ),
+    maxLines: 1,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.height + verticalPadding * 2;
+}

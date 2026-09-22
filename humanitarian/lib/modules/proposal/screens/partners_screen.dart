@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/partners_controller.dart';
@@ -67,7 +68,8 @@ class _PartnersScreenState extends State<PartnersScreen> {
           // Same chip row as the sponsorship schedule's filter, deliberately:
           // one convention for "narrow this list", not a second one.
           SizedBox(
-            height: 44,
+            // See pillRowHeight's doc comment — this used to be a hardcoded 44.
+            height: pillRowHeight(context, verticalPadding: 10),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),

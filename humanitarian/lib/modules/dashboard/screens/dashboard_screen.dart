@@ -245,10 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               //   blank box covering the screen. See
               //   keyboard_safe_tab_body.dart for the full account.
               child: KeyboardSafeTabBody(
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: _sections,
-                ),
+                child: IndexedStack(index: _currentIndex, children: _sections),
               ),
             ),
             // The nav bar lives in the BODY, not in Scaffold's
@@ -593,54 +590,72 @@ class _TopBarIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // THE BUG THIS FIXES (round 2): the previous fix correctly sized the
+    // inner Stack to the full 42px padded circle, so `Positioned(top: -4,
+    // right: -4)` now measures the badge against the real circle edge — but
+    // that Stack was still the DIRECT child of `Material(shape:
+    // CircleBorder(), clipBehavior: Clip.antiAlias)`, which clips everything
+    // painted inside it to that same circle. A badge deliberately sitting
+    // AT the edge is half outside the circle by design (that's what "on the
+    // edge" means), so the circular clip mask cut away most of it — only
+    // the sliver still inside the circle survived. The clip has to stop at
+    // the button's own surface (icon + ripple), so the badge now lives in
+    // an OUTER Stack, as a sibling of the clipped Material rather than a
+    // descendant of it.
     return Semantics(
       button: true,
       label: tooltip,
-      child: Material(
-        color: AppThemeConfig.surface(context),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            AppHaptics.selection();
-            onTap();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(icon, size: 22, color: AppThemeConfig.text(context)),
-                if (badgeCount > 0)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      constraints: const BoxConstraints(minWidth: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        borderRadius: BorderRadius.all(Radius.circular(999)),
-                      ),
-                      child: Text(
-                        badgeCount > 99 ? '99+' : '$badgeCount',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Material(
+            color: AppThemeConfig.surface(context),
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                AppHaptics.selection();
+                onTap();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: AppThemeConfig.text(context),
+                ),
+              ),
             ),
           ),
-        ),
+          if (badgeCount > 0)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    borderRadius: BorderRadius.all(Radius.circular(999)),
+                  ),
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -781,63 +796,82 @@ class _TopBarActions extends StatelessWidget {
                   ? SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       physics: const ClampingScrollPhysics(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: DashboardTopBar._gap),
+                      // THE BUG THIS FIXES: this ClipRect clips exactly to
+                      // AnimatedSize's measured content — the Row below, at
+                      // its own natural height. _TopBarIconButton's badge
+                      // deliberately sits partway OUTSIDE its button's
+                      // circle (top: -4) so it lands on the circle's edge,
+                      // same as the already-fixed "•••" button. That badge
+                      // was fine standing alone, but here it is a child of
+                      // this Row, whose own top edge sits at y=0 of exactly
+                      // what ClipRect clips to — so the badge's -4px
+                      // overhang above that had nowhere to go and was cut
+                      // off. A few points of top padding gives the clipped
+                      // region that headroom back; `crossAxisAlignment:
+                      // start` keeps every icon pinned to the padded top
+                      // instead of drifting if one child is ever taller.
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(width: DashboardTopBar._gap),
 
-                          // K28's per-section AI icon and J9's support
-                          // button both used to live here. The owner asked for
-                          // both to come off this bar and be reached from
-                          // الرسائل instead, which already carries the
-                          // assistant card and the support-chat tile and now
-                          // carries the technical-support form as well.
-                          //
-                          // What that trades away, recorded so it is a
-                          // decision and not an accident: the assistant no
-                          // longer opens pre-asking about the tab the user is
-                          // standing on (AssistantHintButton seeded it from
-                          // the tab's route). From الرسائل it opens on its
-                          // normal welcome, whose suggestion chips are the
-                          // role's real FAQs.
-                          // Note #43 — grouped with Notifications/Messages at the top,
-                          // matching the client's requested layout (was inside the side
-                          // drawer only). The profile avatar sits at the end of this row
-                          // and opens the account hub — see _TopBarProfileAvatar.
-                          _TopBarIconButton(
-                            icon: Icons.search_rounded,
-                            badgeCount: 0,
-                            tooltip: 'search_title'.tr,
-                            onTap: () =>
-                                Get.to(() => const GlobalSearchScreen()),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
-                          Obx(
-                            () => _TopBarIconButton(
-                              icon: Icons.notifications_none_rounded,
-                              badgeCount: notifications.unreadCount,
-                              tooltip: 'Notifications'.tr,
+                            // K28's per-section AI icon and J9's support
+                            // button both used to live here. The owner asked for
+                            // both to come off this bar and be reached from
+                            // الرسائل instead, which already carries the
+                            // assistant card and the support-chat tile and now
+                            // carries the technical-support form as well.
+                            //
+                            // What that trades away, recorded so it is a
+                            // decision and not an accident: the assistant no
+                            // longer opens pre-asking about the tab the user is
+                            // standing on (AssistantHintButton seeded it from
+                            // the tab's route). From الرسائل it opens on its
+                            // normal welcome, whose suggestion chips are the
+                            // role's real FAQs.
+                            // Note #43 — grouped with Notifications/Messages at the top,
+                            // matching the client's requested layout (was inside the side
+                            // drawer only). The profile avatar sits at the end of this row
+                            // and opens the account hub — see _TopBarProfileAvatar.
+                            _TopBarIconButton(
+                              icon: Icons.search_rounded,
+                              badgeCount: 0,
+                              tooltip: 'search_title'.tr,
                               onTap: () =>
-                                  Get.to(() => const NotificationsScreen()),
+                                  Get.to(() => const GlobalSearchScreen()),
                             ),
-                          ),
-                          const SizedBox(width: DashboardTopBar._gap),
-                          // Kept for a guest too, because Messages is where
-                          // support is reached from. A guest's door has no
-                          // badge and no Obx: without a ChatController there is
-                          // nothing to observe, and GetX throws on an Obx that
-                          // reads no observable.
-                          if (chats == null)
-                            _messagesButton(unread: 0)
-                          else
+                            const SizedBox(width: DashboardTopBar._gap),
                             Obx(
-                              () => _messagesButton(unread: chats.totalUnread),
+                              () => _TopBarIconButton(
+                                icon: Icons.notifications_none_rounded,
+                                badgeCount: notifications.unreadCount,
+                                tooltip: 'Notifications'.tr,
+                                onTap: () =>
+                                    Get.to(() => const NotificationsScreen()),
+                              ),
                             ),
-                          const SizedBox(width: DashboardTopBar._gap),
-                          // "Ninth: Improve the Home Interface Design" — the profile photo
-                          // sits top-right and opens the account hub.
-                          const _TopBarProfileAvatar(),
-                        ],
+                            const SizedBox(width: DashboardTopBar._gap),
+                            // Kept for a guest too, because Messages is where
+                            // support is reached from. A guest's door has no
+                            // badge and no Obx: without a ChatController there is
+                            // nothing to observe, and GetX throws on an Obx that
+                            // reads no observable.
+                            if (chats == null)
+                              _messagesButton(unread: 0)
+                            else
+                              Obx(
+                                () =>
+                                    _messagesButton(unread: chats.totalUnread),
+                              ),
+                            const SizedBox(width: DashboardTopBar._gap),
+                            // "Ninth: Improve the Home Interface Design" — the profile photo
+                            // sits top-right and opens the account hub.
+                            const _TopBarProfileAvatar(),
+                          ],
+                        ),
                       ),
                     )
                   : const SizedBox.shrink(),

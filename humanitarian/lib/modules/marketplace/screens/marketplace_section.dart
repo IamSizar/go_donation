@@ -16,6 +16,7 @@ import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
+import 'package:flutter_application_1/modules/marketplace/widgets/category_icon_rail.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/product_gallery.dart';
 
 /// Identifies the catalogue's own scrollable — the search field, filter
@@ -104,6 +105,13 @@ class _MarketplaceList extends StatelessWidget {
                   // description, sku and brand — so an SKU off a receipt finds
                   // the product.
                   AppListSearchField(onChanged: controller.setProductSearch),
+                  const SizedBox(height: 12),
+                  // #41080 — the icon grid the client asked for ("طعام،
+                  // إكسسوارات"), a second, visual way into the same
+                  // category filter CatalogueFilterBar's الفئات chip opens
+                  // via a picker sheet. Search bar and filter bar are
+                  // unchanged, per the client's own "keep them as-is".
+                  CategoryIconRail(controller: controller),
                   const SizedBox(height: 12),
                   // K15 — the client's six functional labels. Every one of them
                   // is a parameter on GET /api/marketplace, never a re-sort of
@@ -297,58 +305,103 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
       onLongPressCancel: () => _closeLongPressDetails(context),
       child: GlassPanel(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        // THE BUG THIS FIXES: price and the Add/quantity control used to
+        // share one Row with the title column, both squeezed into whatever
+        // width the image and the control left over. A discounted price
+        // prints TWO numbers ("120,000 IQD" struck through "150,000 IQD"),
+        // and `Text` has no `maxLines` here, so whenever that pair didn't
+        // fit the leftover width it wrapped onto a second line instead of
+        // truncating — quietly making cards with a discount, or just a
+        // longer number, taller than a plain "100 IQD" card. Price now gets
+        // the card's FULL width on its own row, with nothing beside it to
+        // be squeezed by, so it renders on one line regardless of the
+        // figure. The Add button moves under it, bottom-right, inside the
+        // panel's own 12px padding rather than flush against the corner.
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _ProductImage(imageUrl: imageUrl),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title.tr,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppThemeConfig.text(context),
-                    ),
-                  ),
-                  if (category.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      category.tr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppThemeConfig.mutedText(context),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ProductImage(imageUrl: imageUrl),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.tr,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppThemeConfig.text(context),
+                        ),
                       ),
-                    ),
-                  ],
-                  if (labels.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _ProductLabelChips(labels: labels),
-                  ],
-                  const SizedBox(height: 10),
-                  _ProductPrice(item: widget.item),
-                  // K15 — the figure الأكثر مبيعاً is actually ranked by,
-                  // shown only while that chip is lit. A claim of "best
-                  // selling" with nothing behind it is unverifiable by the
-                  // person reading it; off that sort the number is noise.
-                  if (widget.controller.catalogueQuery.value.sort ==
-                      CatalogueSort.bestSelling) ...[
-                    const SizedBox(height: 6),
-                    _SoldCount(item: widget.item),
-                  ],
+                      if (category.trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          category.tr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ],
+                      if (labels.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _ProductLabelChips(labels: labels),
+                      ],
+                      // K15 — the figure الأكثر مبيعاً is actually ranked by,
+                      // shown only while that chip is lit. A claim of "best
+                      // selling" with nothing behind it is unverifiable by
+                      // the person reading it; off that sort the number is
+                      // noise.
+                      if (widget.controller.catalogueQuery.value.sort ==
+                          CatalogueSort.bestSelling) ...[
+                        const SizedBox(height: 6),
+                        _SoldCount(item: widget.item),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Price sits immediately left of the Add/quantity control, both
+            // pinned to the card's bottom-right corner (with the panel's own
+            // 12px padding as the margin from the real edges).
+            //
+            // `Align` — not `Row(mainAxisAlignment: end)` — is what makes
+            // this safe: a Row hands a plain (non-flex) child UNBOUNDED
+            // width for measurement, which crashes `_ProductPrice`'s own
+            // Row, since it uses `Flexible` and needs a bounded width to
+            // shrink within. `Align`, as a direct child of the outer Column
+            // (already bounded to the card's width), hands its child that
+            // SAME bounded width instead and just pins it to the end.
+            //
+            // `mainAxisSize.min` keeps this inner Row hugging its two
+            // children rather than stretching across the card, and
+            // `Flexible` on the price lets IT give way first if a very long
+            // discounted price and the button together don't both fit,
+            // rather than the Row overflowing.
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(child: _ProductPrice(item: widget.item)),
+                  const SizedBox(width: 10),
+                  _QuantityControl(
+                    quantity: widget.quantity,
+                    onAdd: widget.onAdd,
+                    onRemove: widget.onRemove,
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            _QuantityControl(
-              quantity: widget.quantity,
-              onAdd: widget.onAdd,
-              onRemove: widget.onRemove,
             ),
           ],
         ),

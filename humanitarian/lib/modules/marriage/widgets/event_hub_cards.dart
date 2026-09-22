@@ -118,6 +118,17 @@ class EventHubCard extends StatelessWidget {
     final titleStyle = TextStyle(
       fontWeight: FontWeight.w800,
       fontSize: dense ? 14 : 17,
+      // Explicit line-height. THE BUG THIS FIXES: without this, the title
+      // Text rendered taller than what _reservedTextHeight (a TextPainter
+      // pass over the SAME style) had computed — Flutter lets the real
+      // RenderParagraph and a manual TextPainter layout disagree slightly
+      // on natural/default leading, especially at this bold weight. That
+      // gap meant a 2-line title's real second line spilled a few points
+      // below its reserved SizedBox and painted over the subtitle under it
+      // (SizedBox constrains layout, it does not clip an oversized child).
+      // Pinning the line-height makes the measurement and the render use
+      // the exact same number, so they can no longer disagree.
+      height: 1.25,
       color: AppThemeConfig.text(context),
     );
     final subtitleStyle = TextStyle(
@@ -160,15 +171,23 @@ class EventHubCard extends StatelessWidget {
               // Fixed-height box (see _reservedTextHeight) so a one-line
               // title never leaves this card shorter than a sibling whose
               // title actually wraps to two lines.
-              SizedBox(
-                height: _reservedTextHeight(context, titleStyle, titleMaxLines),
-                child: Align(
-                  alignment: AlignmentDirectional.topStart,
-                  child: Text(
-                    title.tr,
-                    maxLines: titleMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
+              // ClipRect is the actual overlap fix: a SizedBox only
+              // constrains the LAYOUT size passed to siblings below it — it
+              // does not clip a child that paints taller than that size, so
+              // any future measurement/render mismatch here would still
+              // bleed into the subtitle without this.
+              ClipRect(
+                child: SizedBox(
+                  height:
+                      _reservedTextHeight(context, titleStyle, titleMaxLines),
+                  child: Align(
+                    alignment: AlignmentDirectional.topStart,
+                    child: Text(
+                      title.tr,
+                      maxLines: titleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
                   ),
                 ),
               ),
@@ -176,19 +195,21 @@ class EventHubCard extends StatelessWidget {
               // Same fixed-height reservation for the subtitle — this is
               // the box that produced the owner's reported bug (a 3-line
               // subtitle sizing its card taller than a 2-line sibling).
-              SizedBox(
-                height: _reservedTextHeight(
-                  context,
-                  subtitleStyle,
-                  subtitleMaxLines,
-                ),
-                child: Align(
-                  alignment: AlignmentDirectional.topStart,
-                  child: Text(
-                    subtitle.tr,
-                    maxLines: subtitleMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: subtitleStyle,
+              ClipRect(
+                child: SizedBox(
+                  height: _reservedTextHeight(
+                    context,
+                    subtitleStyle,
+                    subtitleMaxLines,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.topStart,
+                    child: Text(
+                      subtitle.tr,
+                      maxLines: subtitleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: subtitleStyle,
+                    ),
                   ),
                 ),
               ),

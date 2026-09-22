@@ -332,6 +332,15 @@ const kmr: DeepPartial<typeof en> = {
     confirm_delete: 'ئەڤ جۆرە ژێببەی؟',
     need_en: 'ناڤێ ئینگلیزی پێدڤیە.',
     active: 'چالاک (ل ئەپی دیاردبیت)',
+    // ─── Machine-drafted Kurdish — UNREVIEWED (see TRANSLATION_REQUEST.md) ───
+    icon_label: 'ئایکۆن (ل شەبەکێ جۆرێن ئەپی دیاردبیت)',
+    icon: {
+      food: 'خوارن', groceries: 'بەرهەمێن بازاری', clothing: 'کینج',
+      accessories: 'ئاکسێسوار', electronics: 'ئەلیکترۆنیک', home: 'مال',
+      beauty: 'جوانی', toys: 'یاری و زاروک', books: 'پەرتووک',
+      health: 'تەندروستی', sports: 'وەرزش', tools: 'ئامیر',
+      gifts: 'دیاری', pets: 'گیانداری مالی', stationery: 'کەلوپەلێ نڤیسینێ', other: 'دی',
+    },
   },
   gallery: {
     add_image: 'زێدەکرنا وێنەی',

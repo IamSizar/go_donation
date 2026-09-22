@@ -55,7 +55,7 @@ class MarketplaceController extends GetxController
     final next = query.trim();
     if (next == productSearch.value) return;
     productSearch.value = next;
-    await fetchProducts(reset: true);
+    await fetchProducts(reset: true, silent: true);
   }
 
   /// K15 — the six functional labels, as ONE server-side query.
@@ -87,7 +87,7 @@ class MarketplaceController extends GetxController
   Future<void> setCatalogueQuery(CatalogueQuery next) async {
     if (next == catalogueQuery.value) return;
     catalogueQuery.value = next;
-    await fetchProducts(reset: true);
+    await fetchProducts(reset: true, silent: true);
   }
 
   /// Clears every filter AND the search box's effect, in one request.
@@ -99,7 +99,7 @@ class MarketplaceController extends GetxController
     if (!isCatalogueFiltered) return;
     productSearch.value = '';
     catalogueQuery.value = const CatalogueQuery();
-    await fetchProducts(reset: true);
+    await fetchProducts(reset: true, silent: true);
   }
 
   // Note #42 — pay the cart with the internal test-phase wallet instead of
@@ -146,13 +146,24 @@ class MarketplaceController extends GetxController
   @override
   Future<void> realtimePoll() => fetchOrders(silent: true);
 
-  Future<void> fetchProducts({bool reset = false}) async {
+  /// THE BUG THIS FIXES: every chip tap and search keystroke called this
+  /// with `reset: true`, which unconditionally set `isLoading = true` —
+  /// meant, per its own doc comment above, for "the FIRST load" only. Since
+  /// `AppAsync.loading` swaps the real product cards for its skeleton
+  /// whenever it is true, re-filtering the catalogue replaced a full card
+  /// (image, title, price, "Sale"/"New" badge, sold count) with a generic
+  /// skeleton row of a different height, then swapped back once the new
+  /// page arrived — the list visibly grew then shrank on every tap. [silent]
+  /// keeps the CURRENT cards on screen (same pattern as `fetchOrders`'s
+  /// `silent` param below) so `products.assignAll` swaps old cards for new
+  /// ones directly, with nothing skeleton-shaped in between.
+  Future<void> fetchProducts({bool reset = false, bool silent = false}) async {
     if (reset) {
       _productsPage = 1;
       hasMoreProducts.value = true;
     }
 
-    isLoading.value = true;
+    if (!silent) isLoading.value = true;
     errorMessage.value = null;
 
     try {
@@ -163,7 +174,7 @@ class MarketplaceController extends GetxController
       products.clear();
       errorMessage.value = 'Unable to load products from the server.'.tr;
     } finally {
-      isLoading.value = false;
+      if (!silent) isLoading.value = false;
     }
   }
 

@@ -22,6 +22,22 @@ type Category struct {
 	NameKMR      string `json:"name_kmr"`
 	DisplayOrder int    `json:"display_order"`
 	Active       bool   `json:"active"`
+	// IconKey — #41080. One of a fixed vocabulary (see migration 129's CHECK
+	// constraint); the app maps it to a Material icon for the store's
+	// category grid. Defaults to "other" for every category created before
+	// this field existed.
+	IconKey string `json:"icon_key"`
+}
+
+// ValidIconKeys mirrors migration 129's CHECK constraint — kept here so Add
+// and Update can reject an unrecognised key with a clear error instead of
+// letting Postgres's constraint violation reach the client as a raw SQL
+// error.
+var ValidIconKeys = map[string]bool{
+	"food": true, "groceries": true, "clothing": true, "accessories": true,
+	"electronics": true, "home": true, "beauty": true, "toys": true,
+	"books": true, "health": true, "sports": true, "tools": true,
+	"gifts": true, "pets": true, "stationery": true, "other": true,
 }
 
 type Store struct{ Pool *pgxpool.Pool }
@@ -44,7 +60,7 @@ func (s *Store) List(ctx context.Context, activeOnly bool) ([]Category, error) {
 		where = " WHERE active = 1"
 	}
 	rows, err := s.Pool.Query(ctx,
-		`SELECT id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, (active = 1)
+		`SELECT id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, (active = 1), icon_key
 		   FROM marketplace_categories`+where+`
 		  ORDER BY display_order, id`)
 	if err != nil {
@@ -55,7 +71,7 @@ func (s *Store) List(ctx context.Context, activeOnly bool) ([]Category, error) {
 	for rows.Next() {
 		var c Category
 		if err := rows.Scan(&c.ID, &c.Slug, &c.NameEN, &c.NameAR, &c.NameCKB, &c.NameKMR,
-			&c.DisplayOrder, &c.Active); err != nil {
+			&c.DisplayOrder, &c.Active, &c.IconKey); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -77,13 +93,19 @@ func (s *Store) Add(ctx context.Context, c Category, actorID *int64) (*Category,
 	if key == "" {
 		return nil, errors.New("could not derive a category key")
 	}
+	if c.IconKey == "" {
+		c.IconKey = "other"
+	}
+	if !ValidIconKeys[c.IconKey] {
+		return nil, errors.New("unrecognised icon")
+	}
 	var id int64
 	err := s.Pool.QueryRow(ctx,
-		`INSERT INTO marketplace_categories (slug, name_en, name_ar, name_ckb, name_kmr, active, created_by)
-		 VALUES ($1, $2, $3, $4, $5, 1, $6)
+		`INSERT INTO marketplace_categories (slug, name_en, name_ar, name_ckb, name_kmr, active, created_by, icon_key)
+		 VALUES ($1, $2, $3, $4, $5, 1, $6, $7)
 		 RETURNING id, display_order, (active = 1)`,
 		key, c.NameEN, strings.TrimSpace(c.NameAR),
-		strings.TrimSpace(c.NameCKB), strings.TrimSpace(c.NameKMR), actorID,
+		strings.TrimSpace(c.NameCKB), strings.TrimSpace(c.NameKMR), actorID, c.IconKey,
 	).Scan(&id, &c.DisplayOrder, &c.Active)
 	if err != nil {
 		if strings.Contains(err.Error(), "23505") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
@@ -102,6 +124,12 @@ func (s *Store) Update(ctx context.Context, id int64, c Category) (*Category, er
 	if c.NameEN == "" {
 		return nil, errors.New("English name is required")
 	}
+	if c.IconKey == "" {
+		c.IconKey = "other"
+	}
+	if !ValidIconKeys[c.IconKey] {
+		return nil, errors.New("unrecognised icon")
+	}
 	activeInt := 0
 	if c.Active {
 		activeInt = 1
@@ -109,13 +137,13 @@ func (s *Store) Update(ctx context.Context, id int64, c Category) (*Category, er
 	var out Category
 	err := s.Pool.QueryRow(ctx,
 		`UPDATE marketplace_categories
-		    SET name_en = $2, name_ar = $3, name_ckb = $4, name_kmr = $5, active = $6
+		    SET name_en = $2, name_ar = $3, name_ckb = $4, name_kmr = $5, active = $6, icon_key = $7
 		  WHERE id = $1
-		  RETURNING id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, (active = 1)`,
+		  RETURNING id, slug, name_en, name_ar, name_ckb, name_kmr, display_order, (active = 1), icon_key`,
 		id, c.NameEN, strings.TrimSpace(c.NameAR),
-		strings.TrimSpace(c.NameCKB), strings.TrimSpace(c.NameKMR), activeInt,
+		strings.TrimSpace(c.NameCKB), strings.TrimSpace(c.NameKMR), activeInt, c.IconKey,
 	).Scan(&out.ID, &out.Slug, &out.NameEN, &out.NameAR, &out.NameCKB, &out.NameKMR,
-		&out.DisplayOrder, &out.Active)
+		&out.DisplayOrder, &out.Active, &out.IconKey)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows") {
 			return nil, errors.New("category not found")

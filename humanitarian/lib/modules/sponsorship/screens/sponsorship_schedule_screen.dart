@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/core/widgets/app_row.dart';
@@ -104,7 +105,8 @@ class _SponsorshipScheduleScreenState extends State<SponsorshipScheduleScreen> {
           // Filter row. Horizontally scrollable so the four chips never
           // overflow on a narrow screen or with longer translations.
           SizedBox(
-            height: 44,
+            // See pillRowHeight's doc comment — this used to be a hardcoded 44.
+            height: pillRowHeight(context, verticalPadding: 10),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),

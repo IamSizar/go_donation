@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
@@ -134,7 +135,8 @@ class _CategoryChips extends StatelessWidget {
         .toList();
 
     Widget row(List<Widget> chips) => SizedBox(
-      height: 40,
+      // See pillRowHeight's doc comment — this used to be a hardcoded 40.
+      height: pillRowHeight(context),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: chips.length,

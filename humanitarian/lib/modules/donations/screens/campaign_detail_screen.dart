@@ -347,37 +347,44 @@ class _HeroSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            c.title,
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 22,
-                              height: 1.25,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Spec item 13 — this was OperationStatusBadge, a
-                        // coloured disc whose state ("delivered in full" /
-                        // "partially received" / "not received yet") lived
-                        // only in a tooltip, so on screen the meaning was
-                        // carried by the colour alone. The pill variant of the
-                        // same shared badge shows the percentage AND the word,
-                        // which survives greyscale and colour-blindness.
-                        // K5 — `fundedProgress` is money raised ÷ goal, so the
-                        // pill must say funding. It previously read
-                        // "Complete" / "Not received", which is a claim about
-                        // delivery that this number cannot support.
-                        OperationStatusPill(
-                          progress: c.fundedProgress,
-                          kind: OperationStatusKind.funding,
-                        ),
-                      ],
+                    // THE BUG THIS FIXES: title and pill used to share one
+                    // Row, with the title in an Expanded fighting the pill
+                    // for width. The pill (fixed-width, laid out first, per
+                    // Row's flex rules) always got its full natural width —
+                    // "X% Partially funded" is wide — leaving the title's
+                    // Expanded only the leftover sliver. For a long title
+                    // ("Medical Aid for Cancer Patients") that sliver was
+                    // narrower than a single word at this 22px bold size,
+                    // so every word wrapped onto its own line, turning the
+                    // title into a tall single-word-per-line column. Giving
+                    // the title its own full-width line first, with the
+                    // pill on the line below, means the title always wraps
+                    // against the card's full width instead of whatever the
+                    // pill left over.
+                    Text(
+                      c.title,
+                      style: TextStyle(
+                        color: AppThemeConfig.text(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Spec item 13 — this was OperationStatusBadge, a
+                    // coloured disc whose state ("delivered in full" /
+                    // "partially received" / "not received yet") lived
+                    // only in a tooltip, so on screen the meaning was
+                    // carried by the colour alone. The pill variant of the
+                    // same shared badge shows the percentage AND the word,
+                    // which survives greyscale and colour-blindness.
+                    // K5 — `fundedProgress` is money raised ÷ goal, so the
+                    // pill must say funding. It previously read
+                    // "Complete" / "Not received", which is a claim about
+                    // delivery that this number cannot support.
+                    OperationStatusPill(
+                      progress: c.fundedProgress,
+                      kind: OperationStatusKind.funding,
                     ),
                     if (c.category.isNotEmpty) ...[
                       const SizedBox(height: 8),

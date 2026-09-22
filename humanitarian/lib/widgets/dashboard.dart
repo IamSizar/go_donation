@@ -1665,15 +1665,49 @@ class _QuickAction extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 7),
-                Text(
-                  label.tr,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: compact ? 11.5 : 12.5,
-                    color: AppThemeConfig.text(context),
-                  ),
+                // Reserves 2 lines of height unconditionally — same fix as
+                // EventHubCard's _reservedTextHeight, and the same bug: a
+                // Column sized with MainAxisSize.min sizes to however many
+                // lines THIS card's own label actually needs, so a 2-line
+                // label ("My Engagement") sits in a taller card than 1-line
+                // siblings ("Our Products", "City Guide") in the same Row.
+                Builder(
+                  builder: (context) {
+                    final style = TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: compact ? 11.5 : 12.5,
+                      // Explicit line-height. THE BUG THIS FIXES: without
+                      // this, the TextPainter below (used only to measure)
+                      // and the real Text widget it sizes for can disagree
+                      // on the font's natural/default leading, the same
+                      // mismatch found in EventHubCard's title. There it
+                      // made the reservation too SHORT relative to the
+                      // real render, and because a SizedBox does not give
+                      // its child extra room, the second line of a 2-line
+                      // label like "My Engagement" got clipped instead of
+                      // drawn. Pinning the line-height makes the measured
+                      // and rendered heights the same number.
+                      height: 1.2,
+                      color: AppThemeConfig.text(context),
+                    );
+                    final painter = TextPainter(
+                      text: TextSpan(text: 'M\nM', style: style),
+                      maxLines: 2,
+                      textDirection: Directionality.of(context),
+                      textScaler: MediaQuery.textScalerOf(context),
+                    )..layout(maxWidth: double.infinity);
+                    return SizedBox(
+                      height: painter.height,
+                      child: ClipRect(
+                        child: Text(
+                          label.tr,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          style: style,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -1981,8 +2015,19 @@ class _NewsStrip extends StatelessWidget {
           // fixed-height SizedBox must wrap FullBleedHorizontal, not nest
           // inside it — bleeds this carousel to the true screen edges
           // instead of clipping early at the page's side padding.
+          //
+          // THE BUG THIS FIXES: this was a flat 208, sized for
+          // _NewsCard's title (2 lines, 14px, height 1.25 — 35pt) at the
+          // DEFAULT text scale. _FeaturedCampaignsSection right above this
+          // already had the identical defect fixed (see its own comment) —
+          // this strip just hadn't been given the same treatment yet. Same
+          // fix, same reasoning: follow the text instead of ignoring it.
           SizedBox(
-            height: 208,
+            height:
+                208 +
+                35 *
+                    (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0) -
+                        1),
             child: FullBleedHorizontal(
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,

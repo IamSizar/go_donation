@@ -1054,6 +1054,23 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
   -webkit-backdrop-filter: blur(12px);
   min-height: 56px;
   font-size: var(--text-sm);
+  /* THE BUG THIS FIXES: `backdrop-filter` always creates a new stacking
+     context (CSS spec, same as `transform`/`opacity<1`), so SoundMenu's
+     dropdown (`.sound-popover`, a child of this header, z-index: 50) was
+     being scored against its siblings INSIDE that context, not against the
+     rest of the page. `.topbar` itself has no z-index, so — with no
+     competing z-index — it simply paints in DOM order, and the routed
+     page's content (which comes after `.topbar` in the DOM, inside `.main`)
+     painted OVER whichever part of the dropdown extended past the topbar's
+     own ~56px height. The two rows that happened to fall over the routed
+     page's opaque `.top-action-bar` (z-index: 20) were invisible and
+     unclickable; the rows below it, over plain page background, still
+     showed. `position: relative` + an explicit z-index above
+     `.top-action-bar`'s 20 makes the WHOLE topbar (dropdown included) paint
+     above the routed page, closing that gap without touching the
+     backdrop-filter glass effect. */
+  position: relative;
+  z-index: 30;
 }
 .topbar button {
   height: var(--btn-h-md);
