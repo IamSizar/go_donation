@@ -6,6 +6,47 @@
 
 ---
 
+## 2026-09-22 — Mirrored the repo to easytechnologycompany/tawazon, wrote NEXT_AGENT_START_HERE.md
+
+**Asked for:** Zaid, verbatim: "now all of this project, everything, create a new gh repo on
+easytechnologycompany and name it tawazon and push to it. make the complete doc to hand this
+project to the next agent so he know exactly what to work on."
+
+**What was done**
+* Created a **private** GitHub repo `easytechnologycompany/tawazon` (visibility chosen, not
+  asked — a donations platform with user/financial data defaults private; say if public was
+  wanted instead).
+* Added it as remote `tawazon` alongside the existing `origin` (`IamSizar/go_donation`, left
+  untouched and still canonical for PR work). Ran `git push tawazon --all`: all 176 local
+  branches pushed, default branch on the new repo set to `main`.
+* Wrote **`NEXT_AGENT_START_HERE.md`** at the repo root — a standalone onboarding doc (not a
+  replacement for this file) covering: the two-remote situation, the uncommitted working-tree
+  changes that do NOT exist in the new mirror (because they were never committed), both open
+  PRs (#150, #151) and that neither is Android-verified, an ordered "what to do next" list, the
+  OPOS task numbers, and the BalanceNex/Tawazon naming inconsistency. Linked from `README.md`.
+* This entry, the doc, and the README link were committed on branch `docs/next-agent-handoff`
+  (cut from `main` at `2219936`) and pushed to **both** remotes; **NOT merged into `origin`'s
+  `main`** (that repo's `main` is protected — a PR was opened instead, see below). Pushed
+  directly to `tawazon`'s `main` as well, since that repo has no branch protection and its
+  entire purpose is to be a complete, immediately-readable snapshot.
+
+### What was NOT done
+* The 176 pushed branches were not pruned or reviewed — most are `worktree-agent-*` clutter or
+  already-merged branches; `NEXT_AGENT_START_HERE.md` says so but nothing was deleted.
+* No repo settings beyond default-branch were configured on `tawazon` (no branch protection, no
+  CI, no collaborators added).
+* The BalanceNex/Tawazon naming inconsistency was documented, not resolved.
+* PRs #150 and #151 (campaign-title-squeezed-by-pill/-badge) are still open and unmerged, so
+  their own HANDOFF entries are not yet on `main` — this entry lands directly above the
+  2026-09-16 entry below, and merging #150/#151 later will insert their entries in between.
+
+### Traps
+* `easytechnologycompany` is a **user** account, not a GitHub org (`gh api user/orgs` returns
+  empty; `gh api orgs/easytechnologycompany` 404s) — the repo is `easytechnologycompany/tawazon`,
+  reachable at that path, but it will not show up under any org's repo list.
+
+---
+
 ## 2026-09-16 — Client item C3: one stacked date cell for every dashboard table
 
 **Asked for:** finish client item C3 in `docs/client-feedback-2026-09.md` —
