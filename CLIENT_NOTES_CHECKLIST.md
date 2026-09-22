@@ -21,7 +21,7 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | # | Item | Where | Status |
 |---|---|---|---|
 | A1 | **`Database error.` on the contributions page**, and in-kind contributions sent to a user never arrive. Screenshot shows the red error banner with an empty table beneath. | Dashboard → المساعدات والحملات → المساهمات | ✅ **verified deployed** (2026-09-22) — production `backend`/`dashboard` confirmed at commit `2219936`, which includes this fix; local test suite passes. See A1 notes below |
-| A2 | **Force logout (تسجيل خروج قسري) does not work** | Dashboard → المستخدمون → row actions | ⬜ |
+| A2 | **Force logout (تسجيل خروج قسري) does not work** | Dashboard → المستخدمون → row actions | ✅ **verified working, deployed** (2026-09-22) — see A2 notes below |
 | A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | ✅ **verified deployed** (2026-09-22) — production confirmed at commit `2219936`, which includes this fix; local test suite passes. See A3 notes below |
 | A4 | **City Guide: the last slide cannot be displayed** — technical fault | App → دليل المدينة | ⬜ |
 | A5 | Dashboard shows a **wrong phone number for a real user**: `07701111111` appears on the accounts page for user **نور كاظم** although he is registered successfully through the phone app — "ظهور رقم الهاتف ٠٧٧٠١١١١١١١ في صفحة الحسابات داخل لوحة التحكم ... رغم كونه مسجلاً بنجاح عبر تطبيق الهاتف" `[D p9]` | Dashboard → المستخدمون | ⬜ |
@@ -225,6 +225,31 @@ Retry instead of the false "no contributions yet".
 **Deployed and verified 2026-09-22** — production `backend` (Railway project
 `donations`) confirmed at commit `2219936`, the tip of `main`, which contains
 this fix. Production no longer 500s on this path.
+
+### A2 — diagnosis (2026-09-22)
+
+**Not a defect in the current code — the client's report predates the fix by
+one day.** The client notes were captured 2026-08-15. `518f850` ("a browser
+that refuses `prompt()` could not change a role at all"), shipped **2026-08-16**,
+replaced the `window.prompt()` step-up (which some browsers refuse outright,
+silently killing the action with no error shown) with a real dashboard-drawn
+password dialog. Force Logout uses that same `verifyPin()` step-up
+(`admin-web/src/pages/UsersPage.tsx`), so it would have been dead in exactly
+the way the client described at the moment they tested it.
+
+**Reproduced end-to-end against a local backend + dashboard on the real
+schema:** seeded a donor account, signed in as it, captured its live Bearer
+token, confirmed `GET /api/auth/me` returned `200` with that token, clicked
+Force Logout on the account in the dashboard (Super-Admin only, per Section
+25) with the password step-up, got the "All sessions revoked — the user is
+signed out" toast, then re-checked the same token — `401 Invalid or expired
+token`. The mechanism (`backend/internal/handlers/admin_status.go`,
+`revokeSessionsForUser` → `UPDATE api_access_tokens SET revoked_at = NOW()`,
+consulted on every request in `internal/auth/token.go`) is sound: tokens are
+DB-backed, not stateless JWT, so revocation is immediate and total across
+mobile + browser.
+
+**Deployed** — commit `2219936` (production tip) includes `518f850`.
 
 ### A15 — diagnosis and fix (2026-08-15)
 
