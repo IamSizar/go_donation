@@ -13,7 +13,7 @@ import (
 // literal "General support" into an otherwise-Arabic/Kurdish sentence.
 
 func TestSponsorshipAcceptedMsg_NamesTheProjectWhenKnown(t *testing.T) {
-	m := SponsorshipAcceptedMsg("50000", "IQD", "Winter Relief", 7)
+	m := SponsorshipAcceptedMsg("50000", "IQD", LocalText{En: "Winter Relief", Ar: "Winter Relief", Ckb: "Winter Relief", Kmr: "Winter Relief"}, 7)
 	for name, body := range map[string]string{"En": m.Body.En, "Ar": m.Body.Ar, "Ckb": m.Body.Ckb, "Kmr": m.Body.Kmr} {
 		if !strings.Contains(body, "Winter Relief") {
 			t.Errorf("%s body does not name the project: %q", name, body)
@@ -22,7 +22,7 @@ func TestSponsorshipAcceptedMsg_NamesTheProjectWhenKnown(t *testing.T) {
 }
 
 func TestSponsorshipAcceptedMsg_GeneralSupportHasNoBlankOrRawEnglish(t *testing.T) {
-	m := SponsorshipAcceptedMsg("50000", "IQD", "", 7)
+	m := SponsorshipAcceptedMsg("50000", "IQD", LocalText{}, 7)
 	for name, body := range map[string]string{"En": m.Body.En, "Ar": m.Body.Ar, "Ckb": m.Body.Ckb, "Kmr": m.Body.Kmr} {
 		if strings.Contains(body, `""`) {
 			t.Errorf("%s body still interpolates a blank quoted name: %q", name, body)

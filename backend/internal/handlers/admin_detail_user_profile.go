@@ -21,6 +21,7 @@ package handlers
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -125,8 +126,29 @@ const userDetailMetaDocuments = "_documents"
 // created before the profile was filled in). A missing row is NOT an error: the
 // detail page must still render the account.
 func loadUserProfile(ctx context.Context, pool *pgxpool.Pool, userID int64) (map[string]any, error) {
+	// Two rules this query has to follow, neither visible in the column list:
+	//
+	//  1. ORDER BY id LIMIT 1 — user_profiles.user_id has no UNIQUE constraint
+	//     (migrations/124_user_profiles_user_id_index.sql explains why), so an
+	//     account can own two rows. Without an ORDER BY, CollectOneRow below
+	//     took whichever arrived first, and this page could describe a person
+	//     differently from the Users list, which already picks the oldest row
+	//     (OPOS #26603). Oldest wins, everywhere.
+	//
+	//  2. NULLIF(profile_picture, '0') — the column is NOT NULL and seeded
+	//     with the literal '0' (internal/users/registration.go). It is a
+	//     sentinel, not a path. The app endpoint already translated it; this
+	//     one did not, so admin-web rendered assetUrl('0') as "<API base>/0"
+	//     — a broken image where "—" belongs. Overridden after the generic
+	//     allow-list so the column keeps its name in the result map.
+	selected := strings.Replace(
+		selectList(userProfileDetailColumns),
+		`"profile_picture"`,
+		`NULLIF("profile_picture", '0') AS "profile_picture"`,
+		1,
+	)
 	rows, err := pool.Query(ctx,
-		"SELECT "+selectList(userProfileDetailColumns)+" FROM user_profiles WHERE user_id = $1",
+		"SELECT "+selected+" FROM user_profiles WHERE user_id = $1 ORDER BY id LIMIT 1",
 		userID)
 	if err != nil {
 		return nil, err

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 )
 
 // ErrRegistrationNotSubmittable is returned by SubmitRegistration when the
@@ -17,6 +19,19 @@ import (
 // 409). Submitting from 'incomplete', 'pending' (idempotent) or 'rejected'
 // (re-submit after a rejection) all succeed.
 var ErrRegistrationNotSubmittable = errors.New("registration not submittable in current status")
+
+// ErrInvalidProfilePhone is returned by SubmitRegistration when phone1 or
+// phone2 was supplied but is not a usable phone number.
+//
+// Client feedback round 1: these two fields went into user_profiles exactly as
+// typed. auth.NormalizePhone — the rule every other phone in the system goes
+// through — was never applied, so "0750 858 2031", "07508582031" and
+// "+9647508582031" were stored as three different strings for one number, and
+// something that is not a number at all was stored just as happily. Both are
+// optional fields: blank stays blank, and only a supplied-but-unusable value
+// is an error. The handler maps this to a 400 with the normal error envelope
+// rather than the 500 an unrecognized error would produce.
+var ErrInvalidProfilePhone = errors.New("profile phone number is not valid")
 
 // SubmitRegistration is the new-user onboarding write: it stores the profile
 // fields the registration form collects (name, date of birth, address),
@@ -77,6 +92,25 @@ type RegistrationExtras struct {
 	FamiliesCount   string
 }
 
+// normalizeOptionalPhone reduces one optional profile phone to the canonical
+// form the rest of the system stores (`<dial code><national number>`), or
+// returns ErrInvalidProfilePhone when it was supplied and cannot be reduced.
+//
+// Blank is not an error: phone1 and phone2 sit behind the registration form's
+// per-field rules and are commonly left out entirely. auth.NormalizePhone is
+// the single authority on what a phone number is — duplicating its rules here
+// is exactly the drift this fix removes.
+func normalizeOptionalPhone(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	normalized := auth.NormalizePhone(raw)
+	if normalized == "" {
+		return "", ErrInvalidProfilePhone
+	}
+	return normalized, nil
+}
+
 func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, dob, address string, roleID int, extras RegistrationExtras) (string, error) {
 	if userID <= 0 {
 		return "", errors.New("invalid userID")
@@ -104,8 +138,17 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 	nameGrandfather := strings.TrimSpace(extras.NameGrandfather)
 	nameFamily := strings.TrimSpace(extras.NameFamily)
 	titleSurname := strings.TrimSpace(extras.TitleSurname)
-	phone1 := strings.TrimSpace(extras.Phone1)
-	phone2 := strings.TrimSpace(extras.Phone2)
+	// Both profile phones are optional and stored in the same canonical form
+	// as users.phone, so a staff search or a duplicate check can match them.
+	// See ErrInvalidProfilePhone above.
+	phone1, err := normalizeOptionalPhone(extras.Phone1)
+	if err != nil {
+		return "", err
+	}
+	phone2, err := normalizeOptionalPhone(extras.Phone2)
+	if err != nil {
+		return "", err
+	}
 	email := strings.TrimSpace(extras.Email)
 	governorate := strings.TrimSpace(extras.Governorate)
 	educationLevel := strings.TrimSpace(extras.EducationLevel)

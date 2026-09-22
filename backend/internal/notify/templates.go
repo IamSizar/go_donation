@@ -889,7 +889,17 @@ func DonationReceivedOnProjectMsg(amount, currency, projectTitle, donorName stri
 // empty projectName gets its own complete sentence per language instead of a
 // blank interpolation — NOT the raw English literal "General support",
 // which would otherwise leak untranslated into the ar/ckb/kmr copy.
-func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID int64) LocalizedMessage {
+//
+// Client feedback round 1: projectName is a LocalText — the project's title
+// per language, already resolved by the caller, the same shape
+// chatThreadNewMessageMsg takes for its sender name. It used to be a plain
+// string, and the caller only had the ENGLISH title column to hand it, so the
+// Arabic and Kurdish bodies named the project in English inside otherwise
+// translated copy. A language whose column is empty is COALESCEd to the
+// English title by the caller, so "no Arabic title on file" still reads as a
+// complete sentence; only a sponsorship with NO source row at all reaches the
+// empty-name branch below.
+func SponsorshipAcceptedMsg(amount, currency string, projectName LocalText, sponsorshipID int64) LocalizedMessage {
 	msg := LocalizedMessage{
 		Type:              "sponsorship_accepted",
 		RelatedEntityType: "sponsorships",
@@ -901,7 +911,10 @@ func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID 
 			Kmr: "سپۆنسەری هاتە قبوولکرن",
 		},
 	}
-	if projectName == "" {
+	// En is the only slot guaranteed to be populated (project_title /
+	// public_title are NOT NULL), so it is the one that answers "is there a
+	// project at all".
+	if projectName.En == "" {
 		msg.Body = LocalText{
 			En:  fmt.Sprintf("Your %s %s monthly sponsorship was accepted. You'll be reminded each month when payment is due.", amount, currency),
 			Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s. سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency),
@@ -911,10 +924,10 @@ func SponsorshipAcceptedMsg(amount, currency, projectName string, sponsorshipID 
 		return msg
 	}
 	msg.Body = LocalText{
-		En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName),
-		Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName),
-		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName),
-		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName),
+		En:  fmt.Sprintf("Your %s %s monthly sponsorship for \"%s\" was accepted. You'll be reminded each month when payment is due.", amount, currency, projectName.En),
+		Ar:  fmt.Sprintf("تم قبول كفالتك الشهرية بمبلغ %s %s للمشروع \"%s\". سيتم تذكيرك كل شهر عند موعد الدفع.", amount, currency, projectName.Ar),
+		Ckb: fmt.Sprintf("سپۆنسەری مانگانەی تۆ بە بڕی %s %s بۆ «%s» وەرگیرا. هەموو مانگێک کاتی پارەدان پێشت ئاگادار دەکرێیتەوە.", amount, currency, projectName.Ckb),
+		Kmr: fmt.Sprintf("سپۆنسەریا تە یا مەهانە یا %s %s بۆ «%s» هاتە قبوولکرن. هەر مەهی دەمێ پارەدانێ تە ئاگەهدار دکەین.", amount, currency, projectName.Kmr),
 	}
 	return msg
 }

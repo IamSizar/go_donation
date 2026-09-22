@@ -234,21 +234,41 @@ func (h *AdminStatusHandler) notifySponsorshipDecision(ctx context.Context, spon
 	var donorID int64
 	var amount string
 	var currency *string
-	var projectTitle string
+	var projectTitle notify.LocalText
 	// Sponsorships reference either a beneficiary_case or a project_request
 	// for their "what is this sponsoring" label. Try project_request first
 	// (the more common case) then fall back to case.
+	//
+	// Client feedback round 1: this used to select the English column alone
+	// (COALESCE(pr.project_title, bc.public_title, '')), so an Arabic or
+	// Kurdish push named the project in English inside otherwise translated
+	// copy. Both tables carry _ar / _sorani / _badini twins, so all four are
+	// read here.
+	//
+	// Each localized slot falls back to its own table's English title before
+	// falling back to the other table: a project request with no Arabic title
+	// (the common case — the app's submission form never collects one) should
+	// read as its English title, never as a DIFFERENT row's title. The final
+	// '' is the "General support" sponsorship, which references neither table
+	// and gets its own complete sentence per language in the template.
 	err := h.Pool.QueryRow(ctx, `
 		SELECT s.donor_user_id,
 		       s.amount,
 		       s.currency,
-		       COALESCE(pr.project_title, bc.public_title, '')
+		       COALESCE(pr.project_title, bc.public_title, ''),
+		       COALESCE(NULLIF(pr.project_title_ar, ''),     pr.project_title,
+		                NULLIF(bc.public_title_ar, ''),      bc.public_title, ''),
+		       COALESCE(NULLIF(pr.project_title_sorani, ''), pr.project_title,
+		                NULLIF(bc.public_title_sorani, ''),  bc.public_title, ''),
+		       COALESCE(NULLIF(pr.project_title_badini, ''), pr.project_title,
+		                NULLIF(bc.public_title_badini, ''),  bc.public_title, '')
 		  FROM sponsorships s
 		  LEFT JOIN beneficiary_project_requests pr ON pr.id = s.project_request_id
 		  LEFT JOIN beneficiary_cases             bc ON bc.id = s.beneficiary_case_id
 		 WHERE s.id = $1`,
 		sponsorshipID,
-	).Scan(&donorID, &amount, &currency, &projectTitle)
+	).Scan(&donorID, &amount, &currency,
+		&projectTitle.En, &projectTitle.Ar, &projectTitle.Ckb, &projectTitle.Kmr)
 	if err != nil {
 		log.Printf("[notify] sponsorship %d lookup: %v", sponsorshipID, err)
 		return
@@ -267,9 +287,12 @@ func (h *AdminStatusHandler) notifySponsorshipDecision(ctx context.Context, spon
 	case "cancelled", "stopped":
 		// Same copy as the donor-initiated cancel — admin-initiated lands
 		// on the same notification so the donor sees a clean record.
-		msg = notify.SponsorshipCancelledByDonorMsg(projectTitle, sponsorshipID)
+		// These two templates still take a plain string. They were out of
+		// scope for this round; .En keeps their behaviour exactly as it was
+		// rather than silently changing copy that was not reported.
+		msg = notify.SponsorshipCancelledByDonorMsg(projectTitle.En, sponsorshipID)
 	case "paused", "delayed", "completed":
-		msg = notify.SponsorshipStatusChangedMsg(projectTitle, newStatus, sponsorshipID)
+		msg = notify.SponsorshipStatusChangedMsg(projectTitle.En, newStatus, sponsorshipID)
 	default:
 		return
 	}

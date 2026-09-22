@@ -894,12 +894,25 @@ func (s *Store) GetAccountForClient(ctx context.Context, userID int64) (*Account
 	err := s.Pool.QueryRow(ctx,
 		`SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
 		        (u.password_hash IS NOT NULL AND u.password_hash <> ''),
-		        up.id, up.full_name, up.gender, up.address, up.profile_picture,
+		        up.id, up.full_name, up.gender, up.address,
+		        -- '0' is the literal the NOT NULL profile_picture column is
+		        -- seeded with when nobody has uploaded anything (see
+		        -- registration.go). It is a sentinel, not a path: left alone
+		        -- it reaches the dashboard, which turns it into
+		        -- "<API base>/0" and renders a broken image. Translated here,
+		        -- at the boundary, so no reader has to know about it.
+		        NULLIF(up.profile_picture, '0'),
 		        to_char(up.date_of_birth, 'YYYY-MM-DD'), COALESCE(up.field_privacy, '{}'),
 		        COALESCE(up.recipient_code, ''), COALESCE(up.volunteer_code, ''),
 		        COALESCE(up.grantor_code, '')
 		   FROM users u
-		   LEFT JOIN user_profiles up ON up.user_id = u.id
+		   -- One profile row per account, oldest wins — the same LATERAL the
+		   -- paginated list below uses (OPOS #26603). A plain LEFT JOIN with
+		   -- a bare LIMIT 1 returned an arbitrary row when an account had two.
+		   LEFT JOIN LATERAL (
+		          SELECT p.* FROM user_profiles p
+		           WHERE p.user_id = u.id ORDER BY p.id LIMIT 1
+		        ) up ON TRUE
 		  WHERE u.id = $1
 		  LIMIT 1`,
 		userID,
@@ -1058,7 +1071,9 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 	rows, err := s.Pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
 		       (u.password_hash IS NOT NULL AND u.password_hash <> ''),
-		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
+		       up.id, up.full_name, up.gender, up.address,
+		       -- The '0' NOT NULL seed is not a path; see GetAccountForClient.
+		       NULLIF(up.profile_picture, '0'),
 		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
 		       up.city, up.occupation, up.family_size, up.housing_status,
 		       up.monthly_income, up.skills, up.availability, up.experience,

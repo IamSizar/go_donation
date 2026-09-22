@@ -243,6 +243,15 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"status": "error", "error": "Registration cannot be submitted in its current state."})
 			return
 		}
+		// Client feedback round 1 — a phone1/phone2 the server cannot read is
+		// the person's input, not a server fault, so it gets a 400 and a
+		// message they can act on rather than the generic 500 below. The app
+		// validates the same two fields inline (phoneValidationMessage), so
+		// reaching this is either an older build or a direct API call.
+		if errors.Is(err, users.ErrInvalidProfilePhone) {
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Please enter a valid phone number."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to submit registration."})
 		return
 	}

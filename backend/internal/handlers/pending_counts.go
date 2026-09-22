@@ -14,7 +14,7 @@
 //   sponsorships                 status          = 'pending'
 //   beneficiary_cases            verification_status = 'pending'
 //   beneficiary_project_requests status          = 'under_review'
-//   marketplace_orders           status          IN ('pending','processing')
+//   marketplace_orders           status          = 'pending' (client feedback round 1 — was IN ('pending','processing'), which made the badge go back up when an approved order moved on to 'processing')
 //   support_tickets              status          IN ('open','in_progress')
 //   in_kind_donations            status          = 'scheduled'
 //   volunteer_applications       status          = 'submitted'
@@ -81,8 +81,17 @@ func (h *PendingCountsHandler) Counts(c *gin.Context) {
 		     WHERE verification_status = 'pending')
 		  + (SELECT COUNT(*) FROM beneficiary_project_requests
 		     WHERE status = 'under_review')                                   AS beneficiary,
+		  -- Client feedback round 1 — was status IN ('pending','processing'),
+		  -- which made this badge non-monotonic. The lifecycle is
+		  -- pending → approved → processing → completed, so approving an
+		  -- order DROPPED the badge and the later move to 'processing'
+		  -- BROUGHT IT BACK: staff saw work reappear that they had already
+		  -- actioned. Only 'pending' is awaiting a staff decision.
+		  -- ('approved','processing','completed') is the separate "confirmed"
+		  -- set used by internal/marketplace/catalogue.go; it is unrelated
+		  -- to this badge and is deliberately left alone.
 		  (SELECT COUNT(*) FROM marketplace_orders
-		     WHERE status IN ('pending', 'processing'))                       AS marketplace,
+		     WHERE status = 'pending')                                        AS marketplace,
 		  (SELECT COUNT(*) FROM support_tickets
 		     WHERE status IN ('open', 'in_progress'))                         AS support,
 		  (SELECT COUNT(*) FROM in_kind_donations

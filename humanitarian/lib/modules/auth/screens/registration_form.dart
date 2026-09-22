@@ -13,6 +13,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
 import 'package:flutter_application_1/core/design/contrast.dart';
+import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
@@ -119,6 +120,23 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       // Anchored under the FIRST rule key: the others are the same field seen
       // under a different role's name, so they share one place on screen.
       : _anchored(ruleKeys.first, children);
+
+  /// Validator for the profile's phone1 / phone2 fields.
+  ///
+  /// Client feedback round 1: these fields shipped with a keyboardType and
+  /// nothing else — no validator, no length limit — so anything typed was
+  /// posted and stored verbatim. They now run the app's single phone rule
+  /// (core/phone_format.dart), the same one the sign-in screen applies, so the
+  /// form cannot accept a number auth.NormalizePhone will then refuse.
+  ///
+  /// `required: false` because both fields are optional: they sit behind the
+  /// admin's per-field rules and are commonly left blank. A blank one is not a
+  /// malformed number, but anything actually typed is checked.
+  ///
+  /// dialCode '964' because these fields have no country picker, and the
+  /// server treats a bare local number as Iraqi (auth.NormalizePhone).
+  String? _profilePhoneMessage(String? value) =>
+      phoneValidationMessage(value, dialCode: '964', required: false);
 
   /// Renders [children] only when [ruleKey] isn't hidden. Spread into a
   /// Column's children: `..._unlessHidden('key', [...])`.
@@ -353,7 +371,6 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   String? _graduationCertPhotoPath;
   String? _cvPhotoPath;
 
-
   // ─── Edit mode: the profile picture ────────────────────────────────────
   //
   // The avatar is NOT a registration field. Registration uploads its
@@ -418,66 +435,66 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // which is the worst failure this screen can have — it invites them to
   // retype what they already gave, or to save a blank over it.
   Map<String, TextEditingController> get _columnControllers => {
-      'address': _addressController,
-      'age_0_5_count': _age0To5Controller,
-      'age_10_15_count': _age10To15Controller,
-      'age_15_25_count': _age15To25Controller,
-      'age_25_40_count': _age25To40Controller,
-      'age_40_plus_count': _age40PlusController,
-      'age_5_10_count': _age5To10Controller,
-      'availability': _availabilityController,
-      'available_furniture': _availableFurnitureController,
-      'certificates_count': _certificatesCountController,
-      'chronic_illnesses': _chronicIllnessesController,
-      'city': _cityController,
-      'disability_type': _disabilityTypeController,
-      'divorced_count': _divorcedCountController,
-      'email': _emailController,
-      'emergency_phone': _emergencyPhoneController,
-      'families_count': _familiesCountController,
-      'family_size': _familySizeController,
-      'female_children_count': _femaleChildrenController,
-      'height': _heightController,
-      'household_disabled_count': _householdDisabledController,
-      'household_employees_count': _householdEmployeesController,
-      'housing_area': _housingAreaController,
-      'monthly_income': _incomeController,
-      'job_description': _jobDescriptionController,
-      'male_children_count': _maleChildrenController,
-      'medical_conditions_count': _medicalConditionsCountController,
-      'medical_conditions_desc': _medicalConditionsDescController,
-      'men_count': _menCountController,
-      'full_name': _nameController,
-      'name_family': _nameFamilyController,
-      'name_father': _nameFatherController,
-      'name_first': _nameFirstController,
-      'name_grandfather': _nameGrandfatherController,
-      'national_id': _nationalIdController,
-      'nearest_landmark': _nearestLandmarkController,
-      'needs_description': _needsDescriptionController,
-      'occupation': _occupationController,
-      'orphans_count': _orphansCountController,
-      'other_certificate': _otherCertificateController,
-      'phone1': _phone1Controller,
-      'phone2': _phone2Controller,
-      'previous_occupation': _previousOccupationController,
-      'rental_amount': _rentalAmountController,
-      'rooms_count': _roomsCountController,
-      'skills': _skillsController,
-      'social_facebook': _socialFacebookController,
-      'social_instagram': _socialInstagramController,
-      'social_other': _socialOtherController,
-      'social_telegram': _socialTelegramController,
-      'students_count': _studentsCountController,
-      'title_surname': _titleSurnameController,
-      'tribe_clan': _tribeClanController,
-      'wage_amount': _wageAmountController,
-      'weight': _weightController,
-      'widows_count': _widowsCountController,
-      'women_count': _womenCountController,
-      'working_hours': _workingHoursController,
-      'working_members_count': _workingMembersController,
-      'workplace': _workplaceController,
+    'address': _addressController,
+    'age_0_5_count': _age0To5Controller,
+    'age_10_15_count': _age10To15Controller,
+    'age_15_25_count': _age15To25Controller,
+    'age_25_40_count': _age25To40Controller,
+    'age_40_plus_count': _age40PlusController,
+    'age_5_10_count': _age5To10Controller,
+    'availability': _availabilityController,
+    'available_furniture': _availableFurnitureController,
+    'certificates_count': _certificatesCountController,
+    'chronic_illnesses': _chronicIllnessesController,
+    'city': _cityController,
+    'disability_type': _disabilityTypeController,
+    'divorced_count': _divorcedCountController,
+    'email': _emailController,
+    'emergency_phone': _emergencyPhoneController,
+    'families_count': _familiesCountController,
+    'family_size': _familySizeController,
+    'female_children_count': _femaleChildrenController,
+    'height': _heightController,
+    'household_disabled_count': _householdDisabledController,
+    'household_employees_count': _householdEmployeesController,
+    'housing_area': _housingAreaController,
+    'monthly_income': _incomeController,
+    'job_description': _jobDescriptionController,
+    'male_children_count': _maleChildrenController,
+    'medical_conditions_count': _medicalConditionsCountController,
+    'medical_conditions_desc': _medicalConditionsDescController,
+    'men_count': _menCountController,
+    'full_name': _nameController,
+    'name_family': _nameFamilyController,
+    'name_father': _nameFatherController,
+    'name_first': _nameFirstController,
+    'name_grandfather': _nameGrandfatherController,
+    'national_id': _nationalIdController,
+    'nearest_landmark': _nearestLandmarkController,
+    'needs_description': _needsDescriptionController,
+    'occupation': _occupationController,
+    'orphans_count': _orphansCountController,
+    'other_certificate': _otherCertificateController,
+    'phone1': _phone1Controller,
+    'phone2': _phone2Controller,
+    'previous_occupation': _previousOccupationController,
+    'rental_amount': _rentalAmountController,
+    'rooms_count': _roomsCountController,
+    'skills': _skillsController,
+    'social_facebook': _socialFacebookController,
+    'social_instagram': _socialInstagramController,
+    'social_other': _socialOtherController,
+    'social_telegram': _socialTelegramController,
+    'students_count': _studentsCountController,
+    'title_surname': _titleSurnameController,
+    'tribe_clan': _tribeClanController,
+    'wage_amount': _wageAmountController,
+    'weight': _weightController,
+    'widows_count': _widowsCountController,
+    'women_count': _womenCountController,
+    'working_hours': _workingHoursController,
+    'working_members_count': _workingMembersController,
+    'workplace': _workplaceController,
   };
 
   /// Fills the form from the profile the server returned.
@@ -1987,19 +2004,27 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 GestureDetector(
                                   onTap: _pickAvatar,
                                   child: CachedProfileAvatar(
-                                    localPath: _avatarPath ??
+                                    localPath:
+                                        _avatarPath ??
                                         (_removeAvatar
                                             ? null
-                                            : sharedPreferences
-                                                .getString('profile_image_path')),
+                                            : sharedPreferences.getString(
+                                                'profile_image_path',
+                                              )),
                                     imageUrl: _removeAvatar
                                         ? null
-                                        : sharedPreferences
-                                            .getString('profile_picture_url'),
+                                        : sharedPreferences.getString(
+                                            'profile_picture_url',
+                                          ),
                                     radius: 44,
-                                    backgroundColor: AppThemeConfig.accent(context),
-                                    placeholder: const Icon(Icons.person,
-                                        color: Colors.white, size: 44),
+                                    backgroundColor: AppThemeConfig.accent(
+                                      context,
+                                    ),
+                                    placeholder: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 44,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -2014,7 +2039,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   children: [
                                     TextButton.icon(
                                       onPressed: _pickAvatar,
-                                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                                      icon: const Icon(
+                                        Icons.photo_camera_outlined,
+                                        size: 18,
+                                      ),
                                       label: Text('Profile picture'.tr),
                                     ),
                                     if (_avatarPath != null || !_removeAvatar)
@@ -2023,7 +2051,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           _avatarPath = null;
                                           _removeAvatar = true;
                                         }),
-                                        icon: const Icon(Icons.delete_outline, size: 18),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                        ),
                                         label: Text('Remove photo'.tr),
                                       ),
                                   ],
@@ -2246,35 +2277,35 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       // them to pick, with a real chance of submitting under
                       // a different role than they hold.
                       if (!widget.editMode) ...[
-                      const SizedBox(height: 18),
-                      _label(context, 'Select your role'),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.volunteer_activism_rounded,
-                        color: Colors.amber,
-                        label: 'Donor',
-                        tagline: 'Give and support causes',
-                        selected: _roleId == 1,
-                        onTap: () => setState(() => _roleId = 1),
-                      ),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.family_restroom_rounded,
-                        color: Colors.deepOrangeAccent,
-                        label: 'Beneficiary',
-                        tagline: 'Receive aid and support',
-                        selected: _roleId == 2,
-                        onTap: () => setState(() => _roleId = 2),
-                      ),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.handshake_rounded,
-                        color: Colors.lightBlue,
-                        label: 'Volunteer',
-                        tagline: 'Help on the ground',
-                        selected: _roleId == 3,
-                        onTap: () => setState(() => _roleId = 3),
-                      ),
+                        const SizedBox(height: 18),
+                        _label(context, 'Select your role'),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.volunteer_activism_rounded,
+                          color: Colors.amber,
+                          label: 'Donor',
+                          tagline: 'Give and support causes',
+                          selected: _roleId == 1,
+                          onTap: () => setState(() => _roleId = 1),
+                        ),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.family_restroom_rounded,
+                          color: Colors.deepOrangeAccent,
+                          label: 'Beneficiary',
+                          tagline: 'Receive aid and support',
+                          selected: _roleId == 2,
+                          onTap: () => setState(() => _roleId = 2),
+                        ),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.handshake_rounded,
+                          color: Colors.lightBlue,
+                          label: 'Volunteer',
+                          tagline: 'Help on the ground',
+                          selected: _roleId == 3,
+                          onTap: () => setState(() => _roleId = 3),
+                        ),
                       ],
                       // Grantor registration spec — extra fields.
                       if (_roleId == 1) ...[
@@ -2377,6 +2408,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hintText: 'reg_grantor_phone1_hint'.tr,
                                     prefixIcon: const Icon(Icons.call_outlined),
                                   ),
+                                  validator: _profilePhoneMessage,
                                 ),
                               ]),
                               ..._unlessHidden('grantor_phone2', [
@@ -2391,6 +2423,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hintText: 'reg_grantor_phone2_hint'.tr,
                                     prefixIcon: const Icon(Icons.call_outlined),
                                   ),
+                                  validator: _profilePhoneMessage,
                                 ),
                               ]),
                               ..._unlessHidden('grantor_email', [
@@ -2748,6 +2781,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hintText: 'reg_recipient_phone1_hint'.tr,
                                     prefixIcon: const Icon(Icons.call_outlined),
                                   ),
+                                  validator: _profilePhoneMessage,
                                 ),
                               ]),
                               ..._unlessHidden('recipient_phone2', [
@@ -2762,6 +2796,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hintText: 'reg_grantor_phone2_hint'.tr,
                                     prefixIcon: const Icon(Icons.call_outlined),
                                   ),
+                                  validator: _profilePhoneMessage,
                                 ),
                               ]),
                               ..._unlessHidden('recipient_emergency_phone', [
@@ -4425,6 +4460,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _label(context, 'reg_volunteer_contact_section'),
+                              // `validator` is nullable on purpose: only the
+                              // two fields that land in user_profiles.phone1 /
+                              // phone2 are validated here. The emergency
+                              // contact below is stored unnormalized by the
+                              // server, so validating it in the app would
+                              // refuse input the backend accepts.
                               for (final ct
                                   in <
                                         ({
@@ -4433,6 +4474,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           TextEditingController controller,
                                           IconData icon,
                                           TextInputType keyboard,
+                                          String? Function(String?)? validator,
                                         })
                                       >[
                                         (
@@ -4441,6 +4483,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           controller: _phone1Controller,
                                           icon: Icons.phone_outlined,
                                           keyboard: TextInputType.phone,
+                                          validator: _profilePhoneMessage,
                                         ),
                                         (
                                           rule: 'volunteer_phone2',
@@ -4448,6 +4491,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           controller: _phone2Controller,
                                           icon: Icons.phone_android_outlined,
                                           keyboard: TextInputType.phone,
+                                          validator: _profilePhoneMessage,
                                         ),
                                         (
                                           rule: 'volunteer_emergency_phone',
@@ -4456,6 +4500,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           controller: _emergencyPhoneController,
                                           icon: Icons.emergency_outlined,
                                           keyboard: TextInputType.phone,
+                                          validator: null,
                                         ),
                                         (
                                           rule: 'volunteer_email',
@@ -4463,6 +4508,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           controller: _emailController,
                                           icon: Icons.email_outlined,
                                           keyboard: TextInputType.emailAddress,
+                                          validator: null,
                                         ),
                                       ]
                                       .where((ct) => !_isHidden(ct.rule))) ...[
@@ -4477,6 +4523,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     hintText: '${ct.label}_hint'.tr,
                                     prefixIcon: Icon(ct.icon),
                                   ),
+                                  validator: ct.validator,
                                 ),
                               ],
                             ],
@@ -5180,49 +5227,52 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         padding: const EdgeInsets.only(top: 16),
                       ),
                       if (!widget.editMode) ...[
-                      const SizedBox(height: 18),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: Checkbox(
-                              value: _agreeToTerms,
-                              onChanged: (v) =>
-                                  setState(() => _agreeToTerms = v ?? false),
+                        const SizedBox(height: 18),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: Checkbox(
+                                value: _agreeToTerms,
+                                onChanged: (v) =>
+                                    setState(() => _agreeToTerms = v ?? false),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: AppPressable(
-                              onTap: () => Get.to(() => const TermsScreen()),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text.rich(
-                                  TextSpan(
-                                    style: TextStyle(
-                                      color: AppThemeConfig.mutedText(context),
-                                      fontSize: 13.5,
-                                    ),
-                                    children: [
-                                      TextSpan(text: 'I agree to the '.tr),
-                                      TextSpan(
-                                        text: 'Terms & Conditions'.tr,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          decoration: TextDecoration.underline,
-                                          color: AppThemeConfig.text(context),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: AppPressable(
+                                onTap: () => Get.to(() => const TermsScreen()),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      style: TextStyle(
+                                        color: AppThemeConfig.mutedText(
+                                          context,
                                         ),
+                                        fontSize: 13.5,
                                       ),
-                                    ],
+                                      children: [
+                                        TextSpan(text: 'I agree to the '.tr),
+                                        TextSpan(
+                                          text: 'Terms & Conditions'.tr,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            color: AppThemeConfig.text(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       ],
                       const SizedBox(height: 22),
                       SizedBox(

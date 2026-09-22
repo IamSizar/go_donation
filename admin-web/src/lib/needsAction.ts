@@ -50,7 +50,12 @@ export const NEEDS_ACTION_RULES: Record<string, NeedsActionRule> = {
   sponsorships: { column: 'status', values: ['pending'] },
   beneficiary_cases: { column: 'verification_status', values: ['pending'] },
   beneficiary_project_requests: { column: 'status', values: ['under_review'] },
-  marketplace_orders: { column: 'status', values: ['pending', 'processing'] },
+  // Client feedback round 1 — 'processing' was dropped from this rule.
+  // marketplace_orders runs pending → approved → processing → completed, so
+  // tagging 'processing' re-flagged orders staff had already decided on, and
+  // the sidebar badge went back up as work moved forward. Kept in step with
+  // pending_counts.go by npm run check:pending-parity.
+  marketplace_orders: { column: 'status', values: ['pending'] },
   support_tickets: { column: 'status', values: ['open', 'in_progress'] },
   in_kind_donations: { column: 'status', values: ['scheduled'] },
   volunteer_applications: { column: 'status', values: ['submitted'] },
