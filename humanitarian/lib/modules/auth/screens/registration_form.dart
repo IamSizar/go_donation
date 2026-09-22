@@ -2981,30 +2981,60 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     }),
                                   ),
                                 ]),
-                                ..._unlessHidden('recipient_neighborhood', [
-                                  const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_neighborhood'),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _neighborhoodDropdown,
-                                    decoration: const InputDecoration(
-                                      prefixIcon: Icon(
-                                        Icons.location_city_outlined,
+                                // Client note — "الأحياء غير مكتملة وهناك
+                                // تداخل بين الأيمن والأيسر عند تسجيل": with
+                                // housing_side == 'other' this used to fall
+                                // into the `: _ninevehRightItems` branch of a
+                                // two-way ternary that only checked for
+                                // 'left', silently showing right-bank Mosul
+                                // neighborhoods instead of the free-text
+                                // field every non-Nineveh governorate already
+                                // gets below (the `else` branch a few lines
+                                // down).
+                                if (_housingSide == 'other') ...[
+                                  ..._unlessHidden('recipient_neighborhood', [
+                                    const SizedBox(height: 16),
+                                    _label(context, 'reg_recipient_neighborhood'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _neighborhoodController,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'reg_recipient_neighborhood_free_hint'
+                                                .tr,
+                                        prefixIcon: const Icon(
+                                          Icons.location_city_outlined,
+                                        ),
                                       ),
                                     ),
-                                    hint: Text(
-                                      'reg_recipient_neighborhood_hint'.tr,
+                                  ]),
+                                ] else ...[
+                                  ..._unlessHidden('recipient_neighborhood', [
+                                    const SizedBox(height: 16),
+                                    _label(context, 'reg_recipient_neighborhood'),
+                                    const SizedBox(height: 6),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _neighborhoodDropdown,
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.location_city_outlined,
+                                        ),
+                                      ),
+                                      hint: Text(
+                                        'reg_recipient_neighborhood_hint'.tr,
+                                      ),
+                                      items: _districtDropdownItems(
+                                        _housingSide == 'left'
+                                            ? _ninevehLeftItems
+                                            : _ninevehRightItems,
+                                      ),
+                                      onChanged: (v) => setState(
+                                        () => _neighborhoodDropdown = v,
+                                      ),
                                     ),
-                                    items: _districtDropdownItems(
-                                      _housingSide == 'left'
-                                          ? _ninevehLeftItems
-                                          : _ninevehRightItems,
-                                    ),
-                                    onChanged: (v) => setState(
-                                      () => _neighborhoodDropdown = v,
-                                    ),
-                                  ),
-                                ]),
+                                  ]),
+                                ],
                               ] else ...[
                                 ..._unlessHidden('recipient_neighborhood', [
                                   const SizedBox(height: 16),
@@ -4681,30 +4711,52 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                     }),
                                   ),
                                 ]),
-                                ..._unlessHidden('volunteer_neighborhood', [
-                                  const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_neighborhood'),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _neighborhoodDropdown,
-                                    decoration: const InputDecoration(
-                                      prefixIcon: Icon(
-                                        Icons.location_city_outlined,
+                                // Same "Other" fix as the recipient form —
+                                // see the comment there.
+                                if (_housingSide == 'other') ...[
+                                  ..._unlessHidden('volunteer_neighborhood', [
+                                    const SizedBox(height: 16),
+                                    _label(context, 'reg_recipient_neighborhood'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _neighborhoodController,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'reg_recipient_neighborhood_free_hint'
+                                                .tr,
+                                        prefixIcon: const Icon(
+                                          Icons.location_city_outlined,
+                                        ),
                                       ),
                                     ),
-                                    hint: Text(
-                                      'reg_recipient_neighborhood_hint'.tr,
+                                  ]),
+                                ] else ...[
+                                  ..._unlessHidden('volunteer_neighborhood', [
+                                    const SizedBox(height: 16),
+                                    _label(context, 'reg_recipient_neighborhood'),
+                                    const SizedBox(height: 6),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _neighborhoodDropdown,
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.location_city_outlined,
+                                        ),
+                                      ),
+                                      hint: Text(
+                                        'reg_recipient_neighborhood_hint'.tr,
+                                      ),
+                                      items: _districtDropdownItems(
+                                        _housingSide == 'left'
+                                            ? _ninevehLeftItems
+                                            : _ninevehRightItems,
+                                      ),
+                                      onChanged: (v) => setState(
+                                        () => _neighborhoodDropdown = v,
+                                      ),
                                     ),
-                                    items: _districtDropdownItems(
-                                      _housingSide == 'left'
-                                          ? _ninevehLeftItems
-                                          : _ninevehRightItems,
-                                    ),
-                                    onChanged: (v) => setState(
-                                      () => _neighborhoodDropdown = v,
-                                    ),
-                                  ),
-                                ]),
+                                  ]),
+                                ],
                               ] else ...[
                                 ..._unlessHidden('volunteer_neighborhood', [
                                   const SizedBox(height: 16),
