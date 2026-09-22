@@ -265,23 +265,23 @@ class CampaignDetailScreen extends StatelessWidget {
             // donate flow, whose own action runs the upgrade prompt (#44 /
             // Note #40) before anything is charged.
             Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: FilledButton(
-                  onPressed: () {
-                    AppHaptics.success();
-                    Get.back(result: true);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: AppThemeConfig.onAccent(context),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: FilledButton(
+                onPressed: () {
+                  AppHaptics.success();
+                  Get.back(result: true);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: AppThemeConfig.onAccent(context),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Text('Donate to this campaign'.tr),
                 ),
+                child: Text('Donate to this campaign'.tr),
               ),
+            ),
           ],
         ),
       ),
@@ -347,21 +347,28 @@ class _HeroSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // The title has the column to itself. It used to share a Row
+                    // with the funding pill; a Row lays the pill out at its
+                    // full natural width FIRST and hands the title what is
+                    // left, so on a phone in Arabic a fully funded campaign
+                    // ("100% تم التمويل بالكامل") left the title a sliver and it
+                    // wrapped one syllable per line. The pill and category now
+                    // sit in the Wrap below and can never take width from it.
+                    Text(
+                      c.title,
+                      style: TextStyle(
+                        color: AppThemeConfig.text(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            c.title,
-                            style: TextStyle(
-                              color: AppThemeConfig.text(context),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 22,
-                              height: 1.25,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
                         // Spec item 13 — this was OperationStatusBadge, a
                         // coloured disc whose state ("delivered in full" /
                         // "partially received" / "not received yet") lived
@@ -377,29 +384,27 @@ class _HeroSummaryCard extends StatelessWidget {
                           progress: c.fundedProgress,
                           kind: OperationStatusKind.funding,
                         ),
+                        if (c.category.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              c.category,
+                              style: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
-                    if (c.category.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          c.category,
-                          style: TextStyle(
-                            color: accent,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
