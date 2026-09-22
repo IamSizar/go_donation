@@ -103,8 +103,8 @@ var userProfileDetailColumns = []string{
 	"needs_description", "consent_show_real_name", "consent_share_info",
 
 	// ─── Photos & documents (stored as upload paths) ────────────────────
-	"profile_picture", "id_photo_path", "golden_square_photo_path",
-	"residence_card_photo_path", "passport_photo_path",
+	"profile_picture", "id_photo_path", "id_photo_back_path", "golden_square_photo_path",
+	"residence_card_photo_path", "residence_card_photo_back_path", "passport_photo_path",
 	"graduation_cert_photo_path", "cv_photo_path", "ration_card_photo_path",
 	"property_proof_photo_path", "medical_report_photo_path",
 	"house_facade_photo_path", "house_inside_photo_path",

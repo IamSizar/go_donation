@@ -446,8 +446,11 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 
 	personalPath := saveField("personal_photo", "personal")
 	idPath := saveField("id_photo", "idcard")
-	if personalPath != "" || idPath != "" {
-		if err := h.Users.SetGrantorPhotos(c.Request.Context(), tokenUser.UserID, personalPath, idPath); err != nil {
+	// 127 — the ID card's back side, shared across every role the same way
+	// id_photo already is.
+	idBackPath := saveField("id_photo_back", "idcardback")
+	if personalPath != "" || idPath != "" || idBackPath != "" {
+		if err := h.Users.SetGrantorPhotos(c.Request.Context(), tokenUser.UserID, personalPath, idPath, idBackPath); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save photos."})
 			return
 		}
@@ -473,12 +476,14 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 	// Volunteer/Employee spec — "Attachments".
 	goldenSquare := saveField("golden_square_photo", "goldensquare")
 	residenceCard := saveField("residence_card_photo", "residencecard")
+	// 127 — the residence card's back side.
+	residenceCardBack := saveField("residence_card_photo_back", "residencecardback")
 	passport := saveField("passport_photo", "passport")
 	graduationCert := saveField("graduation_cert_photo", "graduationcert")
 	cv := saveField("cv_photo", "cv")
-	if goldenSquare != "" || residenceCard != "" || passport != "" || graduationCert != "" || cv != "" {
+	if goldenSquare != "" || residenceCard != "" || residenceCardBack != "" || passport != "" || graduationCert != "" || cv != "" {
 		if err := h.Users.SetVolunteerAttachments(c.Request.Context(), tokenUser.UserID,
-			goldenSquare, residenceCard, passport, graduationCert, cv); err != nil {
+			goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
 			return
 		}
@@ -489,20 +494,22 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		// Non-empty when one or more fields failed to save -- everything ELSE
 		// in this request still saved. The client uses this to name exactly
 		// what needs retrying instead of a blanket "nothing uploaded".
-		"failed_fields":             failed,
-		"personal_photo_set":        personalPath != "",
-		"id_photo_set":              idPath != "",
-		"ration_card_photo_set":     rationCard != "",
-		"property_proof_photo_set":  propertyProof != "",
-		"medical_report_photo_set":  medicalReport != "",
-		"house_facade_photo_set":    houseFacade != "",
-		"house_inside_photo_set":    houseInside != "",
-		"house_outside_photo_set":   houseOutside != "",
-		"golden_square_photo_set":   goldenSquare != "",
-		"residence_card_photo_set":  residenceCard != "",
-		"passport_photo_set":        passport != "",
-		"graduation_cert_photo_set": graduationCert != "",
-		"cv_photo_set":              cv != "",
+		"failed_fields":                 failed,
+		"personal_photo_set":            personalPath != "",
+		"id_photo_set":                  idPath != "",
+		"id_photo_back_set":             idBackPath != "",
+		"ration_card_photo_set":         rationCard != "",
+		"property_proof_photo_set":      propertyProof != "",
+		"medical_report_photo_set":      medicalReport != "",
+		"house_facade_photo_set":        houseFacade != "",
+		"house_inside_photo_set":        houseInside != "",
+		"house_outside_photo_set":       houseOutside != "",
+		"golden_square_photo_set":       goldenSquare != "",
+		"residence_card_photo_set":      residenceCard != "",
+		"residence_card_photo_back_set": residenceCardBack != "",
+		"passport_photo_set":            passport != "",
+		"graduation_cert_photo_set":     graduationCert != "",
+		"cv_photo_set":                  cv != "",
 	})
 }
 

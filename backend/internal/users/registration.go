@@ -270,19 +270,23 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 // during grantor registration (Grantor Registration spec). Called after
 // SubmitRegistration, once the user_profiles row is guaranteed to exist.
 // Only non-empty paths are written; the other column is left untouched.
-func (s *Store) SetGrantorPhotos(ctx context.Context, userID int64, personalPhotoPath, idPhotoPath string) error {
+// idPhotoBackPath is the ID card's back side (127) — shared across every
+// role the same way idPhotoPath already is, since this is the one function
+// every role's registration flow calls to save it.
+func (s *Store) SetGrantorPhotos(ctx context.Context, userID int64, personalPhotoPath, idPhotoPath, idPhotoBackPath string) error {
 	if userID <= 0 {
 		return errors.New("invalid userID")
 	}
-	if personalPhotoPath == "" && idPhotoPath == "" {
+	if personalPhotoPath == "" && idPhotoPath == "" && idPhotoBackPath == "" {
 		return nil
 	}
 	_, err := s.Pool.Exec(ctx,
 		`UPDATE user_profiles
-		    SET profile_picture = CASE WHEN $2 <> '' THEN $2 ELSE profile_picture END,
-		        id_photo_path   = CASE WHEN $3 <> '' THEN $3 ELSE id_photo_path END
+		    SET profile_picture    = CASE WHEN $2 <> '' THEN $2 ELSE profile_picture END,
+		        id_photo_path      = CASE WHEN $3 <> '' THEN $3 ELSE id_photo_path END,
+		        id_photo_back_path = CASE WHEN $4 <> '' THEN $4 ELSE id_photo_back_path END
 		  WHERE user_id = $1`,
-		userID, personalPhotoPath, idPhotoPath,
+		userID, personalPhotoPath, idPhotoPath, idPhotoBackPath,
 	)
 	return err
 }
@@ -598,27 +602,29 @@ func (s *Store) SetVolunteerProfile(ctx context.Context, userID int64, extras Vo
 // extra documents. The formal personal photo, unified National Card/ID and
 // Ration Card reuse SetGrantorPhotos / SetRecipientAttachments' columns and
 // are not repeated here. Only non-empty paths are written.
+// residenceCardBack is the residence card's back side (127).
 func (s *Store) SetVolunteerAttachments(
 	ctx context.Context,
 	userID int64,
-	goldenSquare, residenceCard, passport, graduationCert, cv string,
+	goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv string,
 ) error {
 	if userID <= 0 {
 		return errors.New("invalid userID")
 	}
-	if goldenSquare == "" && residenceCard == "" && passport == "" &&
-		graduationCert == "" && cv == "" {
+	if goldenSquare == "" && residenceCard == "" && residenceCardBack == "" &&
+		passport == "" && graduationCert == "" && cv == "" {
 		return nil
 	}
 	_, err := s.Pool.Exec(ctx,
 		`UPDATE user_profiles
-		    SET golden_square_photo_path   = COALESCE(NULLIF($2, ''), golden_square_photo_path),
-		        residence_card_photo_path  = COALESCE(NULLIF($3, ''), residence_card_photo_path),
-		        passport_photo_path        = COALESCE(NULLIF($4, ''), passport_photo_path),
-		        graduation_cert_photo_path = COALESCE(NULLIF($5, ''), graduation_cert_photo_path),
-		        cv_photo_path              = COALESCE(NULLIF($6, ''), cv_photo_path)
+		    SET golden_square_photo_path       = COALESCE(NULLIF($2, ''), golden_square_photo_path),
+		        residence_card_photo_path      = COALESCE(NULLIF($3, ''), residence_card_photo_path),
+		        residence_card_photo_back_path = COALESCE(NULLIF($4, ''), residence_card_photo_back_path),
+		        passport_photo_path            = COALESCE(NULLIF($5, ''), passport_photo_path),
+		        graduation_cert_photo_path     = COALESCE(NULLIF($6, ''), graduation_cert_photo_path),
+		        cv_photo_path                  = COALESCE(NULLIF($7, ''), cv_photo_path)
 		  WHERE user_id = $1`,
-		userID, goldenSquare, residenceCard, passport, graduationCert, cv,
+		userID, goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv,
 	)
 	return err
 }

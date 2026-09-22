@@ -1177,6 +1177,7 @@ class AppTranslations extends Translations {
     'reg_grantor_gps_capture': 'Use current location (optional)',
     'reg_grantor_personal_photo': 'Personal photo',
     'reg_grantor_id_photo': 'National Card / ID photo',
+    'reg_id_photo_back': 'National Card / ID photo (back)',
     // Privacy Settings spec — grantor display-name choice + social links.
     'Privacy Settings': 'Privacy Settings',
     'Display name': 'Display name',
@@ -1451,6 +1452,7 @@ class AppTranslations extends Translations {
     'reg_volunteer_id_photo_doc': 'Unified National Card or ID',
     'reg_volunteer_ration_card_photo': 'Ration Card',
     'reg_volunteer_residence_card_photo': 'Residence Card',
+    'reg_residence_card_photo_back': 'Residence Card (back)',
     'reg_volunteer_passport_photo': 'Passport (optional)',
     'reg_volunteer_personal_photo': 'Formal personal photo',
     'reg_volunteer_graduation_cert_photo': 'Graduation certificate',
@@ -4256,6 +4258,7 @@ class AppTranslations extends Translations {
     'reg_grantor_gps_capture': 'استخدام الموقع الحالي (اختياري)',
     'reg_grantor_personal_photo': 'الصورة الشخصية',
     'reg_grantor_id_photo': 'صورة البطاقة الوطنية / الهوية',
+    'reg_id_photo_back': 'صورة البطاقة الوطنية / الهوية (الوجه الخلفي)',
     'Privacy Settings': 'إعدادات الخصوصية',
     'Display name': 'اسم العرض',
     'display_name_desc': 'اختر كيف يظهر اسمك للآخرين.',
@@ -4512,6 +4515,7 @@ class AppTranslations extends Translations {
     'reg_volunteer_id_photo_doc': 'البطاقة الوطنية الموحدة أو الهوية',
     'reg_volunteer_ration_card_photo': 'البطاقة التموينية',
     'reg_volunteer_residence_card_photo': 'بطاقة السكن',
+    'reg_residence_card_photo_back': 'بطاقة السكن (الوجه الخلفي)',
     'reg_volunteer_passport_photo': 'جواز السفر (اختياري)',
     'reg_volunteer_personal_photo': 'صورة شخصية رسمية',
     'reg_volunteer_graduation_cert_photo': 'شهادة التخرج',
@@ -8480,6 +8484,8 @@ class AppTranslations extends Translations {
     'Select a project': 'پڕۆژەیەک هەڵبژێرە',
 
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
+    'reg_id_photo_back': 'کارتی نیشتمانی / ناسنامە (لای پشتەوە)',
+    'reg_residence_card_photo_back': 'کارتی نیشتەجێبوون (لای پشتەوە)',
     'admin_announcement': 'ڕاگەیاندنی بەڕێوەبەرایەتی',
     'admin_new_beneficiary_case': 'کەیسی نوێی وەرگری شایستە',
     'admin_new_guest_account': 'هەژماری میوانی نوێ',
@@ -11367,6 +11373,8 @@ class AppTranslations extends Translations {
     'Select a project': 'پرۆژەکێ هەلبژێرە',
 
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
+    'reg_id_photo_back': 'کارتا نەتەوەیی / ناسنامێ (لایێ پشت)',
+    'reg_residence_card_photo_back': 'کارتا نشینگەهێ (لایێ پشت)',
     'admin_announcement': 'ڕاگەهاندنا بەڕێڤەبەریێ',
     'admin_new_beneficiary_case': 'کەیسا نوی یا وەرگرێ شایستە',
     'admin_new_guest_account': 'هەژمارا میوانێ نوی',

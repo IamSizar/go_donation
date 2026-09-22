@@ -336,6 +336,9 @@ class RegistrationPhotosResult {
 Future<RegistrationPhotosResult> uploadRegistrationPhotos({
   String? personalPhotoPath,
   String? idPhotoPath,
+  // 127 — the ID card's back side, shared across every role the same way
+  // idPhotoPath already is.
+  String? idPhotoBackPath,
   // Eligible Recipient spec — "Attachments" section. All optional.
   String? rationCardPhotoPath,
   String? propertyProofPhotoPath,
@@ -346,6 +349,8 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
   // Volunteer/Employee spec — "Attachments". All optional.
   String? goldenSquarePhotoPath,
   String? residenceCardPhotoPath,
+  // 127 — the residence card's back side.
+  String? residenceCardPhotoBackPath,
   String? passportPhotoPath,
   String? graduationCertPhotoPath,
   String? cvPhotoPath,
@@ -355,6 +360,7 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
     for (final e in <String, String?>{
       'personal_photo': personalPhotoPath,
       'id_photo': idPhotoPath,
+      'id_photo_back': idPhotoBackPath,
       'ration_card_photo': rationCardPhotoPath,
       'property_proof_photo': propertyProofPhotoPath,
       'medical_report_photo': medicalReportPhotoPath,
@@ -363,6 +369,7 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
       'house_outside_photo': houseOutsidePhotoPath,
       'golden_square_photo': goldenSquarePhotoPath,
       'residence_card_photo': residenceCardPhotoPath,
+      'residence_card_photo_back': residenceCardPhotoBackPath,
       'passport_photo': passportPhotoPath,
       'graduation_cert_photo': graduationCertPhotoPath,
       'cv_photo': cvPhotoPath,

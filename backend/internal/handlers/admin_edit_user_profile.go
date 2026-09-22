@@ -36,7 +36,7 @@ import (
 //
 //   - grantor_code / recipient_code / volunteer_code — assign-once identity
 //     codes minted by the server (internal/users/registration.go guards each
-//     with `AND <col> = ''`). Staff search on them; rewriting one silently
+//     with `AND <col> = ”`). Staff search on them; rewriting one silently
 //     breaks that search and orphans anything printed with the old code.
 //   - display_name_mode — a CHECK-constrained enum ('real'|'alias') owned by
 //     the user's own Privacy Settings screen. A free-text box here would
@@ -101,8 +101,8 @@ var userProfileWritableColumns = map[string]bool{
 	"consent_share_info": true,
 
 	// Photos & documents — the upload path the admin/upload endpoint returns.
-	"id_photo_path": true, "golden_square_photo_path": true,
-	"residence_card_photo_path": true, "passport_photo_path": true,
+	"id_photo_path": true, "id_photo_back_path": true, "golden_square_photo_path": true,
+	"residence_card_photo_path": true, "residence_card_photo_back_path": true, "passport_photo_path": true,
 	"graduation_cert_photo_path": true, "cv_photo_path": true,
 	"ration_card_photo_path": true, "property_proof_photo_path": true,
 	"medical_report_photo_path": true, "house_facade_photo_path": true,
@@ -148,8 +148,8 @@ func parseUserProfileExtras(body []byte) userProfileExtras {
 // appendSets adds this request's extras to a setBuilder, matching the
 // convention of the typed fields beside it: an empty string CLEARS the column.
 //
-// Clearing writes '' rather than NULL because these columns were added
-// `NOT NULL DEFAULT ''` (migrations 072/073/074 onward) — NULL would violate
+// Clearing writes ” rather than NULL because these columns were added
+// `NOT NULL DEFAULT ”` (migrations 072/073/074 onward) — NULL would violate
 // the constraint. The distinction the detail page draws between "blank" and
 // "not collected" is drawn from the ROLE, not from null-vs-empty, so nothing
 // downstream depends on which of the two is stored.

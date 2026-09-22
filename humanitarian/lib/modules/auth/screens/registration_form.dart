@@ -151,6 +151,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   bool _gpsLoading = false;
   String? _personalPhotoPath;
   String? _idPhotoPath;
+  // 127 — the ID card's back side, client note 2026-09-22: only the front
+  // could ever be attached, in every registration account.
+  String? _idPhotoBackPath;
 
   // Eligible Recipient registration spec — beneficiary-only detail fields
   // (national ID / four-part name / title-surname / phone1 / phone2 / email
@@ -349,6 +352,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // and Ration Card reuse the pickers above.
   String? _goldenSquarePhotoPath;
   String? _residenceCardPhotoPath;
+  // 127 — the residence card's back side.
+  String? _residenceCardPhotoBackPath;
   String? _passportPhotoPath;
   String? _graduationCertPhotoPath;
   String? _cvPhotoPath;
@@ -1454,6 +1459,9 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   Future<void> _pickIdPhoto() =>
       _pickPhotoInto('recipient_id_photo', (p) => _idPhotoPath = p);
 
+  Future<void> _pickIdPhotoBack() =>
+      _pickPhotoInto('recipient_id_photo', (p) => _idPhotoBackPath = p);
+
   /// Recomposes [_dob] from the three dropdowns, clamping the day to the
   /// chosen month's length (so e.g. 31 February can't be submitted).
   void _syncDob() {
@@ -1829,6 +1837,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
           uploadRegistrationPhotos(
             personalPhotoPath: _personalPhotoPath,
             idPhotoPath: _idPhotoPath,
+            idPhotoBackPath: _idPhotoBackPath,
             rationCardPhotoPath: _rationCardPhotoPath,
             propertyProofPhotoPath: _propertyProofPhotoPath,
             medicalReportPhotoPath: _medicalReportPhotoPath,
@@ -1837,6 +1846,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             houseOutsidePhotoPath: _houseOutsidePhotoPath,
             goldenSquarePhotoPath: _goldenSquarePhotoPath,
             residenceCardPhotoPath: _residenceCardPhotoPath,
+            residenceCardPhotoBackPath: _residenceCardPhotoBackPath,
             passportPhotoPath: _passportPhotoPath,
             graduationCertPhotoPath: _graduationCertPhotoPath,
             cvPhotoPath: _cvPhotoPath,
@@ -2520,6 +2530,15 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   imagePath: _idPhotoPath,
                                   placeholderIcon: Icons.badge_outlined,
                                   onTap: _pickIdPhoto,
+                                ),
+                                // 127 — the ID card's back side.
+                                const SizedBox(height: 10),
+                                _label(context, 'reg_id_photo_back'),
+                                const SizedBox(height: 6),
+                                _PhotoPickerTile(
+                                  imagePath: _idPhotoBackPath,
+                                  placeholderIcon: Icons.badge_outlined,
+                                  onTap: _pickIdPhotoBack,
                                 ),
                               ]),
                             ],
@@ -3880,6 +3899,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.badge_outlined,
                                           assign: (p) => _idPhotoPath = p,
                                         ),
+                                        // 127 — the ID card's back side.
+                                        (
+                                          rule: 'recipient_id_photo',
+                                          label: 'reg_id_photo_back',
+                                          path: _idPhotoBackPath,
+                                          icon: Icons.badge_outlined,
+                                          assign: (p) => _idPhotoBackPath = p,
+                                        ),
                                         (
                                           rule: 'recipient_ration_card_photo',
                                           label:
@@ -3933,6 +3960,17 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.home_work_outlined,
                                           assign: (p) =>
                                               _residenceCardPhotoPath = p,
+                                        ),
+                                        // 127 — the residence card's back side.
+                                        (
+                                          rule:
+                                              'recipient_residence_card_photo',
+                                          label:
+                                              'reg_residence_card_photo_back',
+                                          path: _residenceCardPhotoBackPath,
+                                          icon: Icons.home_work_outlined,
+                                          assign: (p) =>
+                                              _residenceCardPhotoBackPath = p,
                                         ),
                                         (
                                           rule: 'recipient_passport_photo',
@@ -4974,6 +5012,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.badge_outlined,
                                           assign: (p) => _idPhotoPath = p,
                                         ),
+                                        // 127 — the ID card's back side.
+                                        (
+                                          rule: 'volunteer_id_photo',
+                                          label: 'reg_id_photo_back',
+                                          path: _idPhotoBackPath,
+                                          icon: Icons.badge_outlined,
+                                          assign: (p) => _idPhotoBackPath = p,
+                                        ),
                                         (
                                           rule: 'volunteer_ration_card_photo',
                                           label:
@@ -4992,6 +5038,17 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.home_work_outlined,
                                           assign: (p) =>
                                               _residenceCardPhotoPath = p,
+                                        ),
+                                        // 127 — the residence card's back side.
+                                        (
+                                          rule:
+                                              'volunteer_residence_card_photo',
+                                          label:
+                                              'reg_residence_card_photo_back',
+                                          path: _residenceCardPhotoBackPath,
+                                          icon: Icons.home_work_outlined,
+                                          assign: (p) =>
+                                              _residenceCardPhotoBackPath = p,
                                         ),
                                         (
                                           rule: 'volunteer_passport_photo',
