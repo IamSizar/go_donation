@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_saved_screen.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_post_card.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
@@ -153,6 +156,79 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     }
   }
 
+  /// Optimistic like toggle; reconciles with the server response and reverts
+  /// on failure. Same shape as MediaPostsController.toggleLike.
+  Future<void> _toggleLike(Map<String, dynamic> profile) async {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    if (id == 0) return;
+    final wasLiked = profile['liked_by_me'] == true;
+    final count = (profile['like_count'] as num?)?.toInt() ?? 0;
+
+    setState(() {
+      profile['liked_by_me'] = !wasLiked;
+      profile['like_count'] = wasLiked
+          ? (count - 1).clamp(0, 1 << 31)
+          : count + 1;
+    });
+
+    try {
+      final res = await widget.api.likeMarriageProfile(id);
+      if (!mounted) return;
+      setState(() {
+        profile['liked_by_me'] = res['liked'] == true;
+        profile['like_count'] =
+            (res['like_count'] as num?)?.toInt() ?? profile['like_count'];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        profile['liked_by_me'] = wasLiked;
+        profile['like_count'] = count;
+      });
+    }
+  }
+
+  Future<void> _share(BuildContext context, Map<String, dynamic> profile) async {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    final code = (profile['profile_code'] ?? '').toString();
+    final summary = (profile['social_summary'] ?? '').toString();
+    final parts = <String>[if (code.isNotEmpty) code, if (summary.trim().isNotEmpty) summary];
+    // #49-style app link, same convention as the News & Activities share.
+    await Share.share(
+      withAppLink(parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n')),
+      sharePositionOrigin: shareAnchor(context),
+    );
+    if (id == 0) return;
+    try {
+      final res = await widget.api.shareMarriageProfile(id);
+      if (!mounted) return;
+      setState(() {
+        profile['share_count'] =
+            (res['share_count'] as num?)?.toInt() ?? profile['share_count'];
+      });
+    } catch (_) {
+      // Deliberately silent — same reasoning as the media-post share: the
+      // system share sheet already opened, so a failed count bump has
+      // nothing for the user to act on.
+    }
+  }
+
+  void _bumpCommentCount(Map<String, dynamic> profile) {
+    final count = (profile['comment_count'] as num?)?.toInt() ?? 0;
+    setState(() => profile['comment_count'] = count + 1);
+  }
+
+  void _openComments(BuildContext context, Map<String, dynamic> profile) {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    if (id == 0) return;
+    openMarriageComments(
+      context,
+      profileId: id,
+      api: widget.api,
+      onCommentPosted: () => _bumpCommentCount(profile),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
@@ -208,6 +284,13 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
                     (item['id'] as num).toInt(),
                     api: widget.api,
                   ),
+                  // #44-style guest gate, same as the News & Activities
+                  // engagement bar.
+                  onLike: () async {
+                    if (await requireSignIn(context)) _toggleLike(item);
+                  },
+                  onComment: () => _openComments(context, item),
+                  onShare: () => _share(context, item),
                 ),
                 const SizedBox(height: 14),
               ],
@@ -226,3 +309,4 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     );
   }
 }
+

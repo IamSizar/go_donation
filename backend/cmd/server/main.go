@@ -397,9 +397,11 @@ func main() {
 	mediaCategoriesH := handlers.NewMediaCategoriesHandler(mediaCatStore)                                        // #22
 	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
-	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                                       // #25
-	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)                                   // #27
-	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore)                      // #28
+	marriageEngageStore := marriage.NewEngagementStore(pool)                                                     // client note 2026-09-22 — like/comment/share on profile cards
+	marriageEngageH := handlers.NewMarriageEngagementHandler(marriageEngageStore, bannedWordsStore)
+	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                  // #25
+	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)              // #27
+	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore) // #28
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
@@ -593,7 +595,18 @@ func main() {
 		// rejects only a resolved GUEST caller.
 		api.GET("/community", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
 		api.GET("/community/", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
-		api.GET("/marriage", marriageH.Get)
+		// Pre-existing gap found while adding like/comment/share (client note
+		// 2026-09-22): this route carried no auth middleware at all, so
+		// MarriageHandler.Get's own auth.UserFromGin(c) call always saw nil —
+		// every viewer, signed in or not, was treated as anonymous. That
+		// silently broke two things: L19's "a profile is never masked from
+		// its own owner" rule (an owner viewing their OWN profile in the
+		// browse feed got their own hidden fields blanked, same as a
+		// stranger would), and now liked_by_me, which needs the real viewer
+		// to mean anything. OptionalBearer resolves the token when one is
+		// sent, without requiring one — browsing (including a guest's,
+		// per Note #40) is unaffected either way.
+		api.GET("/marriage", auth.OptionalBearer(tokenStore), marriageH.Get)
 		api.GET("/marriage/", marriageH.Get)
 		// Client note — Marriage "Subscription": public package list.
 		api.GET("/marriage/subscription-packages", marriageH.GetSubscriptionPackages)
@@ -686,6 +699,13 @@ func main() {
 			authed.GET("/media/:id/comments", mediaEngageH.Comments)
 			authed.POST("/media/:id/comments", mediaEngageH.Comment)
 			authed.POST("/media/:id/share", mediaEngageH.Share)
+
+			// Client note 2026-09-22 — same shape as media post engagement
+			// above, scoped to marriage-seeker profile cards.
+			authed.POST("/marriage/:id/like", marriageEngageH.Like)
+			authed.GET("/marriage/:id/comments", marriageEngageH.Comments)
+			authed.POST("/marriage/:id/comments", marriageEngageH.Comment)
+			authed.POST("/marriage/:id/share", marriageEngageH.Share)
 
 			// #27 — rate a partner (1–5 stars).
 			authed.POST("/partners/:id/rate", partnerEngageH.Rate)
@@ -1373,6 +1393,12 @@ func main() {
 			admin.DELETE("/admin/media-comments/:id", perm("media", "delete"), mediaEngageH.AdminDeleteComment)
 			// #10 — Comments & Activities: the engagement feed (comments + likes).
 			admin.GET("/admin/post-activity", perm("media", "view"), mediaEngageH.AdminActivity)
+
+			// Client note 2026-09-22 — marriage-profile comment moderation,
+			// same shape as media comments above.
+			admin.GET("/admin/marriage-comments", perm("marriage", "view"), marriageEngageH.AdminComments)
+			admin.POST("/admin/marriage-comments/:id/status", perm("marriage", "edit"), adminStatusH.MarriageComment)
+			admin.DELETE("/admin/marriage-comments/:id", perm("marriage", "delete"), marriageEngageH.AdminDeleteComment)
 
 			// #25 — banned-words blocklist (writes gated to admin tier).
 			admin.GET("/admin/banned-words", perm("media", "view"), bannedWordsH.List)

@@ -322,6 +322,14 @@ String mediaSaveUrl(int postId) => '${baseUrl}media/$postId/save';
 String mediaCommentsUrl(int postId) => '${baseUrl}media/$postId/comments';
 String mediaShareUrl(int postId) => '${baseUrl}media/$postId/share';
 
+/// Client note 2026-09-22 — same shape as the media engagement endpoints
+/// above, scoped to marriage-seeker profile cards.
+String marriageLikeUrl(int profileId) => '${baseUrl}marriage/$profileId/like';
+String marriageCommentsUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId/comments';
+String marriageShareUrl(int profileId) =>
+    '${baseUrl}marriage/$profileId/share';
+
 const String communityDirectoryUrl = '${baseUrl}community/';
 const String beneficiaryCampaignDonationsUrl =
     '${baseUrl}beneficiary/campaign-donations';

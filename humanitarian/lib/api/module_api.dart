@@ -1303,6 +1303,22 @@ class ModuleApi {
   Future<Map<String, dynamic>> shareMediaPost(int postId) =>
       postJsonNoTrack(mediaShareUrl(postId), const {});
 
+  /// Client note 2026-09-22 — same shape as the media engagement calls
+  /// above, scoped to marriage-seeker profile cards.
+  Future<Map<String, dynamic>> likeMarriageProfile(int profileId) =>
+      postJsonNoTrack(marriageLikeUrl(profileId), const {});
+
+  Future<List<Map<String, dynamic>>> marriageComments(int profileId) =>
+      getItems(marriageCommentsUrl(profileId));
+
+  Future<Map<String, dynamic>> postMarriageComment(
+    int profileId,
+    String body,
+  ) => postJsonNoTrack(marriageCommentsUrl(profileId), {'body': body});
+
+  Future<Map<String, dynamic>> shareMarriageProfile(int profileId) =>
+      postJsonNoTrack(marriageShareUrl(profileId), const {});
+
   /// #22 — admin-managed "Our Work" categories for the News & Activities
   /// filter chips. Returns [] on error (the feed still works unfiltered).
   Future<List<Map<String, dynamic>>> mediaCategories() =>

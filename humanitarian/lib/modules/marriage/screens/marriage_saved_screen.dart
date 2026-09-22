@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_post_card.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// The profiles the user bookmarked on the Marriage Posts feed, newest first.
 ///
@@ -90,6 +93,80 @@ class _MarriageSavedScreenState extends State<MarriageSavedScreen> {
     }
   }
 
+  /// Client note 2026-09-22 — like/comment/share, same shape as
+  /// marriage_posts_screen.dart's handlers (the two screens render the same
+  /// [MarriagePostCard] and share its comments sheet via
+  /// [openMarriageComments]).
+  Future<void> _toggleLike(Map<String, dynamic> profile) async {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    if (id == 0) return;
+    final wasLiked = profile['liked_by_me'] == true;
+    final count = (profile['like_count'] as num?)?.toInt() ?? 0;
+    setState(() {
+      profile['liked_by_me'] = !wasLiked;
+      profile['like_count'] = wasLiked
+          ? (count - 1).clamp(0, 1 << 31)
+          : count + 1;
+    });
+    try {
+      final res = await widget.api.likeMarriageProfile(id);
+      if (!mounted) return;
+      setState(() {
+        profile['liked_by_me'] = res['liked'] == true;
+        profile['like_count'] =
+            (res['like_count'] as num?)?.toInt() ?? profile['like_count'];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        profile['liked_by_me'] = wasLiked;
+        profile['like_count'] = count;
+      });
+    }
+  }
+
+  Future<void> _share(
+    BuildContext context,
+    Map<String, dynamic> profile,
+  ) async {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    final code = (profile['profile_code'] ?? '').toString();
+    final summary = (profile['social_summary'] ?? '').toString();
+    final parts = <String>[
+      if (code.isNotEmpty) code,
+      if (summary.trim().isNotEmpty) summary,
+    ];
+    await Share.share(
+      withAppLink(parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n')),
+      sharePositionOrigin: shareAnchor(context),
+    );
+    if (id == 0) return;
+    try {
+      final res = await widget.api.shareMarriageProfile(id);
+      if (!mounted) return;
+      setState(() {
+        profile['share_count'] =
+            (res['share_count'] as num?)?.toInt() ?? profile['share_count'];
+      });
+    } catch (_) {
+      // Deliberately silent — the system share sheet already opened.
+    }
+  }
+
+  void _openComments(BuildContext context, Map<String, dynamic> profile) {
+    final id = int.tryParse('${profile['id']}') ?? 0;
+    if (id == 0) return;
+    openMarriageComments(
+      context,
+      profileId: id,
+      api: widget.api,
+      onCommentPosted: () {
+        final count = (profile['comment_count'] as num?)?.toInt() ?? 0;
+        setState(() => profile['comment_count'] = count + 1);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
@@ -129,6 +206,11 @@ class _MarriageSavedScreenState extends State<MarriageSavedScreen> {
                 (list[i]['id'] as num).toInt(),
                 api: widget.api,
               ),
+              onLike: () async {
+                if (await requireSignIn(context)) _toggleLike(list[i]);
+              },
+              onComment: () => _openComments(context, list[i]),
+              onShare: () => _share(context, list[i]),
             ),
           ),
         ),

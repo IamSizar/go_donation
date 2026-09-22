@@ -47,6 +47,13 @@ type Profile struct {
 	SubscriptionStatus string    `json:"subscription_status"`
 	Status             string    `json:"status"`
 	CreatedAt          time.Time `json:"created_at"`
+	// Client note 2026-09-22 — like/comment/share on the profile card, same
+	// shape as media_posts. ViewerUserID=0 (unauthenticated) always reads
+	// LikedByMe false, same convention as the media feed.
+	LikeCount    int  `json:"like_count"`
+	LikedByMe    bool `json:"liked_by_me"`
+	CommentCount int  `json:"comment_count"`
+	ShareCount   int  `json:"share_count"`
 }
 
 // MaritalStatuses mirrors the beneficiary case module's set (§ admin_edit.go
@@ -193,10 +200,19 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 	}
 	args = append(args, limit)
 	limitIdx := len(args)
+	// Client note 2026-09-22 — like/comment/share counts, same subselect
+	// shape as ListMediaPosts. viewerIdx reuses the ViewerUserID arg already
+	// bound above for the visibility_level condition — it's the last $N
+	// before `limit`, so it's args[len(args)-2] i.e. limitIdx-1.
+	viewerIdx := limitIdx - 1
 	sqlStr := `SELECT id, user_id, profile_code, gender, age, city, social_summary,
 	             marital_status, religion, employment_status, weight_kg, height_cm,
 	             photo_url, visibility_level, subscription_status, status, created_at,
-	             COALESCE(field_privacy, '{}')
+	             COALESCE(field_privacy, '{}'),
+	             (SELECT COUNT(*) FROM marriage_profile_likes ml WHERE ml.profile_id = marriage_profiles.id),
+	             EXISTS(SELECT 1 FROM marriage_profile_likes ml2 WHERE ml2.profile_id = marriage_profiles.id AND ml2.user_id = $` + itoa(viewerIdx) + `),
+	             (SELECT COUNT(*) FROM marriage_profile_comments mc WHERE mc.profile_id = marriage_profiles.id AND mc.status = 'approved'),
+	             COALESCE(share_count, 0)
 	        FROM marriage_profiles ` + where + `
 	       ORDER BY id DESC
 	       LIMIT $` + itoa(limitIdx)
@@ -211,7 +227,7 @@ func (s *Store) List(ctx context.Context, f SearchFilters) ([]Profile, error) {
 		if err := rows.Scan(&p.ID, &p.UserID, &p.ProfileCode, &p.Gender, &p.Age, &p.City, &p.SocialSummary,
 			&p.MaritalStatus, &p.Religion, &p.EmploymentStatus, &p.WeightKg, &p.HeightCm,
 			&p.PhotoUrl, &p.VisibilityLevel, &p.SubscriptionStatus, &p.Status, &p.CreatedAt,
-			&p.FieldPrivacy); err != nil {
+			&p.FieldPrivacy, &p.LikeCount, &p.LikedByMe, &p.CommentCount, &p.ShareCount); err != nil {
 			return nil, err
 		}
 		if p.FieldPrivacy == nil {

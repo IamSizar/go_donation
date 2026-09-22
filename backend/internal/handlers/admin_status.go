@@ -854,6 +854,12 @@ func (h *AdminStatusHandler) Community(c *gin.Context) {
 func (h *AdminStatusHandler) MediaComment(c *gin.Context) {
 	h.updateStringStatus(c, "post_comments", "status", commentStatuses, nil)
 }
+
+// MarriageComment — moderate a marriage-profile comment (pending → approved
+// / hidden). Same statuses, same table shape as MediaComment (migration 128).
+func (h *AdminStatusHandler) MarriageComment(c *gin.Context) {
+	h.updateStringStatus(c, "marriage_profile_comments", "status", commentStatuses, nil)
+}
 func (h *AdminStatusHandler) VolunteerApplication(c *gin.Context) {
 	h.updateStringStatus(c, "volunteer_applications", "status",
 		volunteerAppStatuses, h.notifyVolunteerAppDecision)
