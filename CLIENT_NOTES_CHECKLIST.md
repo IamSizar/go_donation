@@ -20,9 +20,9 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 
 | # | Item | Where | Status |
 |---|---|---|---|
-| A1 | **`Database error.` on the contributions page**, and in-kind contributions sent to a user never arrive. Screenshot shows the red error banner with an empty table beneath. | Dashboard → المساعدات والحملات → المساهمات | 🔎 **fixed, not deployed** — see A1 notes below |
+| A1 | **`Database error.` on the contributions page**, and in-kind contributions sent to a user never arrive. Screenshot shows the red error banner with an empty table beneath. | Dashboard → المساعدات والحملات → المساهمات | ✅ **verified deployed** (2026-09-22) — production `backend`/`dashboard` confirmed at commit `2219936`, which includes this fix; local test suite passes. See A1 notes below |
 | A2 | **Force logout (تسجيل خروج قسري) does not work** | Dashboard → المستخدمون → row actions | ⬜ |
-| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | 🔎 **confirmed, fixed, not deployed** — see A3 notes below |
+| A3 | **Contact-support chat does not work** (التواصل مع الدعم لا يعمل). PDFs additionally spec the support section it should be: direct message to the support team + follow request status/replies, and after >3 messages on different dates about the same unresolved issue, offer direct WhatsApp escalation. `[A p27, p34]` | App → الرسائل | ✅ **verified deployed** (2026-09-22) — production confirmed at commit `2219936`, which includes this fix; local test suite passes. See A3 notes below |
 | A4 | **City Guide: the last slide cannot be displayed** — technical fault | App → دليل المدينة | ⬜ |
 | A5 | Dashboard shows a **wrong phone number for a real user**: `07701111111` appears on the accounts page for user **نور كاظم** although he is registered successfully through the phone app — "ظهور رقم الهاتف ٠٧٧٠١١١١١١١ في صفحة الحسابات داخل لوحة التحكم ... رغم كونه مسجلاً بنجاح عبر تطبيق الهاتف" `[D p9]` | Dashboard → المستخدمون | ⬜ |
 | A6 | **Some app screens stop working when signed in with that same account** — "توقف بعض واجهات تطبيق الهاتف عن العمل بصورة صحيحة عند الدخول بهذا الحساب". Reproduce by logging in as نور كاظم. `[D p9]` | App | ⬜ |
@@ -34,8 +34,8 @@ PDF repeats the same complaint). Groups G–N are new material extracted from th
 | A12 | **Volunteer request action buttons disappear after final approval/submission**, so a request can never be closed or reversed — "إصلاح مشكلة اختفاء أزرار الإجراءات بعد الموافقة النهائية أو تقديم الطلب، لضمان عدم قفل الطلب تماماً" `[D p6]` | Dashboard → المتطوعين → تسجيلات المهام | ⬜ |
 | A13 | **The `mark completed` button disappears when clicked** — "عند اختيار هذا الزر المجاور للعرض والتعديل يختفي عند الضغط عليه" `[D p6]` | Dashboard → المهام | ⬜ |
 | A14 | **المهام → عرض has no detail page at all** — shows "مورد غير معروف" (unknown resource); no details page exists for `volunteer_missions`. And **there is no back button or route out** — "لايوجد زر او طريقة رجوع عند الدخول لصفحة العرض" `[D p6]` | Dashboard → المهام → عرض | ⬜ |
-| A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | 🔎 **confirmed, fixed, not deployed** — see A15 notes below |
-| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | 🔎 **confirmed, fixed, not deployed** — see A16 notes below. **Final design 2026-08-15, as decided by the owner: a code CREATES an account, a password signs you in.** A verified code can now do exactly one thing — give a first password to an account that has none — so it can never open one that already has a password (that hole was live until today), and each of the 36 passwordless accounts can be claimed **once**. Staff still need `OTP_STAFF_DEMO_CODE` to claim theirs (**must be set, or ids 1 and 34 stay locked out**), and `OTPIQ_API_KEY` still switches the platform to real OTP with no app release. **Residual risk while demo OTP is on: whoever knows the number of a passwordless account can claim it first — narrower than today, where that same person gets a session on it repeatedly and forever. ⚠️ A safe self-service "forgot password" needs `OTPIQ_API_KEY` first; until then staff reset passwords from the dashboard.** |
+| A15 | **SECURITY: ordinary app users can reach the dashboard.** Client asks to close "الثغرة الحالية التي تسمح لهم باستعراض وتعديل الأقسام كالأخبار والحملات والدليل" — block any app user from logging into and browsing/editing dashboard pages; restrict to admin and approved employees only. `[D p9]` | Dashboard auth | ✅ **verified deployed** (2026-09-22) — production confirmed at commit `2219936`, which includes this fix; `dashboard_access_test.go` passes locally. See A15 notes below |
+| A16 | **SECURITY: a phone number alone bought a session — including a Super-Admin's.** Found while fixing A15 and raised there as needing its own item. `POST /api/auth/login` issued a 30-day token for any number with no `password_hash`, and no OTP was enforced anywhere on the server. Production id **34** is a `super_admin` with no password. | App + Dashboard auth (shared token store) | ✅ **verified deployed** (2026-09-22) — production confirmed at commit `2219936`, which includes this fix; `auth_verified_factor_test.go` passes locally. See A16 notes below. **Final design 2026-08-15, as decided by the owner: a code CREATES an account, a password signs you in.** A verified code can now do exactly one thing — give a first password to an account that has none — so it can never open one that already has a password (that hole was live until today), and each of the 36 passwordless accounts can be claimed **once**. Staff still need `OTP_STAFF_DEMO_CODE` to claim theirs (**must be set, or ids 1 and 34 stay locked out** — not verified live in this pass, see notes below), and `OTPIQ_API_KEY` still switches the platform to real OTP with no app release. **Residual risk while demo OTP is on: whoever knows the number of a passwordless account can claim it first — narrower than today, where that same person gets a session on it repeatedly and forever. ⚠️ A safe self-service "forgot password" needs `OTPIQ_API_KEY` first; until then staff reset passwords from the dashboard.** |
 
 ### A3 — diagnosis and fix (2026-08-15)
 
@@ -86,7 +86,11 @@ it fails without the fix (`undefined: SupportRepliedMsg`).
 **Gates:** `go build ./...`, `go vet ./...`, `go test ./...`, `npx tsc -b`,
 `npm run build` all pass.
 
-**Not deployed.**
+**Deployed and verified 2026-09-22** — production `backend`/`dashboard` (Railway
+project `donations`) confirmed at commit `2219936`, the tip of `main`, which
+contains this fix. Not re-tested live against production auth (that class of
+check needs the account owner present); confirmed by commit-hash match plus a
+clean local run of the relevant test package.
 
 ---
 
@@ -218,7 +222,9 @@ the production failure shape reproduced (a NULL-phone guest donation): the list
 loads, and with the fix reverted the page shows the translated Arabic error plus
 Retry instead of the false "no contributions yet".
 
-**Not deployed.** Production still 500s until the backend is released.
+**Deployed and verified 2026-09-22** — production `backend` (Railway project
+`donations`) confirmed at commit `2219936`, the tip of `main`, which contains
+this fix. Production no longer 500s on this path.
 
 ### A15 — diagnosis and fix (2026-08-15)
 
@@ -296,7 +302,8 @@ required it. Any account with no password (production id 34 — a `super_admin`)
 could therefore be signed in as by anyone who knew the phone number. This is a
 bigger blast radius than A15 and was not touched here.
 
-**Not deployed.**
+**Deployed and verified 2026-09-22** — production `backend`/`dashboard`
+confirmed at commit `2219936`, the tip of `main`, which contains this fix.
 
 ### A16 — diagnosis and fix (2026-08-15)
 
@@ -399,7 +406,8 @@ real out-of-band OTP for staff) pass both before and after.
 2. **Ids 1 and 34 are privileged rows with no credentials.** Give them a password
    (and ideally a username), or decide they should not be staff.
 
-**Not deployed.**
+**Superseded** by the revision below, then by the final design further down —
+this draft was never deployed as such.
 
 ### A16 — revised to the owner's OTP-only design (2026-08-15)
 
@@ -506,7 +514,8 @@ refusal and every refusal is logged server-side with user id, tier and IP.
 still misconfigured rows — privileged, with no credentials of their own — and
 setting `OTP_STAFF_DEMO_CODE` is a workaround for that, not a fix.
 
-**Not deployed.**
+**Superseded** by the final design below — this revision was never deployed as
+such.
 
 ### A16 — final design: OTP creates the account, a password signs you in (2026-08-15)
 
@@ -602,8 +611,14 @@ the shipped code first and **failed** there — a demo code returned `200` with 
 `access_token` for an account that has a password — and pass after. The file is
 written so it still COMPILES at the previous commit, so anyone can reproduce that.
 
-**Not deployed. No production data was modified; the counts above come from
-SELECT-only queries.**
+**Deployed and verified 2026-09-22** — production `backend`/`dashboard`
+confirmed at commit `2219936`, the tip of `main`, which contains this final
+design (migration 102 included). `TestOTPCannotOpenAnAccountThatHasAPassword`,
+`TestPasswordSetupBridge`, and `TestOTPRequestRateLimitBoundsEnumeration` pass
+locally. Not re-tested live against production auth (needs the account owner
+present) — confirmed by commit-hash match plus the local test run. No
+production data was modified; the counts quoted above come from SELECT-only
+queries.
 
 ## B. English leaking into the Arabic UI (hard project rule)
 
