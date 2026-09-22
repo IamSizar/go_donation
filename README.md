@@ -1,5 +1,9 @@
 # BalanceNex — donations & community platform
 
+> **New to this project, or picking it back up after a break?** Read
+> [NEXT_AGENT_START_HERE.md](NEXT_AGENT_START_HERE.md) first — current repo
+> state, open PRs, in-flight work, and what to do next.
+
 Three deployables in one repository:
 
 | Path | What it is |
