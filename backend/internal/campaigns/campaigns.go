@@ -157,7 +157,12 @@ func scanRow(row pgx.Row, c *Campaign) error {
 //   - status == "finished"                    → only finished rows.
 //   - status == "all"                         → every row (admin diagnostic).
 //   - any other value                         → donor default.
-func (s *Store) List(ctx context.Context, page, perPage int, status string) (*Page, error) {
+// savedOnly + userID restrict the result to campaigns THAT USER has saved
+// (saved_items, item_type='campaign' — see postengagement.ItemTypeCampaign
+// and CampaignEngagementHandler.Save) — the "My saved campaigns" screen.
+// ANDed with `status`, not a replacement for it: a caller wanting every
+// saved campaign regardless of current lifecycle passes status="all".
+func (s *Store) List(ctx context.Context, page, perPage int, status string, savedOnly bool, userID int64) (*Page, error) {
 	page = normalizePage(page)
 	perPage = normalizePerPage(perPage, 12, 100)
 
@@ -175,6 +180,15 @@ func (s *Store) List(ctx context.Context, page, perPage int, status string) (*Pa
 	default: // "", "approved", "active", or unknown → donor-visible only
 		where = " WHERE status = $1"
 		args = []any{"active"}
+	}
+	if savedOnly && userID > 0 {
+		args = append(args, userID)
+		savedClause := "id IN (SELECT item_id FROM saved_items WHERE item_type = 'campaign' AND user_id = $" + strconv.Itoa(len(args)) + ")"
+		if where == "" {
+			where = " WHERE " + savedClause
+		} else {
+			where += " AND " + savedClause
+		}
 	}
 
 	var total int

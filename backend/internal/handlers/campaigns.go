@@ -31,6 +31,9 @@ func NewCampaignsHandler(s *campaigns.Store) *CampaignsHandler {
 //	status="approved"          → same as "" (back-compat with the old Flutter param)
 //	status="all"               → every row, including hidden (admin diagnostic)
 //	status="hidden"            → only hidden rows (admin diagnostic)
+//
+// ?saved=1&user_id=N — only campaigns that user has saved (the "My saved
+// campaigns" screen). Same shape as GET /media?saved=1.
 func (h *CampaignsHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("page", "1")))
 	perPage, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("per_page", "12")))
@@ -38,8 +41,10 @@ func (h *CampaignsHandler) List(c *gin.Context) {
 	// Pass the raw status value through verbatim — Store.List owns the
 	// mapping from status string → SQL WHERE clause now.
 	statusParam := strings.ToLower(strings.TrimSpace(c.Query("status")))
+	saved := c.Query("saved") == "1" || strings.EqualFold(c.Query("saved"), "true")
+	userID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("user_id")), 10, 64)
 
-	res, err := h.Store.List(c.Request.Context(), page, perPage, statusParam)
+	res, err := h.Store.List(c.Request.Context(), page, perPage, statusParam, saved, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch campaigns."})
 		return
