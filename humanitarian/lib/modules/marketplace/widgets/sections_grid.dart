@@ -85,10 +85,9 @@ class _SectionGridTile extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppThemeConfig.border(context)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
+              color: Colors.black.withValues(alpha: 0.16),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -114,6 +113,31 @@ class _SectionGridTile extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [Colors.transparent, Colors.black54],
                   stops: [0.4, 1],
+                ),
+              ),
+            ),
+            // A crisp, deliberate frame around the cover photo — the
+            // client's own "clean looking" ask. Sits ON TOP of the image
+            // and gradient (not on the outer Container, which the shadow
+            // needs unclipped) so it reads as a single clean line at every
+            // corner instead of the image's own edge pixels showing
+            // through a border UNDER it.
+            //
+            // THE BUG THIS FIXES: a fixed white line at 0.75 alpha read
+            // fine against the simulator's dark theme but was "the same
+            // colour as the background" on a phone in light mode — a
+            // light page behind a light border. Picking the line's colour
+            // from the theme's own brightness (dark stroke on light mode,
+            // light stroke on dark mode) is what keeps it a visible frame
+            // on either.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppThemeConfig.isDark(context)
+                      ? Colors.white.withValues(alpha: 0.75)
+                      : Colors.black.withValues(alpha: 0.35),
+                  width: 1.4,
                 ),
               ),
             ),

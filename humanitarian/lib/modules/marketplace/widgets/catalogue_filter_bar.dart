@@ -170,24 +170,6 @@ class _Chip extends StatefulWidget {
   State<_Chip> createState() => _ChipState();
 }
 
-/// Measures [label] at the chip's own text style, the same TextPainter
-/// technique `pillRowHeight` uses for the row's height — so the pill's
-/// background is sized from real glyph metrics instead of trusting
-/// Row.mainAxisSize.min to hug Text's own intrinsic width correctly. +2 is
-/// slack for sub-pixel rounding, not a fudge for a specific string.
-double _chipLabelWidth(BuildContext context, String label) {
-  final painter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-    ),
-    maxLines: 1,
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  return painter.width + 2;
-}
-
 class _ChipState extends State<_Chip> {
   bool _pressed = false;
 
@@ -263,28 +245,23 @@ class _ChipState extends State<_Chip> {
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
-                  // THE BUG THIS FIXES (escalation of the fix below): for a
-                  // two-word Arabic label ending in a tanwin mark ("الأكثر
-                  // مبيعاً", "وصل حديثاً"), the gap between Text's own
-                  // intrinsic width (what Row.mainAxisSize.min hugs the
-                  // pill's background to) and what the glyphs actually
-                  // paint is not "a hair" — it is most of a second word.
-                  // `overflow: visible` alone just lets that word paint
-                  // outside the pill with nothing to stop it, so it visibly
-                  // spills into — and reads as wrapping onto — the
-                  // NEIGHBOURING chip a few pixels away in this tightly
-                  // packed (8px gap) row. Sizing the Text with the SAME
-                  // TextPainter measurement `pillRowHeight` already uses
-                  // for the row's height, plus a small buffer, gives the
-                  // pill a background wide enough for its own label instead
-                  // of trusting Row to hug it correctly.
-                  child: SizedBox(
-                    width: _chipLabelWidth(context, widget.label),
-                    child: Text(
-                      widget.label,
-                      softWrap: false,
-                      overflow: TextOverflow.visible,
-                    ),
+                  // THE ACTUAL BUG (confirmed with a zoomed device
+                  // screenshot, then with Flutter's own debug overflow
+                  // banner): the row's HEIGHT — `pillRowHeight(context)`,
+                  // the outer SizedBox in build() below — measured a plain
+                  // 'M' and came out a couple of pixels shorter than a
+                  // tanwin-bearing label ("مبيعاً", "حديثاً") actually
+                  // needs. That is a height problem, not a width one — an
+                  // `UnconstrainedBox` here was the wrong axis to attack
+                  // and only traded "wraps to 2 lines" for "paints past its
+                  // own box every single chip, tanwin or not" (Flutter's
+                  // debug overflow banner on all four, not just two). The
+                  // real fix is `pillRowHeight` itself measuring a tall
+                  // enough reference glyph — see tokens.dart.
+                  child: Text(
+                    widget.label,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
                   ),
                 ),
                 if (widget.icon != null) ...[

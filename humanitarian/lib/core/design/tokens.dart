@@ -370,6 +370,22 @@ abstract final class AppType {
 /// on `case_category_capsules.dart`'s `_buildRow`), so the fix is to
 /// compute that fixed number from the real, current text metrics instead
 /// of a value picked once for one text size.
+///
+/// THE SECOND BUG THIS FIXES: `TextPainter.layout().height` reliably
+/// undershoots the height Flutter actually paints a line of text at — by
+/// about 2px at this font size, confirmed on-device: catalogue_filter_bar's
+/// chip row was 2px too short for EVERY chip (not just the ones carrying an
+/// Arabic tanwin mark, ً — that was a symptom that happened to show up
+/// first, not the cause), and Flutter's own debug overflow banner named the
+/// exact number: `RenderConstraintsTransformBox overflowed by 1.00 pixels
+/// on the top and bottom`. `TextPainter` measures the font's reported
+/// line-height metric; the engine's actual paint includes leading/hinting
+/// that metric does not fully capture. A fixed `_heightSlack` closes that
+/// gap for every row using this function, not just the chip that surfaced
+/// it — a couple of extra pixels of padding is invisible; a chip 2px short
+/// is not.
+const _heightSlack = 3.0;
+
 double pillRowHeight(
   BuildContext context, {
   double fontSize = 13,
@@ -384,5 +400,5 @@ double pillRowHeight(
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
-  return painter.height + verticalPadding * 2;
+  return painter.height + verticalPadding * 2 + _heightSlack;
 }
