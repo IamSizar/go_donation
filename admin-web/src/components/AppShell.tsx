@@ -285,7 +285,7 @@ export default function AppShell() {
   // so an admin who tab-switches away still sees the queue grow. Cleans up
   // back to the plain title when the count hits zero.
   useEffect(() => {
-    const base = `BalanceNex ${t('shell.admin_word')}`
+    const base = `Tawazzn ${t('shell.admin_word')}`
     document.title = counts.total > 0 ? `(${counts.total}) ${base}` : base
   }, [counts.total, t])
 
@@ -323,7 +323,7 @@ export default function AppShell() {
       const date = new Date().toISOString().slice(0, 10)
       const a = document.createElement('a')
       a.href = url
-      a.download = `balancenex-export-${date}.json`
+      a.download = `tawazzn-export-${date}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -380,7 +380,7 @@ export default function AppShell() {
             style={{ borderRadius: 9, flexShrink: 0 }}
           />
           <div>
-            <strong>BalanceNex</strong>
+            <strong>Tawazzn</strong>
             <div className="muted">{t('shell.admin_word')}</div>
           </div>
         </div>

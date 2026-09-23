@@ -1423,7 +1423,7 @@ const en = {
   // because they belong to the app-container, not to any screen.
   pwa: {
     install: 'Install app',
-    install_title: 'Install BalanceNex Admin on this device for a home-screen icon and full-screen use',
+    install_title: 'Install Tawazzn Admin on this device for a home-screen icon and full-screen use',
     // Deliberately says what the admin is looking at, not just that the
     // network is down: the danger of an offline PWA is an empty table reading
     // as "there are no records".

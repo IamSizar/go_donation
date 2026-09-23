@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "BalanceNex Admin",
-  "short_name": "BalanceNex",
-  "description": "Admin dashboard for BalanceNex — review registrations, donations, cases and staff activity from anywhere.",
+  "name": "Tawazzn Admin",
+  "short_name": "Tawazzn",
+  "description": "Admin dashboard for Tawazzn — review registrations, donations, cases and staff activity from anywhere.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
