@@ -595,15 +595,23 @@ func (s *Store) ListByUser(ctx context.Context, userID int64) ([]Donation, Stats
 
 	// Stats — amount is stored as VARCHAR, so cast to NUMERIC for math.
 	var stats Stats
+	// THE BUG THIS FIXES: SUM(CASE WHEN ... THEN 1 ELSE 0 END) still returns
+	// SQL NULL, not 0, when zero rows match the outer WHERE — SUM over an
+	// empty set is NULL regardless of what its CASE branches are. The amount
+	// columns already guarded against this with COALESCE(...,0); the count
+	// columns didn't, so Scan into a non-nullable Go int failed with a type
+	// error for every donor with zero donations — surfaced to the app as a
+	// generic "Could not load donations" on what is actually the single most
+	// common case (a fresh account with no donation history yet).
 	err = s.Pool.QueryRow(ctx, `
 		SELECT
 		  COUNT(*) AS total_count,
 		  COALESCE(SUM(NULLIF(amount,'')::numeric), 0) AS total_amount,
-		  SUM(CASE WHEN payment_status = 1 THEN 1 ELSE 0 END) AS success_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 1 THEN 1 ELSE 0 END), 0) AS success_count,
 		  COALESCE(SUM(CASE WHEN payment_status = 1 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS success_amount,
-		  SUM(CASE WHEN payment_status = 2 THEN 1 ELSE 0 END) AS pending_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 2 THEN 1 ELSE 0 END), 0) AS pending_count,
 		  COALESCE(SUM(CASE WHEN payment_status = 2 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS pending_amount,
-		  SUM(CASE WHEN payment_status = 3 THEN 1 ELSE 0 END) AS failed_count,
+		  COALESCE(SUM(CASE WHEN payment_status = 3 THEN 1 ELSE 0 END), 0) AS failed_count,
 		  COALESCE(SUM(CASE WHEN payment_status = 3 THEN NULLIF(amount,'')::numeric ELSE 0 END), 0) AS failed_amount
 		FROM donations
 		WHERE user_id = $1`,

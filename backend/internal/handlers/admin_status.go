@@ -860,6 +860,9 @@ func (h *AdminStatusHandler) MediaComment(c *gin.Context) {
 func (h *AdminStatusHandler) MarriageComment(c *gin.Context) {
 	h.updateStringStatus(c, "marriage_profile_comments", "status", commentStatuses, nil)
 }
+func (h *AdminStatusHandler) CampaignComment(c *gin.Context) {
+	h.updateStringStatus(c, "campaign_comments", "status", commentStatuses, nil)
+}
 func (h *AdminStatusHandler) VolunteerApplication(c *gin.Context) {
 	h.updateStringStatus(c, "volunteer_applications", "status",
 		volunteerAppStatuses, h.notifyVolunteerAppDecision)

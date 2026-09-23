@@ -399,6 +399,8 @@ func main() {
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
 	marriageEngageStore := marriage.NewEngagementStore(pool)                                                     // client note 2026-09-22 — like/comment/share on profile cards
 	marriageEngageH := handlers.NewMarriageEngagementHandler(marriageEngageStore, bannedWordsStore)
+	campaignEngageStore := campaigns.NewEngagementStore(pool) // client report 2026-09-22 — campaign detail showed like/comment counts with no way to generate one
+	campaignEngageH := handlers.NewCampaignEngagementHandler(campaignEngageStore, bannedWordsStore)
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                  // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)              // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore) // #28
@@ -706,6 +708,13 @@ func main() {
 			authed.GET("/marriage/:id/comments", marriageEngageH.Comments)
 			authed.POST("/marriage/:id/comments", marriageEngageH.Comment)
 			authed.POST("/marriage/:id/share", marriageEngageH.Share)
+
+			// Client report 2026-09-22 — same shape again, scoped to donation
+			// campaigns (the detail screen showed like/comment counts with no
+			// way to ever move them).
+			authed.POST("/campaigns/:id/like", campaignEngageH.Like)
+			authed.GET("/campaigns/:id/comments", campaignEngageH.Comments)
+			authed.POST("/campaigns/:id/comments", campaignEngageH.Comment)
 
 			// #27 — rate a partner (1–5 stars).
 			authed.POST("/partners/:id/rate", partnerEngageH.Rate)
@@ -1399,6 +1408,12 @@ func main() {
 			admin.GET("/admin/marriage-comments", perm("marriage", "view"), marriageEngageH.AdminComments)
 			admin.POST("/admin/marriage-comments/:id/status", perm("marriage", "edit"), adminStatusH.MarriageComment)
 			admin.DELETE("/admin/marriage-comments/:id", perm("marriage", "delete"), marriageEngageH.AdminDeleteComment)
+
+			// Client report 2026-09-22 — campaign comment moderation, same
+			// shape as media/marriage comments above.
+			admin.GET("/admin/campaign-comments", perm("campaigns", "view"), campaignEngageH.AdminComments)
+			admin.POST("/admin/campaign-comments/:id/status", perm("campaigns", "edit"), adminStatusH.CampaignComment)
+			admin.DELETE("/admin/campaign-comments/:id", perm("campaigns", "delete"), campaignEngageH.AdminDeleteComment)
 
 			// #25 — banned-words blocklist (writes gated to admin tier).
 			admin.GET("/admin/banned-words", perm("media", "view"), bannedWordsH.List)

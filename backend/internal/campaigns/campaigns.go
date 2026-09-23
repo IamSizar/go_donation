@@ -127,8 +127,9 @@ const listSelect = `
 	       'IQD'::text                    AS currency,
 	       status,
 	       CASE WHEN status = 'active' THEN 1 ELSE 0 END AS is_active,
-	       0 AS like_count,
-	       0 AS comment_count
+	       (SELECT COUNT(*) FROM campaign_likes cl WHERE cl.campaign_id = campaigns.id) AS like_count,
+	       (SELECT COUNT(*) FROM campaign_comments cc
+	         WHERE cc.campaign_id = campaigns.id AND cc.status = 'approved')            AS comment_count
 	  FROM campaigns
 `
 
