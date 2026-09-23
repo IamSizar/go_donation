@@ -34,6 +34,11 @@ mixin CatalogueFacets on GetxController {
   final isLoadingBrands = false.obs;
   final brandsError = RxnString();
 
+  /// Admin-curated store sections (e.g. "Clothing") from
+  /// GET /api/marketplace/sections — active, in-window, non-empty only.
+  final sections = <Map<String, dynamic>>[].obs;
+  final isLoadingSections = false.obs;
+
   /// #28 — the category list, used both to LABEL a product card and (K15) to
   /// FILTER by الفئات.
   ///
@@ -77,6 +82,34 @@ mixin CatalogueFacets on GetxController {
     } finally {
       isLoadingBrands.value = false;
     }
+  }
+
+  /// The sections rail is a discovery shelf, not a filter the user opens on
+  /// purpose like categories/brands — so a failed load quietly clears it
+  /// rather than surfacing a retry affordance; the product feed underneath
+  /// is unaffected either way.
+  Future<void> fetchSections() async {
+    isLoadingSections.value = true;
+    try {
+      sections.assignAll(await const ModuleApi().marketplaceSections());
+    } catch (_) {
+      sections.clear();
+    } finally {
+      isLoadingSections.value = false;
+    }
+  }
+
+  String localizedSectionName(Map<String, dynamic> sec) {
+    const byLang = {
+      'en': 'name_en',
+      'ar': 'name_ar',
+      'ckb': 'name_ckb',
+      'kmr': 'name_kmr',
+    };
+    final key = byLang[AppLocaleService.assistantLang()] ?? 'name_en';
+    final v = (sec[key] ?? '').toString().trim();
+    if (v.isNotEmpty) return v;
+    return (sec['name_en'] ?? '').toString();
   }
 
   String localizedCategoryName(Map<String, dynamic> cat) {

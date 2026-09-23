@@ -78,9 +78,14 @@ type ProductFilters struct {
 	Q string
 	// CategorySlug — الفئات. Matches marketplace_categories.slug.
 	CategorySlug string
-	// SectionSlug — an admin-curated shelf (migration 133). Matches
-	// marketplace_sections.slug via the section_products join table.
+	// SectionSlug — an admin-curated shelf (migration 133/134). Matches
+	// marketplace_sections.slug via marketplace_products.section_id. A
+	// product belongs to at most one section.
 	SectionSlug string
+	// NoSection — the store's "unassigned" shelf: products with no section
+	// at all, shown as a list below the section grid. Ignored when
+	// SectionSlug is also set (SectionSlug wins).
+	NoSection bool
 	// Brand — العلامات التجارية. Exact match; the app gets the list of real
 	// brand names from ListBrands, so there is nothing to guess at.
 	Brand string
@@ -145,7 +150,7 @@ const catalogueColumns = `
 	p.category, p.price::text, p.currency, p.image_path, p.stock_quantity, p.status,
 	p.category_slug, p.sku, p.specs, COALESCE(p.labels, '{}'),
 	p.brand, p.discount_percent, p.created_at,
-	COALESCE(p.gallery, '{}'),
+	COALESCE(p.gallery, '{}'), p.section_id,
 	COALESCE(s.sold, 0) AS sold_count,
 	ROUND(p.price * (100 - COALESCE(p.discount_percent, 0)) / 100.0, 2)::text`
 
@@ -200,7 +205,7 @@ func (s *Store) ListCatalogue(ctx context.Context, f ProductFilters) (*Page[Cata
 			// Migration 117 — the extra product photos, for the app's detail
 			// sheet. Carried on every catalogue response rather than fetched
 			// per-product, so opening a product needs no second round trip.
-			&p.Gallery,
+			&p.Gallery, &p.SectionID,
 			&p.SoldCount, &p.PriceAfterDiscount,
 		); err != nil {
 			return nil, fmt.Errorf("scan catalogue product: %w", err)
@@ -233,13 +238,10 @@ func (f ProductFilters) build() (string, []any) {
 		conds = append(conds, "p.category_slug = $"+itoa(len(args)))
 	}
 	if v := strings.TrimSpace(f.SectionSlug); v != "" {
-		// EXISTS rather than a JOIN: a product can belong to several sections,
-		// and a JOIN would duplicate its row once per membership.
 		args = append(args, v)
-		conds = append(conds, `EXISTS (
-			SELECT 1 FROM marketplace_section_products sp
-			JOIN marketplace_sections sec ON sec.id = sp.section_id
-			WHERE sp.product_id = p.id AND sec.slug = $`+itoa(len(args))+`)`)
+		conds = append(conds, `p.section_id = (SELECT id FROM marketplace_sections WHERE slug = $`+itoa(len(args))+`)`)
+	} else if f.NoSection {
+		conds = append(conds, "p.section_id IS NULL")
 	}
 	if v := strings.TrimSpace(f.Brand); v != "" {
 		args = append(args, v)

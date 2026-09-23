@@ -68,6 +68,8 @@ class CatalogueQuery {
   const CatalogueQuery({
     this.sort = CatalogueSort.none,
     this.categorySlug = '',
+    this.sectionSlug = '',
+    this.noSection = false,
     this.brand = '',
     this.onSale = false,
     this.inStockOnly = false,
@@ -80,6 +82,17 @@ class CatalogueQuery {
 
   /// الفئات — `marketplace_categories.slug`, empty for "all".
   final String categorySlug;
+
+  /// An admin-curated store section (e.g. "Clothing") —
+  /// `marketplace_sections.slug`, empty for "all".
+  final String sectionSlug;
+
+  /// The store's unassigned shelf — products with no section at all.
+  /// Ignored when [sectionSlug] is set. The main store screen's product
+  /// list always sends this; a section's own screen sends [sectionSlug]
+  /// instead. Never both at once (SectionProductsScreen builds its own
+  /// query and never sets this).
+  final bool noSection;
 
   /// العلامات التجارية — an exact brand name from GET /api/marketplace/brands.
   /// The app never guesses one; it picks from that list.
@@ -107,6 +120,7 @@ class CatalogueQuery {
   /// catalogue cannot empty it.
   bool get isNarrowed =>
       categorySlug.isNotEmpty ||
+      sectionSlug.isNotEmpty ||
       brand.isNotEmpty ||
       onSale ||
       inStockOnly ||
@@ -124,6 +138,8 @@ class CatalogueQuery {
   Map<String, String> toQueryParameters() => {
     if (sort != CatalogueSort.none) 'sort': sort,
     if (categorySlug.isNotEmpty) 'category': categorySlug,
+    if (sectionSlug.isNotEmpty) 'section': sectionSlug,
+    if (sectionSlug.isEmpty && noSection) 'no_section': '1',
     if (brand.isNotEmpty) 'brand': brand,
     if (onSale) 'on_sale': '1',
     if (inStockOnly) 'in_stock': '1',
@@ -143,6 +159,8 @@ class CatalogueQuery {
   CatalogueQuery copyWith({
     String? sort,
     String? categorySlug,
+    String? sectionSlug,
+    bool? noSection,
     String? brand,
     bool? onSale,
     bool? inStockOnly,
@@ -153,6 +171,8 @@ class CatalogueQuery {
     return CatalogueQuery(
       sort: sort ?? this.sort,
       categorySlug: categorySlug ?? this.categorySlug,
+      sectionSlug: sectionSlug ?? this.sectionSlug,
+      noSection: noSection ?? this.noSection,
       brand: brand ?? this.brand,
       onSale: onSale ?? this.onSale,
       inStockOnly: inStockOnly ?? this.inStockOnly,
@@ -166,6 +186,8 @@ class CatalogueQuery {
       other is CatalogueQuery &&
       other.sort == sort &&
       other.categorySlug == categorySlug &&
+      other.sectionSlug == sectionSlug &&
+      other.noSection == noSection &&
       other.brand == brand &&
       other.onSale == onSale &&
       other.inStockOnly == inStockOnly &&
@@ -176,6 +198,8 @@ class CatalogueQuery {
   int get hashCode => Object.hash(
     sort,
     categorySlug,
+    sectionSlug,
+    noSection,
     brand,
     onSale,
     inStockOnly,

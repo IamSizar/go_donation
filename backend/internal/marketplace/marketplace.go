@@ -61,6 +61,11 @@ type Product struct {
 	// product with no gallery rendering exactly as it did before this column
 	// existed.
 	Gallery []string `json:"gallery"`
+	// SectionID — the store section (migration 134) this product belongs to.
+	// nil means unassigned; it then shows in the app's unsectioned shelf
+	// rather than any section screen. Replaces CategorySlug as how a product
+	// is grouped in the store — CategorySlug is archived, not removed.
+	SectionID *int64 `json:"section_id"`
 }
 
 // Order is the row shape returned by ?view=orders.
@@ -199,7 +204,7 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 		       category, price::text, currency, image_path, stock_quantity, status,
 		       category_slug, sku, specs, COALESCE(labels, '{}'),
 		       brand, discount_percent, created_at,
-		       COALESCE(gallery, '{}')
+		       COALESCE(gallery, '{}'), section_id
 		  FROM marketplace_products`+where+`
 		 ORDER BY id DESC
 		 LIMIT $`+itoa(limitIdx)+` OFFSET $`+itoa(offsetIdx),
@@ -226,7 +231,7 @@ func (s *Store) AdminListProducts(ctx context.Context, page, perPage int, status
 			// as in the public catalogue because the dashboard's edit form is
 			// populated from this list: without it, opening a product would
 			// show an empty gallery box and saving would wipe the real one.
-			&p.Gallery,
+			&p.Gallery, &p.SectionID,
 		); err != nil {
 			return nil, err
 		}

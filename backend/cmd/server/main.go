@@ -1408,8 +1408,6 @@ func main() {
 			admin.PATCH("/admin/marketplace/sections/:id", perm("marketplace", "edit"), marketplaceSectionsH.Update)
 			admin.POST("/admin/marketplace/sections/reorder", perm("marketplace", "edit"), marketplaceSectionsH.Reorder)
 			admin.DELETE("/admin/marketplace/sections/:id", perm("marketplace", "delete"), marketplaceSectionsH.Delete)
-			admin.GET("/admin/marketplace/sections/:id/products", perm("marketplace", "view"), marketplaceSectionsH.Products)
-			admin.PUT("/admin/marketplace/sections/:id/products", perm("marketplace", "edit"), marketplaceSectionsH.SetProducts)
 
 			// #25 — comment moderation queue + status change + delete.
 			admin.GET("/admin/media-comments", perm("media", "view"), mediaEngageH.AdminComments)

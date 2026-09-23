@@ -629,11 +629,18 @@ type productEditReq struct {
 	ImagePath         *string  `json:"image_path"`
 	StockQuantity     *int     `json:"stock_quantity"`
 	Status            *string  `json:"status"`
-	// #28 — CMS category + SKU + specs + labels.
+	// #28 — CMS category + SKU + specs + labels. category/category_slug are
+	// ARCHIVED (store-sections overhaul): the field and column stay so the
+	// client can bring categories back later, but the product form no longer
+	// writes them — SectionID is what a product is grouped by now.
 	CategorySlug *string   `json:"category_slug"`
 	SKU          *string   `json:"sku"`
 	Specs        *string   `json:"specs"`
 	Labels       *[]string `json:"labels"`
+	// SectionID — the store section (migration 134) this product belongs to.
+	// nil means "leave alone"; 0 means "remove from its section" (product
+	// falls back to the unassigned list-style shelf).
+	SectionID *int64 `json:"section_id"`
 	// K15 — Brand was MISSING FROM THIS STRUCT, which is why typing a brand on
 	// the dashboard, saving, and reopening the product showed an empty box: the
 	// field was in the form and in the View page's column allow-list, the
@@ -713,7 +720,14 @@ func (h *AdminEditHandler) MarketplaceProduct(c *gin.Context) {
 	addOptString(&b, "description_sorani", req.DescriptionSorani)
 	addOptString(&b, "description_badini", req.DescriptionBadini)
 	addOptString(&b, "category", req.Category)
-	addOptString(&b, "category_slug", req.CategorySlug) // #28
+	addOptString(&b, "category_slug", req.CategorySlug) // #28 — archived, still writable if ever sent
+	if req.SectionID != nil {
+		if *req.SectionID == 0 {
+			b.add("section_id", nil)
+		} else {
+			b.add("section_id", *req.SectionID)
+		}
+	}
 	addOptString(&b, "sku", req.SKU)
 	addOptString(&b, "specs", req.Specs)
 	// brand is NOT NULL DEFAULT '' (migration 100), so it cannot go through

@@ -807,6 +807,10 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 	if req.Gallery != nil {
 		gallery = cleanStringSlice(*req.Gallery)
 	}
+	var sectionID any
+	if req.SectionID != nil && *req.SectionID > 0 {
+		sectionID = *req.SectionID
+	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
 		INSERT INTO marketplace_products
@@ -814,8 +818,8 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		   name, name_ar, name_sorani, name_badini,
 		   description, description_ar, description_sorani, description_badini,
 		   category, price, currency, image_path, stock_quantity, status,
-		   category_slug, sku, specs, labels, brand, discount_percent, gallery)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+		   category_slug, sku, specs, labels, brand, discount_percent, gallery, section_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 		RETURNING id`,
 		sellerID, caseID,
 		name, optStringOrNil(req.NameAr), optStringOrNil(req.NameSorani), optStringOrNil(req.NameBadini),
@@ -823,10 +827,11 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		optStringOrNil(req.DescriptionSorani), optStringOrNil(req.DescriptionBadini),
 		optStringOrNil(req.Category), price, currency,
 		optStringOrNil(req.ImagePath), nullableIntPtr(req.StockQuantity), status,
-		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28
+		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28 — archived
 		optStringOrNil(req.Specs), productLabels(req.Labels),
 		brand, discount, // K15
 		gallery, // migration 117
+		sectionID, // store sections overhaul
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

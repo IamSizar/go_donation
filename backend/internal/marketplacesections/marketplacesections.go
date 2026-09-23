@@ -47,8 +47,9 @@ func slugify(s string) string {
 }
 
 // List returns sections in admin-defined display order, with each one's
-// current product count. When publicOnly, only active rows within their
-// visibility window AND holding at least one product are returned — an
+// current product count (approved products only — matching what the public
+// catalogue itself shows). When publicOnly, only active rows within their
+// visibility window AND holding at least one such product are returned — an
 // empty or not-yet-live shelf has nothing for a shopper to tap into.
 func (s *Store) List(ctx context.Context, publicOnly bool) ([]Section, error) {
 	where := ""
@@ -57,14 +58,15 @@ func (s *Store) List(ctx context.Context, publicOnly bool) ([]Section, error) {
 		where = ` WHERE sec.active = 1
 		            AND (sec.starts_at IS NULL OR sec.starts_at <= NOW())
 		            AND (sec.ends_at IS NULL OR sec.ends_at >= NOW())`
-		having = " HAVING COUNT(sp.product_id) > 0"
+		having = " HAVING COUNT(p.id) > 0"
 	}
 	rows, err := s.Pool.Query(ctx,
 		`SELECT sec.id, sec.slug, sec.name_en, sec.name_ar, sec.name_ckb, sec.name_kmr,
 		        sec.cover_image_path, sec.display_order, (sec.active = 1), sec.starts_at, sec.ends_at,
-		        COUNT(sp.product_id)::int
+		        COUNT(p.id)::int
 		   FROM marketplace_sections sec
-		   LEFT JOIN marketplace_section_products sp ON sp.section_id = sec.id`+where+`
+		   LEFT JOIN marketplace_products p
+		     ON p.section_id = sec.id AND p.status = 'approved'`+where+`
 		  GROUP BY sec.id`+having+`
 		  ORDER BY sec.display_order, sec.id`)
 	if err != nil {
@@ -183,78 +185,3 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ProductIDs returns the ids of the products currently assigned to a section,
-// for pre-filling the admin picker.
-func (s *Store) ProductIDs(ctx context.Context, sectionID int64) ([]int64, error) {
-	rows, err := s.Pool.Query(ctx,
-		`SELECT product_id FROM marketplace_section_products WHERE section_id = $1 ORDER BY added_at`, sectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []int64{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
-}
-
-// SetProducts replaces a section's whole product list in one transaction —
-// diffed against what is already assigned, so a product that was already in
-// the section keeps its original added_at instead of being deleted and
-// reinserted on every save.
-func (s *Store) SetProducts(ctx context.Context, sectionID int64, productIDs []int64) error {
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	existing := map[int64]bool{}
-	rows, err := tx.Query(ctx, `SELECT product_id FROM marketplace_section_products WHERE section_id = $1`, sectionID)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		existing[id] = true
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	wanted := map[int64]bool{}
-	for _, id := range productIDs {
-		wanted[id] = true
-	}
-
-	for id := range existing {
-		if !wanted[id] {
-			if _, err := tx.Exec(ctx,
-				`DELETE FROM marketplace_section_products WHERE section_id = $1 AND product_id = $2`,
-				sectionID, id); err != nil {
-				return err
-			}
-		}
-	}
-	for id := range wanted {
-		if !existing[id] {
-			if _, err := tx.Exec(ctx,
-				`INSERT INTO marketplace_section_products (section_id, product_id) VALUES ($1, $2)`,
-				sectionID, id); err != nil {
-				return err
-			}
-		}
-	}
-
-	return tx.Commit(ctx)
-}

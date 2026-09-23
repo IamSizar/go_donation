@@ -38,7 +38,11 @@ export const NAV: NavItem[] = [
   { to: '/project-categories', tKey: 'nav.project_categories', module: 'beneficiary' },
   { to: '/sponsorship-types', tKey: 'nav.sponsorship_types', module: 'sponsorships' },
   { to: '/marketplace',   tKey: 'nav.marketplace',   countKey: 'marketplace', module: 'marketplace' },
-  { to: '/marketplace-categories', tKey: 'nav.marketplace_categories', module: 'marketplace' },
+  // Archived (store-sections overhaul, client request) — product categories
+  // are replaced by store sections in the app's UI. Route/page/backend all
+  // still work; only the nav entry is removed, so re-enabling this is a
+  // one-line revert if the client wants it back.
+  // { to: '/marketplace-categories', tKey: 'nav.marketplace_categories', module: 'marketplace' },
   { to: '/marketplace-sections', tKey: 'nav.marketplace_sections', module: 'marketplace' },
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
   { to: '/marriage-requests', tKey: 'nav.marriage_requests', module: 'marriage' },
@@ -193,7 +197,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'store_marketplace', tKey: 'nav_group.store_marketplace',
-    items: ['/marketplace', '/marketplace-categories', '/marketplace-sections'],
+    items: ['/marketplace', '/marketplace-sections'],
   },
   {
     kind: 'group', key: 'marriage', tKey: 'nav_group.marriage',

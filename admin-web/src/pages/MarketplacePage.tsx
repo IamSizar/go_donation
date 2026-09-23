@@ -72,6 +72,24 @@ function categoryName(c: MarketCategory, locale: Locale): string {
   return byLocale[locale]?.trim() || c.name_en
 }
 
+type MarketSection = { id: number; name_en: string; name_ar: string; name_ckb: string; name_kmr: string }
+
+function sectionName(s: MarketSection, locale: Locale): string {
+  const byLocale = { en: s.name_en, ar: s.name_ar, ckb: s.name_ckb, kmr: s.name_kmr }
+  return byLocale[locale]?.trim() || s.name_en
+}
+
+// The product form's section field is a 'select' (string values, like every
+// other select), but the backend's section_id is *int64 | null — this turns
+// the submitted "" / "3" back into null / 3 before it reaches the PATCH/POST
+// body. Mutates in place; both handleSave and handleCreate call it once on
+// the raw form data before sending.
+function normalizeSectionId(data: Record<string, unknown>) {
+  if (!('section_id' in data)) return
+  const v = data.section_id
+  data.section_id = v === '' || v === null || v === undefined ? 0 : Number(v)
+}
+
 const PRODUCT_FIELDS: FieldSpec[] = [
   { key: 'name',                label: 'Name (EN)', labelKey: 'field.name_en',          type: 'text',     required: true },
   { key: 'name_ar',             label: 'Name (AR)', labelKey: 'field.name_ar',          type: 'text',     dir: 'rtl' },
@@ -170,29 +188,31 @@ function ProductsTab() {
   const statusLabel = useStatusLabel()
   const sel = useSelection<Product>((p) => p.id)
   const highlight = useHighlightedRow()
-  const [categories, setCategories] = useState<MarketCategory[]>([]) // #28
+  const [sections, setSections] = useState<MarketSection[]>([])
 
-  // #28 — load marketplace categories for the product form's category dropdown.
+  // Store-sections overhaul — categories are archived (see admin-web
+  // MarketplaceSectionsPage / marketplacesections.go); the product form's
+  // grouping control is now this section dropdown, not category_slug.
   useEffect(() => {
     let cancelled = false
     api
-      .get<{ items: MarketCategory[] }>('/api/admin/marketplace/categories')
-      .then((res) => { if (!cancelled) setCategories(res.data.items ?? []) })
-      .catch(() => { if (!cancelled) setCategories([]) })
+      .get<{ items: MarketSection[] }>('/api/admin/marketplace/sections')
+      .then((res) => { if (!cancelled) setSections(res.data.items ?? []) })
+      .catch(() => { if (!cancelled) setSections([]) })
     return () => { cancelled = true }
   }, [])
 
   const productFields = useMemo<FieldSpec[]>(() => {
-    const catField: FieldSpec = {
-      key: 'category_slug', label: 'Category', labelKey: 'field.category',
-      type: 'select', options: ['', ...categories.map((c) => c.slug)],
-      optionLabels: Object.fromEntries(categories.map((c) => [c.slug, categoryName(c, locale)])),
+    const sectionField: FieldSpec = {
+      key: 'section_id', label: 'Section', labelKey: 'field.section',
+      type: 'select', options: ['', ...sections.map((s) => String(s.id))],
+      optionLabels: Object.fromEntries(sections.map((s) => [String(s.id), sectionName(s, locale)])),
     }
     const out = [...PRODUCT_FIELDS]
     const at = out.findIndex((f) => f.key === 'category')
-    out.splice(at + 1, 0, catField)
+    out.splice(at + 1, 0, sectionField)
     return out
-  }, [categories, locale])
+  }, [sections, locale])
 
   const productCreateFields = useMemo<FieldSpec[]>(
     () => [PRODUCT_CREATE_FIELDS[0], PRODUCT_CREATE_FIELDS[1], ...productFields],
@@ -226,6 +246,7 @@ function ProductsTab() {
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
+      normalizeSectionId(patch)
       await api.patch(`/api/admin/marketplace/products/${id}`, patch)
       toast.success(t('toast.saved', { noun: `${t('noun.product')} #${id}` }))
       setRefreshTick((t) => t + 1)
@@ -235,6 +256,7 @@ function ProductsTab() {
 
   const handleCreate = useCallback(
     async (data: Record<string, unknown>) => {
+      normalizeSectionId(data)
       const res = await api.post<{ id: number }>(`/api/admin/marketplace/products`, data)
       toast.success(t('toast.created', { noun: `${t('noun.product')} #${res.data.id}` }))
       setRefreshTick((t) => t + 1)
@@ -304,9 +326,16 @@ function ProductsTab() {
         <LocalizedCell row={p} field="name" locale={locale} />
       ),
     },
-    // Legacy free-text category slug from the backend. Printed raw it showed
-    // machine values like "beauty_care"/"food_pantry" in every language.
-    { key: 'cat', header: t('col.category'), cell: (p) => p.category ? statusLabel(p.category) : <span className="muted">—</span> },
+    // Store-sections overhaul — this column showed the legacy category_slug;
+    // section_id is what a product is grouped by now.
+    {
+      key: 'section',
+      header: t('col.section'),
+      cell: (p) => {
+        const sec = sections.find((s) => s.id === p.section_id)
+        return sec ? sectionName(sec, locale) : <span className="muted">—</span>
+      },
+    },
     {
       key: 'price',
       header: t('col.price'),

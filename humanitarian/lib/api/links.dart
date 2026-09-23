@@ -296,6 +296,7 @@ const String aidReceiptsUrl = '${baseUrl}aid-receipts';
 /// GET: admin-managed marketplace product categories (#28). Also الفئات, one
 /// of K15's six product-list labels — the slug goes back as `?category=`.
 const String marketplaceCategoriesUrl = '${baseUrl}marketplace/categories';
+const String marketplaceSectionsUrl = '${baseUrl}marketplace/sections';
 
 /// GET: العلامات التجارية — the brands present in the PUBLIC catalogue, with a
 /// product count each, most-stocked first (K15, commit b59c357).
@@ -329,6 +330,12 @@ String marriageCommentsUrl(int profileId) =>
     '${baseUrl}marriage/$profileId/comments';
 String marriageShareUrl(int profileId) =>
     '${baseUrl}marriage/$profileId/share';
+
+/// Client report 2026-09-22 — same shape again, scoped to donation campaigns.
+String campaignLikeUrl(int campaignId) => '${baseUrl}campaigns/$campaignId/like';
+String campaignSaveUrl(int campaignId) => '${baseUrl}campaigns/$campaignId/save';
+String campaignCommentsUrl(int campaignId) =>
+    '${baseUrl}campaigns/$campaignId/comments';
 
 const String communityDirectoryUrl = '${baseUrl}community/';
 const String beneficiaryCampaignDonationsUrl =

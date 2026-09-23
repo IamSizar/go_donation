@@ -354,6 +354,10 @@ export type Product = {
   brand: string
   discount_percent: number | null
   created_at: string
+  // Store-sections overhaul — the section (if any) this product is grouped
+  // under. Replaces category_slug as the app's grouping; category_slug is
+  // archived, not removed.
+  section_id: number | null
 }
 
 export type MarketplaceCategory = {

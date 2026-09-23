@@ -54,18 +54,13 @@ class CatalogueFilterBar extends StatelessWidget {
             clipBehavior: Clip.none,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             children: [
-              // Only shown when there is something to clear. A permanently
-              // present "All" chip that does nothing on most taps is noise.
-              if (controller.isCatalogueFiltered) ...[
-                _Chip(
-                  chipKey: 'catalogue_chip_clear',
-                  label: 'All'.tr,
-                  icon: Icons.close_rounded,
-                  active: false,
-                  onTap: controller.clearCatalogueFilters,
-                ),
-                const SizedBox(width: 8),
-              ],
+              // No separate "All" clear chip — removed per explicit request:
+              // every chip it could clear (best selling, newest, on sale) is
+              // itself a toggle, so tapping the already-active chip again
+              // clears it just as directly. Category/brand/refine are the
+              // one case that chip also cleared and a re-tap doesn't (they
+              // reopen their sheet rather than toggling), but that sheet has
+              // its own way to reset, so nothing here goes unreachable.
               _Chip(
                 chipKey: 'catalogue_chip_best_selling',
                 label: 'catalogue_sort_best_selling'.tr,
@@ -88,22 +83,31 @@ class CatalogueFilterBar extends StatelessWidget {
                   query.copyWith(onSale: !query.onSale),
                 ),
               ),
-              const SizedBox(width: 8),
-              _Chip(
-                chipKey: 'catalogue_chip_categories',
-                // The chip states its own answer once one is chosen, so the
-                // user does not have to reopen the sheet to see what is on.
-                label: _categoryLabel(query),
-                icon: Icons.expand_more_rounded,
-                active: query.categorySlug.isNotEmpty,
-                onTap: () => openCategorySheet(context, controller),
-              ),
+              // Store-sections overhaul — the الفئات chip is archived along
+              // with marketplace_categories: sections (grid + own screen)
+              // replaced it as how a shopper drills into a group of
+              // products. See _categoryLabel's old doc comment history if
+              // this ever needs restoring.
               const SizedBox(width: 8),
               _Chip(
                 chipKey: 'catalogue_chip_brands',
+                // THE BUG THIS FIXES: a brand name is free text a staff
+                // member typed in whatever script they used, independent of
+                // the app's own current locale — an Arabic brand name shows
+                // up here even on an English-locale device. Dropped in raw,
+                // its words got visibly reordered: the chip's ambient
+                // Directionality is whatever the surrounding UI chrome
+                // uses, and the Unicode bidi algorithm reorders a run of
+                // RTL text relative to THAT base direction unless the run
+                // is explicitly isolated. Wrapping it in RLI…PDI (U+2067…
+                // U+2069) is the same fix this app already applies to a
+                // number dropped into an Arabic sentence elsewhere
+                // (_SoldCount) — isolate the foreign-direction span so its
+                // own internal word order stays put no matter what
+                // surrounds it.
                 label: query.brand.isEmpty
                     ? 'catalogue_brands'.tr
-                    : query.brand,
+                    : '\u2067${query.brand}\u2069',
                 icon: Icons.expand_more_rounded,
                 active: query.brand.isNotEmpty,
                 onTap: () => openBrandSheet(context, controller),
@@ -134,19 +138,6 @@ class CatalogueFilterBar extends StatelessWidget {
     );
   }
 
-  /// The category chip's label: the chosen category's own name, or الفئات.
-  String _categoryLabel(CatalogueQuery query) {
-    if (query.categorySlug.isEmpty) return 'catalogue_categories'.tr;
-    for (final cat in controller.categories) {
-      if ((cat['slug'] ?? '').toString() == query.categorySlug) {
-        return controller.localizedCategoryName(cat);
-      }
-    }
-    // The filter is applied but its name has not loaded (or staff retired the
-    // row). The chip stays lit and generic rather than printing the raw slug.
-    return 'catalogue_categories'.tr;
-  }
-
   /// Whether التصفية's own controls — not the chips beside it — are doing
   /// anything. Without this the chip would sit unlit while a price range was
   /// quietly removing half the shop.
@@ -160,7 +151,7 @@ class CatalogueFilterBar extends StatelessWidget {
 
 /// One capsule. Same geometry as the case-category capsules so the two rows
 /// read as one system.
-class _Chip extends StatelessWidget {
+class _Chip extends StatefulWidget {
   const _Chip({
     required this.chipKey,
     required this.label,
@@ -176,6 +167,18 @@ class _Chip extends StatelessWidget {
   final IconData? icon;
 
   @override
+  State<_Chip> createState() => _ChipState();
+}
+
+class _ChipState extends State<_Chip> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     // THE BUG THIS FIXES: this chip used to be a plain StatelessWidget that
     // read `active` straight into `Material.color`/text `color` — selecting
@@ -185,66 +188,104 @@ class _Chip extends StatelessWidget {
     // whatever the widget's OLD color/style/scale was to the new one across
     // every rebuild, which is what "morphing" means here — no
     // AnimationController or extra state to manage for a chip that has none.
-    final duration = AppMotion.resolve(context, AppMotion.snapDuration);
+    final duration = AppMotion.resolve(context, AppMotion.settleDuration);
     const curve = Curves.easeOutCubic;
-    final foreground = active ? Colors.white : AppThemeConfig.text(context);
-    return Material(
-      key: Key(chipKey),
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          AppHaptics.selection();
-          onTap();
-        },
-        child: AnimatedContainer(
-          duration: duration,
-          curve: curve,
-          decoration: BoxDecoration(
-            color: active ? AppThemeConfig.primary : AppThemeConfig.surface(context),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedDefaultTextStyle(
-                duration: duration,
-                curve: curve,
-                style: TextStyle(
-                  color: foreground,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-                child: Text(label),
-              ),
-              if (icon != null) ...[
-                const SizedBox(width: 5),
-                AnimatedSwitcher(
+    final foreground = widget.active ? Colors.white : AppThemeConfig.text(context);
+    // GestureDetector + a press-scale dip, not InkWell's ripple — matches
+    // the tab bar's own tap feedback (dashboard_screen.dart's
+    // _NavTapTarget) instead of the generic Material splash, now that this
+    // row already carries a colour/text/icon morph of its own; a ripple on
+    // top of that morph was two different kinds of feedback firing for one
+    // tap.
+    return GestureDetector(
+      key: Key(widget.chipKey),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        AppHaptics.selection();
+        widget.onTap();
+      },
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: AppMotion.resolve(context, AppMotion.snapDuration),
+        curve: AppMotion.resolveCurve(context, Curves.easeOut),
+        // A quick overshoot pop whenever this SPECIFIC chip flips into the
+        // active state — keyed on `active` so the tween restarts from a
+        // slightly-shrunk begin value only on the transition into
+        // selection, not on every rebuild this row gets (e.g. a sibling
+        // chip toggling). Deselecting just rides the colour/text morph
+        // below with no extra pop; only gaining the selection earns one.
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(widget.active),
+          tween: Tween(begin: widget.active ? 0.9 : 1.0, end: 1.0),
+          duration: AppMotion.resolve(context, AppMotion.settleDuration),
+          curve: AppMotion.resolveCurve(context, Curves.easeOutBack),
+          builder: (context, pop, child) =>
+              Transform.scale(scale: pop, child: child),
+          child: AnimatedContainer(
+            duration: duration,
+            curve: curve,
+            decoration: BoxDecoration(
+              color: widget.active
+                  ? AppThemeConfig.primary
+                  : AppThemeConfig.surface(context),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedDefaultTextStyle(
                   duration: duration,
-                  switchInCurve: curve,
-                  switchOutCurve: curve,
-                  transitionBuilder: (child, animation) => ScaleTransition(
-                    scale: animation,
-                    child: FadeTransition(opacity: animation, child: child),
-                  ),
-                  // Keyed on `active` too, not just the icon identity: the
-                  // colour is baked into the Icon widget itself (Icon has no
-                  // separate animated-color path the way Text does via
-                  // AnimatedDefaultTextStyle), so without this key
-                  // AnimatedSwitcher would see "same IconData, same widget
-                  // type" and skip the transition — the one thing that
-                  // actually changes on toggle.
-                  child: Icon(
-                    icon,
-                    key: ValueKey(active),
-                    size: 15,
+                  curve: curve,
+                  style: TextStyle(
                     color: foreground,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                  // THE BUG THIS FIXES: same clipping as the Home category
+                  // capsules (case_category_capsules.dart) — this chip's
+                  // horizontal-scroll row sizes itself to the Text's
+                  // measured width, which can land a hair narrower than
+                  // what the glyphs actually paint (a joined Arabic letter
+                  // pair in particular), silently clipping the tail.
+                  // softWrap: false + overflow: visible always paints the
+                  // label in full regardless of that measurement.
+                  child: Text(
+                    widget.label,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
                   ),
                 ),
+                if (widget.icon != null) ...[
+                  const SizedBox(width: 5),
+                  AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: curve,
+                    switchOutCurve: curve,
+                    transitionBuilder: (child, animation) => ScaleTransition(
+                      scale: animation,
+                      child: FadeTransition(opacity: animation, child: child),
+                    ),
+                    // Keyed on `active` too, not just the icon identity: the
+                    // colour is baked into the Icon widget itself (Icon has
+                    // no separate animated-color path the way Text does via
+                    // AnimatedDefaultTextStyle), so without this key
+                    // AnimatedSwitcher would see "same IconData, same widget
+                    // type" and skip the transition — the one thing that
+                    // actually changes on toggle.
+                    child: Icon(
+                      widget.icon,
+                      key: ValueKey(widget.active),
+                      size: 15,
+                      color: foreground,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

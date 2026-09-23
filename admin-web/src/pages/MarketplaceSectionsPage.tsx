@@ -1,11 +1,10 @@
 // MarketplaceSectionsPage — admin CMS for store "sections": named shelves
-// with a cover image that any number of existing marketplace products can be
-// added to (e.g. "Clothing"). Unlike marketplace categories (a single tag a
-// seller picks per product), a section is admin-curated and many-to-many —
-// see backend migration 133.
-// GET/POST/PATCH/reorder/DELETE /api/admin/marketplace/sections, plus
-// GET/PUT /api/admin/marketplace/sections/:id/products for membership.
-import { useEffect, useMemo, useState } from 'react'
+// with a cover image, shown as a grid on the app's store page. Replaces
+// marketplace categories as how a product is grouped: a product now belongs
+// to at most one section, assigned from the product's own edit form (the
+// "Section" dropdown in MarketplacePage.tsx) — not from here.
+// GET/POST/PATCH/reorder/DELETE /api/admin/marketplace/sections.
+import { useEffect, useState } from 'react'
 import { api, describeError, assetUrl } from '../lib/api'
 import { askToConfirm } from '../lib/dialogs'
 import { useI18n } from '../lib/i18n'
@@ -13,7 +12,6 @@ import { useToast } from '../lib/toast'
 import PageHead from '../components/PageHead'
 import CmsItemCard from '../components/CmsItemCard'
 import FileInput from '../components/FileInput'
-import type { AdminPageResp, Product } from '../lib/api-types'
 
 type Section = {
   id: number
@@ -43,130 +41,6 @@ const EMPTY_DRAFT = {
   name_en: '', name_ar: '', name_ckb: '', name_kmr: '', cover_image_path: '',
 }
 
-// ProductPicker — a search box + checkbox list over the existing admin
-// products endpoint. Not the generic EditModal `multiselect` field: that
-// type expects a fixed `options` list, and the product catalogue is neither
-// fixed nor small enough to preload.
-function ProductPicker({
-  selected,
-  onToggle,
-}: {
-  selected: Set<number>
-  onToggle: (id: number) => void
-}) {
-  const { t } = useI18n()
-  const [q, setQ] = useState('')
-  const [items, setItems] = useState<Product[]>([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    const handle = setTimeout(() => {
-      setLoading(true)
-      api
-        .get<AdminPageResp<Product>>('/api/admin/marketplace/products', {
-          params: { page: 1, per_page: 20, status: 'all', q: q || undefined },
-        })
-        .then((res) => { if (!cancelled) setItems(res.data.items ?? []) })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    }, 300)
-    return () => { cancelled = true; clearTimeout(handle) }
-  }, [q])
-
-  return (
-    <div className="field" style={{ width: '100%' }}>
-      <span className="muted">{t('marketplaceSections.products_label')}</span>
-      <input
-        type="text"
-        placeholder={t('marketplaceSections.search_products')}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
-      {loading && <p className="muted">{t('common.loading')}</p>}
-      <div
-        className="card"
-        style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}
-      >
-        {items.map((p) => (
-          <label
-            key={p.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}
-          >
-            <input
-              type="checkbox"
-              checked={selected.has(p.id)}
-              onChange={() => onToggle(p.id)}
-            />
-            <span>{p.name}</span>
-            <span className="muted">#{p.id}</span>
-          </label>
-        ))}
-        {!loading && items.length === 0 && <p className="muted">{t('marketplaceSections.no_products_found')}</p>}
-      </div>
-      <p className="muted">
-        {t('marketplaceSections.selected_count').replace('{n}', String(selected.size))}
-      </p>
-    </div>
-  )
-}
-
-function SectionProducts({ sectionId }: { sectionId: number }) {
-  const { t } = useI18n()
-  const toast = useToast()
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [initial, setInitial] = useState<Set<number>>(new Set())
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<{ product_ids: number[] }>(`/api/admin/marketplace/sections/${sectionId}/products`)
-      .then((res) => {
-        const ids = new Set(res.data.product_ids ?? [])
-        setSelected(ids)
-        setInitial(ids)
-      })
-  }, [sectionId])
-
-  const dirty = useMemo(() => {
-    if (selected.size !== initial.size) return true
-    for (const id of selected) if (!initial.has(id)) return true
-    return false
-  }, [selected, initial])
-
-  const toggle = (id: number) => {
-    setSelected((s) => {
-      const next = new Set(s)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const save = async () => {
-    setSaving(true)
-    try {
-      await api.put(`/api/admin/marketplace/sections/${sectionId}/products`, {
-        product_ids: [...selected],
-      })
-      setInitial(selected)
-      toast.success(t('marketplaceSections.products_saved'))
-    } catch (e) {
-      toast.error(describeError(e))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      <ProductPicker selected={selected} onToggle={toggle} />
-      <button className="btn primary" onClick={save} disabled={saving || !dirty} style={{ width: 'fit-content' }}>
-        {saving ? t('common.saving') : t('marketplaceSections.save_products')}
-      </button>
-    </div>
-  )
-}
-
 export default function MarketplaceSectionsPage() {
   const { t } = useI18n()
   const toast = useToast()
@@ -179,7 +53,6 @@ export default function MarketplaceSectionsPage() {
   const [savingId, setSavingId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState({ ...EMPTY_DRAFT })
-  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
     api
@@ -369,16 +242,7 @@ export default function MarketplaceSectionsPage() {
               <button className="btn danger" onClick={() => remove(sec.id)}>
                 {t('common.delete')}
               </button>
-              <button
-                className="btn secondary"
-                onClick={() => setExpandedId((id) => (id === sec.id ? null : sec.id))}
-              >
-                {expandedId === sec.id
-                  ? t('marketplaceSections.hide_products')
-                  : t('marketplaceSections.manage_products')}
-              </button>
             </div>
-            {expandedId === sec.id && <SectionProducts sectionId={sec.id} />}
           </CmsItemCard>
         ))}
     </div>

@@ -505,6 +505,11 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> marketplaceCategories() =>
       getItems(marketplaceCategoriesUrl);
 
+  /// Admin-curated store sections (e.g. "Clothing") — active, in-window,
+  /// non-empty only.
+  Future<List<Map<String, dynamic>>> marketplaceSections() =>
+      getItems(marketplaceSectionsUrl);
+
   /// K15 — العلامات التجارية, with each brand's product count.
   Future<List<Map<String, dynamic>>> marketplaceBrands() =>
       getItems(marketplaceBrandsUrl);
@@ -1318,6 +1323,23 @@ class ModuleApi {
 
   Future<Map<String, dynamic>> shareMarriageProfile(int profileId) =>
       postJsonNoTrack(marriageShareUrl(profileId), const {});
+
+  /// Client report 2026-09-22 — same shape again, scoped to donation
+  /// campaigns. Returns {liked, like_count}.
+  Future<Map<String, dynamic>> likeCampaign(int campaignId) =>
+      postJsonNoTrack(campaignLikeUrl(campaignId), const {});
+
+  /// Toggle "save for later". Returns {saved}.
+  Future<Map<String, dynamic>> saveCampaign(int campaignId) =>
+      postJsonNoTrack(campaignSaveUrl(campaignId), const {});
+
+  Future<List<Map<String, dynamic>>> campaignComments(int campaignId) =>
+      getItems(campaignCommentsUrl(campaignId));
+
+  Future<Map<String, dynamic>> postCampaignComment(
+    int campaignId,
+    String body,
+  ) => postJsonNoTrack(campaignCommentsUrl(campaignId), {'body': body});
 
   /// #22 — admin-managed "Our Work" categories for the News & Activities
   /// filter chips. Returns [] on error (the feed still works unfiltered).

@@ -16,7 +16,7 @@ import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/marketplace/models/catalogue_query.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/catalogue_filter_bar.dart';
-import 'package:flutter_application_1/modules/marketplace/widgets/category_icon_rail.dart';
+import 'package:flutter_application_1/modules/marketplace/widgets/sections_grid.dart';
 import 'package:flutter_application_1/modules/marketplace/widgets/product_gallery.dart';
 
 /// Identifies the catalogue's own scrollable — the search field, filter
@@ -66,7 +66,20 @@ class _MarketplaceList extends StatelessWidget {
         : Get.put(MarketplaceController());
 
     return Obx(() {
-      final items = controller.products;
+      // THE BUG THIS FIXES: Obx only tracks an RxList as a dependency when
+      // it is actually indexed or iterated inside the closure — assigning
+      // it to a local by reference does neither. That was invisible while
+      // every catalogue fetch toggled `isLoading`, which IS tracked (a
+      // `.value` read) and forced this Obx to rebuild anyway, incidentally
+      // picking up the fresh `products` on the way. The moment a category
+      // chip's fetch went `silent` (to stop the skeleton-flash bug above),
+      // that incidental rebuild stopped happening — `products.assignAll`
+      // still ran and still emptied the list correctly, but this Obx never
+      // found out, so the screen kept showing whatever it had last
+      // rendered. Same defect, same fix, as
+      // MediaPostsController.visiblePosts earlier: `.toList()` forces the
+      // read Obx needs to see.
+      final items = controller.products.toList();
       final error = controller.errorMessage.value;
 
       return Stack(
@@ -81,97 +94,176 @@ class _MarketplaceList extends StatelessWidget {
             },
             child: RefreshIndicator(
               onRefresh: controller.refreshMarketplace,
-              child: ListView(
+              // THE BUG THIS FIXES: every product row used to be a plain
+              // `children:` entry in this same outer ListView (via a `for`
+              // loop inside a Column returned from AppAsync's builder).
+              // Neither a bare ListView nor a Column virtualizes — every
+              // tile, including its image, its entrance animation, and its
+              // glass panel, was BUILT AND LAID OUT for every product ever
+              // loaded, on-screen or not, and the load-more footer kept
+              // appending 10 more of them to that same permanently-resident
+              // set. That is why the stutter was reported as getting worse
+              // with more products rather than staying constant: the
+              // per-frame cost scaled with total items loaded, not with how
+              // many were actually visible. A CustomScrollView with a real
+              // SliverList only builds the tiles near the viewport and
+              // discards the rest as they scroll away, so the cost per
+              // frame stays roughly constant regardless of how many pages
+              // have been loaded.
+              child: CustomScrollView(
                 key: marketplaceResultsListKey,
                 // Scrolling the catalogue puts the keyboard away, so it never
                 // covers the products the search just found.
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                // Scaffold already reserves space above the bottom nav bar —
-                // this only needs a small resting margin, not extra
-                // clearance for it.
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                children: [
-                  // The orders shortcut is a standing entry point, not
-                  // content: a shopper must still be able to reach their
-                  // existing orders when the product fetch fails.
-                  _OrdersShortcut(controller: controller),
-                  const SizedBox(height: 12),
-                  // J8 — catalogue search. This is the list where a local
-                  // filter would be most obviously wrong: products arrive ten
-                  // at a time, so a box over the loaded rows would search page
-                  // one and tell the shopper the item is not sold. Sent as
-                  // `?q=`, which the server matches against name, name_ar,
-                  // description, sku and brand — so an SKU off a receipt finds
-                  // the product.
-                  AppListSearchField(onChanged: controller.setProductSearch),
-                  const SizedBox(height: 12),
-                  // #41080 — the icon grid the client asked for ("طعام،
-                  // إكسسوارات"), a second, visual way into the same
-                  // category filter CatalogueFilterBar's الفئات chip opens
-                  // via a picker sheet. Search bar and filter bar are
-                  // unchanged, per the client's own "keep them as-is".
-                  CategoryIconRail(controller: controller),
-                  const SizedBox(height: 12),
-                  // K15 — the client's six functional labels. Every one of them
-                  // is a parameter on GET /api/marketplace, never a re-sort of
-                  // the ten rows below: `Store.ListCatalogue` ranks the whole
-                  // catalogue in SQL, and a chip that ranked this page would
-                  // reinstate the exact defect b59c357 removed.
-                  CatalogueFilterBar(controller: controller),
-                  const SizedBox(height: 12),
-                  // Three stacked `if` blocks replaced by one state. Before,
-                  // a failed load rendered the error tile AND whatever
-                  // products were already cached beneath it, and the error
-                  // was a SectionTile whose retry was an unlabelled onTap.
-                  AppAsync<List<Map<String, dynamic>>>(
-                    loading: controller.isLoading.value,
-                    error: error,
-                    onRetry: () => controller.fetchProducts(reset: true),
-                    data: items,
-                    isEmpty: (list) => list.isEmpty,
-                    // J8 — a search that matched nothing is not an empty
-                    // shop. "No approved products are available yet" would be
-                    // a claim about the whole catalogue, made because one word
-                    // did not match. K15 extends the same reasoning to the
-                    // filter chips, which can empty the list just as easily
-                    // and are just as much the user's own doing.
-                    empty: controller.isCatalogueNarrowed
-                        ? AppEmpty(
-                            icon: Icons.search_off_rounded,
-                            title: controller.hasActiveSearch
-                                ? 'search_title'
-                                : 'catalogue_no_results',
-                            message: controller.hasActiveSearch
-                                ? 'search_no_results'
-                                : 'catalogue_no_results_desc',
-                            actionLabel: 'All',
-                            onAction: controller.clearCatalogueFilters,
-                          )
-                        : const AppEmpty(
-                            title: 'Product Listings',
-                            message: 'No approved products are available yet.',
+                slivers: [
+                  // THE BUG THIS FIXES: this comment used to be true — back
+                  // when the bottom nav bar was a normal Scaffold-reserved
+                  // bar, this list's own content never had to clear it. The
+                  // nav bar redesign made it float OVER the tab content in a
+                  // Stack instead (see dashboard_screen.dart), specifically
+                  // so scrolled cards show through its glass — but that also
+                  // means this list's bottom padding is now the ONLY thing
+                  // standing between the last card and the pill sitting on
+                  // top of it. At the old 20px, the last product's Add
+                  // button was left permanently covered, with nothing below
+                  // it to scroll further and reveal it. 130 matches the
+                  // clearance the cart teaser bar below already uses for the
+                  // same floating pill (~118pt tall including its own
+                  // safe-area bottom padding, plus a small rest margin).
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+                    sliver: SliverMainAxisGroup(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              // The orders shortcut is a standing entry
+                              // point, not content: a shopper must still be
+                              // able to reach their existing orders when the
+                              // product fetch fails.
+                              _OrdersShortcut(controller: controller),
+                              const SizedBox(height: 12),
+                              // J8 — catalogue search. This is the list
+                              // where a local filter would be most obviously
+                              // wrong: products arrive ten at a time, so a
+                              // box over the loaded rows would search page
+                              // one and tell the shopper the item is not
+                              // sold. Sent as `?q=`, which the server
+                              // matches against name, name_ar, description,
+                              // sku and brand — so an SKU off a receipt
+                              // finds the product.
+                              AppListSearchField(
+                                onChanged: controller.setProductSearch,
+                              ),
+                              const SizedBox(height: 12),
+                              // Store overhaul (client request) — product
+                              // categories are gone from the store entirely,
+                              // replaced by admin-curated sections shown as
+                              // this grid. Tapping a tile opens
+                              // SectionProductsScreen; the list below this
+                              // grid only ever shows UNASSIGNED products
+                              // (MarketplaceController.catalogueQuery
+                              // defaults to noSection: true) — a sectioned
+                              // product appears exclusively inside its own
+                              // section's screen, never both places.
+                              SectionsGrid(controller: controller),
+                              const SizedBox(height: 12),
+                              // K15 — the client's six functional labels.
+                              // Every one of them is a parameter on GET
+                              // /api/marketplace, never a re-sort of the ten
+                              // rows below: `Store.ListCatalogue` ranks the
+                              // whole catalogue in SQL, and a chip that
+                              // ranked this page would reinstate the exact
+                              // defect b59c357 removed.
+                              CatalogueFilterBar(controller: controller),
+                              const SizedBox(height: 12),
+                            ],
                           ),
-                    builder: (list) => Column(
-                      children: [
-                        for (var i = 0; i < list.length; i++) ...[
-                          _AnimatedProductEntry(
-                            index: i,
-                            child: _MarketplaceProductTile(
-                              item: list[i],
-                              controller: controller,
-                              quantity: controller.quantityFor(list[i]['id']),
-                              onAdd: () => controller.addProduct(list[i]),
-                              onRemove: () =>
-                                  controller.removeProduct(list[i]['id']),
+                        ),
+                        // Loading/error/empty stay exactly what AppAsync
+                        // already renders for every other list in the app —
+                        // one screen's worth of skeleton/banner/empty-state,
+                        // never more than a handful of widgets, so there is
+                        // nothing here worth virtualizing. Only the actual
+                        // product rows — the part whose count keeps
+                        // growing — bypasses AppAsync's box-only `builder`
+                        // and becomes a real sliver below.
+                        if (controller.isLoading.value ||
+                            error != null ||
+                            items.isEmpty)
+                          SliverToBoxAdapter(
+                            child: AppAsync<List<Map<String, dynamic>>>(
+                              loading: controller.isLoading.value,
+                              error: error,
+                              onRetry: () =>
+                                  controller.fetchProducts(reset: true),
+                              data: items,
+                              isEmpty: (list) => list.isEmpty,
+                              // J8 — a search that matched nothing is not an
+                              // empty shop. "No approved products are
+                              // available yet" would be a claim about the
+                              // whole catalogue, made because one word did
+                              // not match. K15 extends the same reasoning to
+                              // the filter chips, which can empty the list
+                              // just as easily and are just as much the
+                              // user's own doing.
+                              empty: controller.isCatalogueNarrowed
+                                  ? AppEmpty(
+                                      icon: Icons.search_off_rounded,
+                                      title: controller.hasActiveSearch
+                                          ? 'search_title'
+                                          : 'catalogue_no_results',
+                                      message: controller.hasActiveSearch
+                                          ? 'search_no_results'
+                                          : 'catalogue_no_results_desc',
+                                      actionLabel: 'All',
+                                      onAction:
+                                          controller.clearCatalogueFilters,
+                                    )
+                                  : const AppEmpty(
+                                      title: 'Product Listings',
+                                      message:
+                                          'No approved products are available yet.',
+                                    ),
+                              // Never actually reached here — this branch
+                              // only renders while loading, erroring, or
+                              // empty — but AppAsync requires a builder.
+                              builder: (list) => const SizedBox.shrink(),
+                            ),
+                          )
+                        else ...[
+                          SliverList.builder(
+                            itemCount: items.length,
+                            itemBuilder: (context, i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: AnimatedProductEntry(
+                                index: i,
+                                child: MarketplaceProductTile(
+                                  item: items[i],
+                                  controller: controller,
+                                  quantity: controller.quantityFor(
+                                    items[i]['id'],
+                                  ),
+                                  onAdd: () => controller.addProduct(
+                                    items[i],
+                                  ),
+                                  onRemove: () => controller.removeProduct(
+                                    items[i]['id'],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          // Pagination footer stays with the content: it is
+                          // "load MORE", which only means anything once
+                          // there is a first page.
+                          SliverToBoxAdapter(
+                            child: _LoadMoreProductsFooter(
+                              controller: controller,
+                            ),
+                          ),
                         ],
-                        // Pagination footer stays with the content: it is
-                        // "load MORE", which only means anything once there
-                        // is a first page.
-                        _LoadMoreProductsFooter(controller: controller),
                       ],
                     ),
                   ),
@@ -228,8 +320,12 @@ class _MarketplaceList extends StatelessWidget {
   }
 }
 
-class _AnimatedProductEntry extends StatelessWidget {
-  const _AnimatedProductEntry({required this.index, required this.child});
+class AnimatedProductEntry extends StatelessWidget {
+  const AnimatedProductEntry({
+    super.key,
+    required this.index,
+    required this.child,
+  });
 
   final int index;
   final Widget child;
@@ -255,8 +351,9 @@ class _AnimatedProductEntry extends StatelessWidget {
   }
 }
 
-class _MarketplaceProductTile extends StatefulWidget {
-  const _MarketplaceProductTile({
+class MarketplaceProductTile extends StatefulWidget {
+  const MarketplaceProductTile({
+    super.key,
     required this.item,
     required this.controller,
     required this.quantity,
@@ -271,11 +368,11 @@ class _MarketplaceProductTile extends StatefulWidget {
   final VoidCallback onRemove;
 
   @override
-  State<_MarketplaceProductTile> createState() =>
-      _MarketplaceProductTileState();
+  State<MarketplaceProductTile> createState() =>
+      MarketplaceProductTileState();
 }
 
-class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
+class MarketplaceProductTileState extends State<MarketplaceProductTile> {
   bool _longPressSheetOpen = false;
   BuildContext? _detailsSheetContext;
 
@@ -288,6 +385,9 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
     );
     final category = widget.controller.categoryLabel(widget.item); // #28
     final labels = _productLabels(widget.item['labels']); // #28
+    final showSoldCount =
+        widget.controller.catalogueQuery.value.sort ==
+        CatalogueSort.bestSelling;
     // Price and currency are read inside _ProductPrice now — it has to weigh
     // `price` against `price_after_discount`, and pulling one of the pair out
     // here is how the two could drift apart.
@@ -350,19 +450,30 @@ class _MarketplaceProductTileState extends State<_MarketplaceProductTile> {
                           ),
                         ),
                       ],
-                      if (labels.isNotEmpty) ...[
+                      // The "New"/"Sale" badge and the sold count used to
+                      // be two stacked lines (badge, then its own row below
+                      // for "X sold") — each card paid for that extra line
+                      // of height even though both are short enough to sit
+                      // side by side. One Wrap holding both, same as
+                      // _ProductLabelChips already used for the badges
+                      // alone, keeps them on one line and only spills to a
+                      // second if a narrow card genuinely can't fit them.
+                      if (labels.isNotEmpty || showSoldCount) ...[
                         const SizedBox(height: 8),
-                        _ProductLabelChips(labels: labels),
-                      ],
-                      // K15 — the figure الأكثر مبيعاً is actually ranked by,
-                      // shown only while that chip is lit. A claim of "best
-                      // selling" with nothing behind it is unverifiable by
-                      // the person reading it; off that sort the number is
-                      // noise.
-                      if (widget.controller.catalogueQuery.value.sort ==
-                          CatalogueSort.bestSelling) ...[
-                        const SizedBox(height: 6),
-                        _SoldCount(item: widget.item),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            for (final l in labels) _LabelChip(label: l),
+                            // K15 — the figure الأكثر مبيعاً is actually
+                            // ranked by, shown only while that chip is lit.
+                            // A claim of "best selling" with nothing behind
+                            // it is unverifiable by the person reading it;
+                            // off that sort the number is noise.
+                            if (showSoldCount) _SoldCount(item: widget.item),
+                          ],
+                        ),
                       ],
                     ],
                   ),
@@ -512,11 +623,11 @@ class _ProductDetailsSheet extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _ProductLargeImage(imageUrl: imageUrl),
-                    if (gallery.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      ProductGallery(urls: gallery),
-                    ],
+                    // #41080-adjacent — one scrollable, tap-to-zoom strip
+                    // for the cover AND the gallery together; see
+                    // product_gallery.dart's header for why this replaced
+                    // the old fixed-crop hero + separate thumbnail strip.
+                    ProductPhotoStrip(coverUrl: imageUrl, galleryUrls: gallery),
                     const SizedBox(height: 16),
                     Text(
                       title.tr,
@@ -1055,32 +1166,6 @@ class _ProductImage extends StatelessWidget {
       child: SizedBox(
         width: 92,
         height: 92,
-        child: imageUrl == null
-            ? const _ProductImageFallback()
-            : CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.cover,
-                fadeInDuration: const Duration(milliseconds: 180),
-                placeholder: (context, url) => const _ProductImageLoading(),
-                errorWidget: (context, url, error) =>
-                    const _ProductImageFallback(),
-              ),
-      ),
-    );
-  }
-}
-
-class _ProductLargeImage extends StatelessWidget {
-  const _ProductLargeImage({required this.imageUrl});
-
-  final String? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: AspectRatio(
-        aspectRatio: 16 / 10,
         child: imageUrl == null
             ? const _ProductImageFallback()
             : CachedNetworkImage(

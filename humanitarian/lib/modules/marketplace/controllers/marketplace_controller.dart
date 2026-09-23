@@ -35,6 +35,20 @@ class MarketplaceController extends GetxController
   final ordersErrorMessage = RxnString();
   var _productsPage = 1;
 
+  /// Bumped by every [fetchProducts] call, reset-or-not. THE BUG THIS
+  /// FIXES: selecting a category chip and then quickly deselecting it fires
+  /// TWO overlapping requests (category=clothing, then category=''), with
+  /// nothing stopping them from resolving out of order. If "clothing"
+  /// happens to come back after "" — a slower query, a category with fewer
+  /// rows for Postgres to plan around, anything — its (possibly empty)
+  /// result overwrote the correct "all products" one that had already
+  /// landed, and the screen showed "no products" for a catalogue that very
+  /// much has products. Every call captures the generation it was started
+  /// at; only the call whose generation still matches when its response
+  /// arrives is allowed to write to [products] — a stale response is
+  /// dropped instead of undoing a newer one.
+  int _productsRequestGeneration = 0;
+
   /// J8 — the catalogue search term, sent to the server as `?q=`.
   ///
   /// This is the list where a client-side filter would be most obviously
@@ -65,7 +79,12 @@ class MarketplaceController extends GetxController
   /// rank ten rows while claiming to rank the catalogue, which is exactly the
   /// defect commit b59c357 removed server-side. Every chip changes this value
   /// and re-asks.
-  final catalogueQuery = const CatalogueQuery().obs;
+  // Store-sections overhaul — the main store feed only ever shows products
+  // with NO section (sectioned products live exclusively inside their own
+  // section's screen, SectionProductsScreen), so this controller's default
+  // query always carries noSection: true. Every filter chip's copyWith
+  // preserves it since it only ever overrides the fields it names.
+  final catalogueQuery = const CatalogueQuery(noSection: true).obs;
 
   /// Whether the catalogue on screen is narrowed by a search or a filter.
   ///
@@ -98,7 +117,7 @@ class MarketplaceController extends GetxController
   Future<void> clearCatalogueFilters() async {
     if (!isCatalogueFiltered) return;
     productSearch.value = '';
-    catalogueQuery.value = const CatalogueQuery();
+    catalogueQuery.value = const CatalogueQuery(noSection: true);
     await fetchProducts(reset: true, silent: true);
   }
 
@@ -136,6 +155,7 @@ class MarketplaceController extends GetxController
     fetchProducts(reset: true);
     fetchCategories(); // #28 — labels the cards, and K15's الفئات filter
     fetchBrands(); // K15 — العلامات التجارية
+    fetchSections(); // admin-curated store sections rail
     fetchOrders();
     loadWalletBalance();
     // Only orders need real-time updates; products refresh on manual
@@ -163,18 +183,27 @@ class MarketplaceController extends GetxController
       hasMoreProducts.value = true;
     }
 
+    final generation = ++_productsRequestGeneration;
     if (!silent) isLoading.value = true;
     errorMessage.value = null;
 
     try {
       final page = await _fetchProductsPage(_productsPage);
+      // A newer call already started (and, usually, already finished) while
+      // this one was in flight — its answer is about an old query the user
+      // has since changed their mind about, so it must not touch the
+      // screen at all, error state included.
+      if (generation != _productsRequestGeneration) return;
       products.assignAll(page.items);
       hasMoreProducts.value = page.hasMore;
     } catch (_) {
+      if (generation != _productsRequestGeneration) return;
       products.clear();
       errorMessage.value = 'Unable to load products from the server.'.tr;
     } finally {
-      if (!silent) isLoading.value = false;
+      if (!silent && generation == _productsRequestGeneration) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -233,6 +262,7 @@ class MarketplaceController extends GetxController
       // from the gesture people actually use.
       fetchCategories(),
       fetchBrands(),
+      fetchSections(),
     ]);
   }
 
