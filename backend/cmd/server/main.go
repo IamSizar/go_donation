@@ -400,7 +400,7 @@ func main() {
 	marriageEngageStore := marriage.NewEngagementStore(pool)                                                     // client note 2026-09-22 — like/comment/share on profile cards
 	marriageEngageH := handlers.NewMarriageEngagementHandler(marriageEngageStore, bannedWordsStore)
 	campaignEngageStore := campaigns.NewEngagementStore(pool) // client report 2026-09-22 — campaign detail showed like/comment counts with no way to generate one
-	campaignEngageH := handlers.NewCampaignEngagementHandler(campaignEngageStore, bannedWordsStore)
+	campaignEngageH := handlers.NewCampaignEngagementHandler(campaignEngageStore, postEngageStore, bannedWordsStore)
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                  // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)              // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore) // #28
@@ -713,6 +713,7 @@ func main() {
 			// campaigns (the detail screen showed like/comment counts with no
 			// way to ever move them).
 			authed.POST("/campaigns/:id/like", campaignEngageH.Like)
+			authed.POST("/campaigns/:id/save", campaignEngageH.Save)
 			authed.GET("/campaigns/:id/comments", campaignEngageH.Comments)
 			authed.POST("/campaigns/:id/comments", campaignEngageH.Comment)
 

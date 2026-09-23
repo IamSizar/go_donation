@@ -11,18 +11,52 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
+	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
 )
 
-// CampaignEngagementHandler powers like/comment on donation campaigns.
+// CampaignEngagementHandler powers like/comment/save on donation campaigns.
 // Mirrors MarriageEngagementHandler's shape — see internal/campaigns/
-// engagement.go's header for why this is a separate store.
+// engagement.go's header for why like/comment are a separate store. Save
+// is the one exception: it reuses postengagement.Store's saved_items table
+// directly (the same one media posts use) rather than adding a duplicate
+// campaign-scoped table — that table was already generic (user_id,
+// item_type, item_id), so a new savable kind costs a constant, not a
+// migration.
 type CampaignEngagementHandler struct {
 	Store  *campaigns.EngagementStore
+	Saved  *postengagement.Store
 	Banned *moderation.Store
 }
 
-func NewCampaignEngagementHandler(s *campaigns.EngagementStore, b *moderation.Store) *CampaignEngagementHandler {
-	return &CampaignEngagementHandler{Store: s, Banned: b}
+func NewCampaignEngagementHandler(s *campaigns.EngagementStore, saved *postengagement.Store, b *moderation.Store) *CampaignEngagementHandler {
+	return &CampaignEngagementHandler{Store: s, Saved: saved, Banned: b}
+}
+
+// Save — POST /api/campaigns/:id/save — toggles "save for later".
+func (h *CampaignEngagementHandler) Save(c *gin.Context) {
+	user, _ := auth.UserFromGin(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
+		return
+	}
+	campaignID, ok := campaignEngagementID(c)
+	if !ok {
+		return
+	}
+	if err := h.Store.Exists(c.Request.Context(), campaignID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Campaign not found."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	savedNow, err := h.Saved.ToggleSave(c.Request.Context(), user.UserID, postengagement.ItemTypeCampaign, campaignID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "saved": savedNow})
 }
 
 func campaignEngagementID(c *gin.Context) (int64, bool) {

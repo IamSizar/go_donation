@@ -98,6 +98,9 @@ func (s *Store) ToggleLike(ctx context.Context, postID, userID int64) (liked boo
 // backend writes should be a constant here, not a literal at the call site.
 const ItemTypeMediaPost = "media_post"
 
+// ItemTypeCampaign is the saved_items.item_type for a donation campaign.
+const ItemTypeCampaign = "campaign"
+
 // ToggleSave flips "save for later" for (user, item). Mirrors ToggleLike, but
 // against the generic saved_items table (migration 092) so the same two
 // endpoints can serve any savable record. Returns the resulting saved state.
