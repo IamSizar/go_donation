@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
@@ -16,12 +18,14 @@ import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.d
 import 'package:flutter_application_1/modules/dashboard/screens/keyboard_safe_tab_body.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_hub_screen.dart';
+import 'package:flutter_application_1/modules/marriage/screens/marriage_saved_screen.dart';
 import 'package:flutter_application_1/modules/notifications/controllers/notifications_controller.dart';
 import 'package:flutter_application_1/modules/notifications/screens/notifications_screen.dart';
 import 'package:flutter_application_1/modules/auth/screens/profile_menu_screen.dart';
 import 'package:flutter_application_1/modules/search/screens/global_search_screen.dart';
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/api/profile_api.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'dart:io';
 import 'package:flutter_application_1/modules/profile/required_fields_prompt.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -57,8 +61,23 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
+
+  // Drives the tab-switch fade (see [_animateTabSwitch]). One controller,
+  // reused across every switch — a fresh AnimationController per tap would
+  // work too, but this way there is nothing to create or dispose beyond the
+  // one instance this State already owns for its whole lifetime.
+  late final AnimationController _tabFadeController = AnimationController(
+    vsync: this,
+    duration: AppMotion.snapDuration,
+    value: 1, // starts fully visible — nothing to fade in on first build.
+  );
+  late final Animation<double> _tabFadeAnimation = CurvedAnimation(
+    parent: _tabFadeController,
+    curve: Curves.easeOut,
+  );
 
   static const List<NavDestination> _destinations = [
     NavDestination(
@@ -136,13 +155,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     dashboardTabNotifier.removeListener(_handleDashboardTabChange);
+    _tabFadeController.dispose();
     super.dispose();
+  }
+
+  /// Replays the tab-switch fade from the top, unless Reduce Motion is on —
+  /// in which case it jumps straight to fully visible instead of animating.
+  void _animateTabSwitch() {
+    if (AppMotion.reduced(context)) {
+      _tabFadeController.value = 1;
+      return;
+    }
+    _tabFadeController
+      ..value = 0
+      ..forward();
   }
 
   void _handleDashboardTabChange() {
     final nextIndex = dashboardTabNotifier.value.clamp(0, _sections.length - 1);
     if (nextIndex == _currentIndex || !mounted) return;
     setState(() => _currentIndex = nextIndex);
+    _animateTabSwitch();
   }
 
   Future<bool> _confirmExit() async {
@@ -163,6 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const homeIndex = 0; // Home is always the first destination.
     if (_currentIndex != homeIndex) {
       setState(() => _currentIndex = homeIndex);
+      _animateTabSwitch();
       if (dashboardTabNotifier.value != homeIndex) {
         dashboardTabNotifier.value = homeIndex;
       }
@@ -190,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     AppHaptics.selection();
     dashboardTabNotifier.value = index;
     setState(() => _currentIndex = index);
+    _animateTabSwitch();
   }
 
   @override
@@ -214,56 +249,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // business of whichever tab happens to be open.
             const RequiredFieldsPrompt(),
             Expanded(
-              // Each tab's screen wraps itself in a SafeArea, because each is
-              // also reachable as a standalone pushed route. Inside this
-              // Column both of its insets are already accounted for, so both
-              // must be stripped or they get applied twice:
-              //
-              //   TOP — the DashboardTopBar above reserves the status bar.
-              //   Without removeTop the gap appears twice, once under the
-              //   status bar and again under the top bar.
-              //
-              //   BOTTOM — the nav bar below reserves the home indicator.
-              //   Without removeBottom the section pads itself by the full
-              //   ~34pt inset, which paints as a band of page background
-              //   sitting on top of the nav bar and reads as a second, empty
-              //   bar. This only started mattering when the nav moved out of
-              //   Scaffold's bottomNavigationBar slot and into this Column —
-              //   the slot used to consume that inset on the body's behalf.
-              //
-              //   Delegated to KeyboardSafeTabBody rather than an inline
-              //   `MediaQuery.removePadding(context: context, ...)`: that
-              //   inline form used to read `context` from THIS build
-              //   method — which sits ABOVE the Scaffold being built here —
-              //   so `MediaQuery.of` resolved to the app-root MediaQuery
-              //   instead of this Scaffold body's own (already
-              //   `viewInsets`-stripped) one. The raw, un-stripped keyboard
-              //   inset then rode through to every tab, whose own nested
-              //   Scaffold (kept for standalone-route reuse) subtracted it a
-              //   SECOND time — crushing the active tab to a sliver the
-              //   moment its keyboard opened. On Marketplace this read as a
-              //   blank box covering the screen. See
-              //   keyboard_safe_tab_body.dart for the full account.
-              child: KeyboardSafeTabBody(
-                child: IndexedStack(index: _currentIndex, children: _sections),
+              // The nav bar used to be a sequential Column child below this
+              // Expanded — flow layout, never overlapping content. The
+              // floating-glass redesign needs it to float ON TOP of the tab
+              // content instead: its BackdropFilter blurs whatever is
+              // directly behind it, and with the old flow layout that was
+              // always just the Scaffold's flat background, never the
+              // scrolled content — so the "glass" never actually showed
+              // anything through itself. A Stack is what makes the blur
+              // real.
+              child: Stack(
+                children: [
+                  // Each tab's screen wraps itself in a SafeArea, because
+                  // each is also reachable as a standalone pushed route.
+                  // Inside this Stack both of its insets are already
+                  // accounted for, so both must be stripped or they get
+                  // applied twice:
+                  //
+                  //   TOP — the DashboardTopBar above reserves the status
+                  //   bar. Without removeTop the gap appears twice, once
+                  //   under the status bar and again under the top bar.
+                  //
+                  //   BOTTOM — now that the nav bar floats over the content
+                  //   instead of reserving space for itself, the content
+                  //   fills the FULL remaining height on purpose (that's
+                  //   what lets it scroll under the glass and show through
+                  //   it) — removeBottom just strips the device's own
+                  //   home-indicator/gesture-bar inset, which the floating
+                  //   pill already clears itself via its own clearance
+                  //   calculation, independent of MediaQuery.
+                  //
+                  //   Delegated to KeyboardSafeTabBody rather than an inline
+                  //   `MediaQuery.removePadding(context: context, ...)`:
+                  //   that inline form used to read `context` from THIS
+                  //   build method — which sits ABOVE the Scaffold being
+                  //   built here — so `MediaQuery.of` resolved to the
+                  //   app-root MediaQuery instead of this Scaffold body's
+                  //   own (already `viewInsets`-stripped) one. The raw,
+                  //   un-stripped keyboard inset then rode through to every
+                  //   tab, whose own nested Scaffold (kept for standalone-
+                  //   route reuse) subtracted it a SECOND time — crushing
+                  //   the active tab to a sliver the moment its keyboard
+                  //   opened. On Marketplace this read as a blank box
+                  //   covering the screen. See keyboard_safe_tab_body.dart
+                  //   for the full account.
+                  Positioned.fill(
+                    child: KeyboardSafeTabBody(
+                      child: FadeTransition(
+                        // One controller, reused for every switch, fading
+                        // the CURRENTLY shown tab in — not an AnimatedSwitcher
+                        // keyed per tab, which would remount (and lose the
+                        // state of) whichever section it swapped away from.
+                        // IndexedStack keeps every section resident on
+                        // purpose; this only animates what's already
+                        // painted.
+                        opacity: _tabFadeAnimation,
+                        child: IndexedStack(
+                          index: _currentIndex,
+                          children: _sections,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _CompactBottomNavBar(
+                      currentIndex: _currentIndex,
+                      destinations: _destinations,
+                      onSelected: _onTabSelected,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            // The nav bar lives in the BODY, not in Scaffold's
-            // bottomNavigationBar slot.
-            //
-            // The slot reserves the bottom safe-area inset OUTSIDE whatever
-            // widget you give it and fills that strip with the Scaffold's own
-            // background. The result was two stacked bars: our surface on top,
-            // and a strip of scaffold background beneath it that no amount of
-            // padding inside our widget could reach or colour.
-            //
-            // As the last child of the body Column it sits flush against the
-            // physical bottom edge, so its own decoration paints all the way
-            // down and there is nothing behind it.
-            _CompactBottomNavBar(
-              currentIndex: _currentIndex,
-              destinations: _destinations,
-              onSelected: _onTabSelected,
             ),
           ],
         ),
@@ -272,10 +331,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-/// Replaces the stock BottomNavigationBar — that widget hardcodes a ~56pt
-/// base height internally with no constructor param to shrink it. This
-/// mirrors its plain icon+label look (no Material 3 selection pill) at a
-/// smaller, fully-controlled height.
+/// A floating "glass" pill tab bar — chosen from three previewed concepts
+/// (floating glass / soft capsule / minimal dot) over the stock
+/// BottomNavigationBar, which hardcodes a ~56pt base height with no
+/// constructor param to shrink it.
+///
+/// The active tab renders as a solid accent-filled capsule with icon+label;
+/// the rest are icon-only in muted colour, so the row reads as one floating
+/// object rather than a bar spanning the screen edge to edge.
 class _CompactBottomNavBar extends StatelessWidget {
   const _CompactBottomNavBar({
     required this.currentIndex,
@@ -287,118 +350,78 @@ class _CompactBottomNavBar extends StatelessWidget {
   final List<NavDestination> destinations;
   final ValueChanged<int> onSelected;
 
-  // Content budget: icon 21 + gap 1 + label line box 11 (fontSize 10 with an
-  // explicit height of 1.1) = 33pt.
-  //
-  // The bar is 52, not 33, on purpose. Sizing it to hug the content exactly
-  // left the icons pressed against the top hairline with a single point of
-  // slack, so the row read as crammed into the edge of the bar rather than
-  // sitting in it. The extra 19pt distributes as ~9pt above and below, which
-  // is what makes the content look seated in the bar.
-  //
-  // The label needs its explicit line height — the locale fonts default to
-  // roughly 1.45, which would grow the content past even this and overflow.
-  static const double _barHeight = 52;
+  // Taller than the old flat bar (52) — the active capsule needs room for
+  // its own vertical padding around icon+label without the pill touching the
+  // rounded ends of the outer shape.
+  static const double _barHeight = 64;
+  static const double _horizontalMargin = 16;
+  static const double _radius = 32;
 
-  /// Clearance below the labels, clamped between [_minClearance] and
-  /// [_maxClearance] — **on iOS only** (see [_clearanceFor]).
-  ///
-  /// Two different things constrain this, and getting it wrong in either
-  /// direction is visible:
-  ///
-  ///   * Using the device's FULL bottom inset (~34pt here) leaves the labels
-  ///     floating well above the screen edge. The bar reads as too tall and
-  ///     too high up, because most of its height is empty colour.
-  ///
-  ///   * Using a small flat value (10pt was tried) pushes the labels into the
-  ///     region the display's ROUNDED CORNERS mask. The centre tabs survive,
-  ///     but the outermost ones — leftmost under RTL — get their descenders
-  ///     clipped by the corner radius. The home indicator is not the binding
-  ///     constraint; the corner is, and it only bites at the ends of the row,
-  ///     which is why the clipping looks asymmetric.
-  ///
-  /// 20pt clears both the indicator and the corner mask while still sitting
-  /// 14pt lower than the full inset. This trade-off only holds on iOS: the
-  /// home indicator is a translucent overlay, not an opaque bar, so content
-  /// merely needs to clear the indicator itself, not the whole inset.
+  /// Floor for the gap below the pill on a device that reports no bottom
+  /// inset at all (most Android phones with 3-button nav).
   static const double _minClearance = 6;
-  static const double _maxClearance = 20;
 
-  /// The device's real bottom inset, clamped **on iOS only**.
-  ///
-  /// Read from [View], not from MediaQuery: an ancestor can legitimately
-  /// consume the padding (Scaffold does), after which MediaQuery reports 0
-  /// and any calculation based on it silently produces a bar that looks fine
-  /// in code and wrong on screen. The view is the ground truth.
-  ///
-  /// Android's system navigation (3-button bar, gesture pill, or an OEM
-  /// skin's own variant) is reported through the exact same inset, but
-  /// unlike iOS's home indicator it can be an OPAQUE bar drawn on top of the
-  /// app's own surface — and its height varies far more widely (24–48dp+)
-  /// than iOS's fixed ~34pt. Applying the iOS [_maxClearance] cap there
-  /// leaves the last several points of the tab bar's icons/labels sitting
-  /// behind that opaque bar, i.e. obstructed — which is exactly the reported
-  /// bug, and why it only showed up on some Android devices (whichever ones
-  /// report an inset above 20pt: gesture nav, taller OEM bars, or Android 15
-  /// where edge-to-edge is mandatory). Android must therefore always clear
-  /// its own full reported inset, uncapped.
+  /// The pill floats clear of the edge on every platform — unlike the old
+  /// flush bar, it never sits directly on the home indicator / gesture pill,
+  /// so there is no corner-mask clipping risk to guard against here (that
+  /// risk only applied to labels pinned flush against the screen's rounded
+  /// corners). A flat clearance on top of the device's own inset, read from
+  /// [View] rather than MediaQuery — an ancestor Scaffold can consume the
+  /// padding, after which MediaQuery reports 0 — is enough on both
+  /// platforms; Android's opaque nav bar and iOS's translucent indicator are
+  /// both cleared by their own real inset plus the same 8pt margin.
   static double _clearanceFor(BuildContext context) {
     final view = View.of(context);
     final inset = view.viewPadding.bottom / view.devicePixelRatio;
-    if (inset <= 0) return _minClearance;
-    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
-    return isAndroid
-        ? (inset < _minClearance ? _minClearance : inset)
-        : inset.clamp(_minClearance, _maxClearance);
+    return (inset <= 0 ? _minClearance : inset) + 8;
   }
 
   @override
   Widget build(BuildContext context) {
-    // The decoration sits OUTSIDE the padding on purpose: the bar's surface
-    // must reach the physical bottom edge so it reads as anchored chrome,
-    // while its content stops short of the unsafe region.
-    //
-    // The surface is `card`, NOT `ground`. Painting the bar in the page's own
-    // background colour gives it no edge, so every neutral pixel above it —
-    // the body's bottom gutter, the gap under the last card — merges into it
-    // and the bar appears to extend far up the screen. It was never taller
-    // than its 54pt; there was simply no boundary to see. A distinct surface
-    // plus a hairline is what makes chrome read as chrome.
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppThemeConfig.navBarSurface(context),
-        // The SEPARATOR carries the separation, not the fill.
-        //
-        // Measured from a device screenshot: the bar's white (#FFFFFF) against
-        // the sand page (#F7F4EE) is a ~3% luminance step — technically a
-        // different colour, visually no edge at all. The `line` hairline
-        // (#E4DFD4) on white was equally faint. So the bar rendered correctly
-        // and still could not be found on screen.
-        //
-        // lineStrong (#CFC8B9) is the quietest value that actually reads as an
-        // edge here. Anything subtler and the chrome dissolves into the page.
-        border: Border(
-          top: BorderSide(
-            color: AppThemeConfig.borderStrong(context),
-            width: 1,
-          ),
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        _horizontalMargin,
+        0,
+        _horizontalMargin,
+        _clearanceFor(context),
       ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: _clearanceFor(context)),
-        child: SizedBox(
-          height: _barHeight,
-          child: Row(
-            children: [
-              for (var i = 0; i < destinations.length; i++)
-                Expanded(
-                  child: _CompactNavItem(
-                    destination: destinations[i],
-                    selected: i == currentIndex,
-                    onTap: () => onSelected(i),
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            height: _barHeight,
+            decoration: BoxDecoration(
+              // Translucent over the blur, not opaque — that's what reads as
+              // "glass" rather than just a rounded flat bar. `navBarSurface`
+              // already adapts to light/dark; a low alpha is what makes the
+              // page's own content show through the blur behind it — this
+              // only reads as GLASS now that the bar floats over the tab
+              // content in a Stack instead of sitting below it in normal
+              // flow (see the build method's Positioned.fill/Positioned
+              // split). At the old 0.72 there was nothing to see through in
+              // either layout; 0.45 is low enough for scrolled content to
+              // stay visible, softened by the blur, without the icons and
+              // the active pill losing contrast against busy content.
+              color: AppThemeConfig.navBarSurface(context).withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(_radius),
+              border: Border.all(
+                color: AppThemeConfig.borderStrong(context).withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppThemeConfig.shadow(context),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-            ],
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _SlidingPillNavRow(
+              currentIndex: currentIndex,
+              destinations: destinations,
+              onSelected: onSelected,
+            ),
           ),
         ),
       ),
@@ -406,49 +429,263 @@ class _CompactBottomNavBar extends StatelessWidget {
   }
 }
 
-class _CompactNavItem extends StatelessWidget {
-  const _CompactNavItem({
+/// The row inside the glass bar: one accent pill that TRAVELS between tabs
+/// rather than each tab drawing its own, plus the icon/label row on top of
+/// it.
+///
+/// Requested explicitly over the previous per-tab pop-in pill: switching
+/// tabs should read as the same pill sliding to its new spot (with a slight
+/// overshoot before it settles), not as one pill disappearing while a new
+/// one appears elsewhere.
+class _SlidingPillNavRow extends StatefulWidget {
+  const _SlidingPillNavRow({
+    required this.currentIndex,
+    required this.destinations,
+    required this.onSelected,
+  });
+
+  final int currentIndex;
+  final List<NavDestination> destinations;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_SlidingPillNavRow> createState() => _SlidingPillNavRowState();
+}
+
+class _SlidingPillNavRowState extends State<_SlidingPillNavRow>
+    with SingleTickerProviderStateMixin {
+  // A dedicated spring, not AppMotion.snap/settle/carry: those three are
+  // deliberately curated so overshoot ([AppMotion.carry]) only ever
+  // represents a gesture's own carried momentum, never a tap. This pill's
+  // bounce was asked for explicitly as its own signature motion, so it gets
+  // its own token instead of overloading `carry`'s meaning. Damping just
+  // under 1 for a bounce small enough to read as "settling into place", not
+  // a wobble.
+  static final AppSpring _pillSpring = AppSpring(
+    name: 'navPillSlide',
+    dampingRatio: 0.86,
+    response: 0.38,
+  );
+
+  late final AnimationController _controller = AnimationController.unbounded(
+    vsync: this,
+    value: widget.currentIndex.toDouble(),
+  );
+
+  @override
+  void didUpdateWidget(covariant _SlidingPillNavRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _slideTo(widget.currentIndex.toDouble());
+    }
+  }
+
+  void _slideTo(double target) {
+    if (AppMotion.reduced(context)) {
+      _controller.value = target;
+      return;
+    }
+    // Carries whatever velocity the controller already has — if a second
+    // tap lands mid-slide, the pill re-targets from where it actually is
+    // instead of snapping back to a standstill first.
+    _controller.animateWith(
+      _pillSpring.simulate(
+        from: _controller.value,
+        to: target,
+        velocity: _controller.velocity,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final slotWidth = constraints.maxWidth / widget.destinations.length;
+            final clampedValue = _controller.value.clamp(
+              0.0,
+              (widget.destinations.length - 1).toDouble(),
+            );
+            // THE BUG THIS FIXES: this was `Positioned(left: ...)` — a raw
+            // physical-LTR offset computed from the tab's INDEX. The icon
+            // Row below already reverses itself for RTL for free (Flutter's
+            // own Directionality-aware layout), so under Arabic Home (index
+            // 0) actually renders on the right — but the pill, still
+            // measuring "index 0" as physical pixel 0 from the left, kept
+            // landing under whichever tab RTL had pushed to that physical
+            // spot instead (City Guide, the last index). The pill and the
+            // tab it was supposed to be sitting on were on OPPOSITE sides of
+            // the bar. `PositionedDirectional`'s `start` resolves against
+            // the same ambient Directionality the Row uses, so index 0 is
+            // "start" in both — they can't disagree again.
+            final pillStart = clampedValue * slotWidth;
+            return Stack(
+              children: [
+                PositionedDirectional(
+                  start: pillStart + 4,
+                  top: 4,
+                  bottom: 4,
+                  width: slotWidth - 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppThemeConfig.accent(context),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    for (var i = 0; i < widget.destinations.length; i++)
+                      Expanded(
+                        child: _NavTapTarget(
+                          destination: widget.destinations[i],
+                          // How close the travelling pill currently is to
+                          // THIS tab — 0 when it's sitting right on it, 1+
+                          // once it's a full slot away. Driving color/label
+                          // off this (rather than a plain selected bool)
+                          // is what makes the icon and label cross-fade in
+                          // step with the pill's own motion instead of
+                          // popping the instant a tap lands.
+                          distance: (_controller.value - i).abs(),
+                          onTap: () => widget.onSelected(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _NavTapTarget extends StatefulWidget {
+  const _NavTapTarget({
     required this.destination,
-    required this.selected,
+    required this.distance,
     required this.onTap,
   });
 
   final NavDestination destination;
-  final bool selected;
+  final double distance;
   final VoidCallback onTap;
 
   @override
+  State<_NavTapTarget> createState() => _NavTapTargetState();
+}
+
+class _NavTapTargetState extends State<_NavTapTarget> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? AppThemeConfig.accent(context)
-        : AppThemeConfig.mutedText(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              selected ? destination.activeIcon : destination.icon,
-              color: color,
-              size: 21,
+    // A continuous blend, not a selected/unselected switch — see the
+    // `distance` doc on _SlidingPillNavRow. Clamped because the spring can
+    // briefly overshoot past the target tab (that's the bounce), which
+    // would otherwise push these past their 0..1 range.
+    final onPill = (1 - widget.distance).clamp(0.0, 1.0);
+    final color = Color.lerp(
+      AppThemeConfig.mutedText(context),
+      AppThemeConfig.onAccent(context),
+      onPill,
+    )!;
+    // Client report — a tab's name used to only exist once the pill had
+    // (mostly) arrived on it; every other tab was an icon with no label at
+    // all, so the bar only ever named the ONE tab you were already on. The
+    // label is now always on screen for every tab — this just grows and
+    // brightens as the pill approaches instead of appearing from nothing,
+    // so the pill still reads as "arriving" without the bar going mute for
+    // the other three tabs.
+    final labelFontSize = 9.0 + onPill * 3.0;
+
+    // GestureDetector, not InkWell/Material — a ripple spreading from the
+    // tap point reads as generic Material chrome against a custom glass
+    // pill that already moves and bounces on its own; this tab bar's own
+    // feedback is the icon dipping under the finger instead.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) => _setPressed(false),
+      child: Center(
+        child: AnimatedScale(
+          scale: _pressed ? 0.86 : 1.0,
+          duration: AppMotion.resolve(context, AppMotion.snapDuration),
+          curve: AppMotion.resolveCurve(context, Curves.easeOut),
+          child: Padding(
+            // Fixed padding on every side now that every tab always carries
+            // a label below its icon — there's no icon-only slot left to
+            // give the extra room to, unlike the old horizontal layout.
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: 6,
+              vertical: 8,
             ),
-            const SizedBox(height: 1),
-            Text(
-              destination.label.tr,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                // Explicit line height so the label box is 11pt rather than
-                // the locale font's default (~15pt) — see _barHeight.
-                height: 1.1,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The outline and filled glyphs are two different SVG-ish
+                // paths, not one shape with a colour change — swapping them
+                // outright at the distance<0.5 cutoff popped visibly.
+                // Stacking both and cross-fading their opacity is what
+                // makes the swap read as one icon morphing weight, not two
+                // icons taking turns.
+                SizedBox(
+                  width: 21,
+                  height: 21,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Opacity(
+                        opacity: (1 - onPill).clamp(0.0, 1.0),
+                        child: Icon(
+                          widget.destination.icon,
+                          color: color,
+                          size: 21,
+                        ),
+                      ),
+                      Opacity(
+                        opacity: onPill,
+                        child: Icon(
+                          widget.destination.activeIcon,
+                          color: color,
+                          size: 21,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  widget.destination.label.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: labelFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -765,22 +1002,64 @@ class _TopBarActions extends StatelessWidget {
         : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Obx(() {
-          // Summed, not "any unread": a single dot would say something is
-          // waiting without saying how much, and both counts are already
-          // rendered as numbers when expanded.
-          final pending = notifications.unreadCount + (chats?.totalUnread ?? 0);
-          return _TopBarIconButton(
-            icon: expanded ? Icons.close_rounded : Icons.more_horiz_rounded,
-            badgeCount: expanded ? 0 : pending,
-            tooltip: expanded ? 'Close'.tr : 'Quick actions'.tr,
-            onTap: () {
-              AppHaptics.gentle();
-              onToggle();
-            },
-          );
-        }),
+        // THE BUG THIS FIXES: only the EXPANDED row got the `top: 6`
+        // padding below (added so the icons' badges have headroom to
+        // overhang without being clipped). The collapsed toggle button
+        // never got that same padding, so it was 6px SHORTER than the
+        // expanded state. AnimatedSize below reports its real height either
+        // way, and this whole Row sits inside DashboardTopBar's own Row —
+        // so opening the cluster grew this Row's height by that 6px, which
+        // grew the WHOLE top bar, which pushed the tab body (title and
+        // everything in it) down by the same 6px; closing it shrank
+        // everything back up. Reported live as "the title moves down and
+        // back up when I open/close the ⋯ menu." Giving the toggle the
+        // identical top padding means both states measure the same height
+        // and the bar never resizes at all.
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Obx(() {
+            // Summed, not "any unread": a single dot would say something is
+            // waiting without saying how much, and both counts are already
+            // rendered as numbers when expanded.
+            final pending =
+                notifications.unreadCount + (chats?.totalUnread ?? 0);
+            return _TopBarIconButton(
+              icon: expanded ? Icons.close_rounded : Icons.more_horiz_rounded,
+              badgeCount: expanded ? 0 : pending,
+              tooltip: expanded ? 'Close'.tr : 'Quick actions'.tr,
+              onTap: () {
+                AppHaptics.gentle();
+                onToggle();
+              },
+            );
+          }),
+        ),
+        // Events tab's Saved door — client feedback: it was rendered by
+        // the tab's OWN AppScreen header (marriage_hub_screen.dart's
+        // `trailing:`), one row below this bar, since a tab's in-page
+        // header is a SEPARATE widget from this persistent one. Moved
+        // here, beside the ⋯ toggle rather than into the toggle's own
+        // collapsible cluster, so it reads as a peer of ⋯ and stays
+        // visible whether or not that cluster is open — matching "next to
+        // the three dots, not below it." Same top: 6 padding as the toggle
+        // for the same reason (see the comment above it): a control this
+        // bar always shows must measure the same height as the toggle, or
+        // opening/closing the cluster would resize the whole bar again.
+        if (tabIndex == DashboardTopBar._marriageIndex) ...[
+          const SizedBox(width: DashboardTopBar._gap),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _TopBarIconButton(
+              icon: Icons.bookmark_rounded,
+              badgeCount: 0,
+              tooltip: 'Saved'.tr,
+              onTap: () =>
+                  Get.to(() => const MarriageSavedScreen(api: ModuleApi())),
+            ),
+          ),
+        ],
         // Flexible so the scrollable half receives a BOUNDED width. Without
         // it the AnimatedSize hands its child unbounded constraints, the row
         // inside takes its full intrinsic width, and this Row overflows by the

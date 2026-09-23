@@ -175,27 +175,33 @@ class _SplashScreenState extends State<SplashScreen>
                         g2: g2,
                       ),
                       const SizedBox(height: 34),
-                      ShaderMask(
-                        blendMode: BlendMode.srcIn,
-                        shaderCallback: (bounds) => LinearGradient(
-                          colors: [g1, g2],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds),
-                        child: Text(
-                          'Humanitarian Platform'.tr,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0,
-                                height: 1.05,
-                                color: Colors.white,
-                                fontSize: 24,
-                              ),
-                        ),
+                      // heroGradient's two stops are now the same color (see
+                      // app_theme_config.dart's note on the white-on-teal
+                      // contrast fix), so a gradient ShaderMask here just
+                      // risked mismatched fringing on the base text — paint
+                      // the wordmark directly in a solid color instead.
+                      //
+                      // Client request: white on dark mode (the background
+                      // behind it there is dark, same reasoning as the glass
+                      // hero mark), but AppThemeConfig.primary — the app's
+                      // own green, used everywhere else in the app's chrome
+                      // — on light mode, where the background is light and
+                      // white would read as barely-there.
+                      Text(
+                        'Humanitarian Platform'.tr,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineLarge
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0,
+                              height: 1.05,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppThemeConfig.primary,
+                              fontSize: 24,
+                            ),
                       ),
                       const SizedBox(height: 12),
                       const Spacer(flex: 3),
