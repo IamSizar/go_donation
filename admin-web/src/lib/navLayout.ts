@@ -39,6 +39,7 @@ export const NAV: NavItem[] = [
   { to: '/sponsorship-types', tKey: 'nav.sponsorship_types', module: 'sponsorships' },
   { to: '/marketplace',   tKey: 'nav.marketplace',   countKey: 'marketplace', module: 'marketplace' },
   { to: '/marketplace-categories', tKey: 'nav.marketplace_categories', module: 'marketplace' },
+  { to: '/marketplace-sections', tKey: 'nav.marketplace_sections', module: 'marketplace' },
   { to: '/marriage',      tKey: 'nav.marriage',      countKey: 'marriage', module: 'marriage' },
   { to: '/marriage-requests', tKey: 'nav.marriage_requests', module: 'marriage' },
   { to: '/marriage-chats', tKey: 'nav.marriage_chats', module: 'marriage' },
@@ -192,7 +193,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'store_marketplace', tKey: 'nav_group.store_marketplace',
-    items: ['/marketplace', '/marketplace-categories'],
+    items: ['/marketplace', '/marketplace-categories', '/marketplace-sections'],
   },
   {
     kind: 'group', key: 'marriage', tKey: 'nav_group.marriage',

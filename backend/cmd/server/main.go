@@ -40,6 +40,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/listings"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplace"
 	"github.com/karam-flutter/humanitarian-backend/internal/marketplacecategories"
+	"github.com/karam-flutter/humanitarian-backend/internal/marketplacesections"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
 	"github.com/karam-flutter/humanitarian-backend/internal/mediacategories"
@@ -149,6 +150,7 @@ func main() {
 	bannedWordsStore := moderation.New(pool)               // #25 — banned-words blocklist
 	partnerRatingStore := partnerratings.New(pool)         // #27 — partner ratings
 	marketplaceCatStore := marketplacecategories.New(pool) // #28 — marketplace categories
+	marketplaceSecStore := marketplacesections.New(pool)   // store sections
 	paymentMethodStore := paymentmethods.New(pool)
 	// Section 13 — register admin-added professions so volunteers can be
 	// tagged with them (survives restart). Best-effort; a failure just means
@@ -404,6 +406,7 @@ func main() {
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                  // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)              // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore) // #28
+	marketplaceSectionsH := handlers.NewMarketplaceSectionsHandler(marketplaceSecStore)     // store sections
 	paymentMethodsH := handlers.NewPaymentMethodsHandler(paymentMethodStore)
 	guestStore := guest.New(pool)
 	guestH := handlers.NewGuestHandler(guestStore)
@@ -575,6 +578,7 @@ func main() {
 		api.GET("/media-categories", mediaCategoriesH.PublicList)             // #22
 		api.GET("/case-categories", caseCategoriesH.PublicList)               // Quick Filter Capsules
 		api.GET("/marketplace/categories", marketplaceCategoriesH.PublicList) // #28
+		api.GET("/marketplace/sections", marketplaceSectionsH.PublicList)     // store sections
 		// K15 — العلامات التجارية: the brands actually present in the public
 		// catalogue, with counts. A facet, so it sits beside the category list
 		// rather than inside the product query.
@@ -1396,6 +1400,16 @@ func main() {
 			admin.PATCH("/admin/marketplace/categories/:id", perm("marketplace", "edit"), marketplaceCategoriesH.Update)
 			admin.POST("/admin/marketplace/categories/reorder", perm("marketplace", "edit"), marketplaceCategoriesH.Reorder)
 			admin.DELETE("/admin/marketplace/categories/:id", perm("marketplace", "delete"), marketplaceCategoriesH.Delete)
+
+			// Store sections — admin-curated shelves with a cover image (gated to
+			// the marketplace module, same as categories).
+			admin.GET("/admin/marketplace/sections", perm("marketplace", "view"), marketplaceSectionsH.AdminList)
+			admin.POST("/admin/marketplace/sections", perm("marketplace", "add"), marketplaceSectionsH.Add)
+			admin.PATCH("/admin/marketplace/sections/:id", perm("marketplace", "edit"), marketplaceSectionsH.Update)
+			admin.POST("/admin/marketplace/sections/reorder", perm("marketplace", "edit"), marketplaceSectionsH.Reorder)
+			admin.DELETE("/admin/marketplace/sections/:id", perm("marketplace", "delete"), marketplaceSectionsH.Delete)
+			admin.GET("/admin/marketplace/sections/:id/products", perm("marketplace", "view"), marketplaceSectionsH.Products)
+			admin.PUT("/admin/marketplace/sections/:id/products", perm("marketplace", "edit"), marketplaceSectionsH.SetProducts)
 
 			// #25 — comment moderation queue + status change + delete.
 			admin.GET("/admin/media-comments", perm("media", "view"), mediaEngageH.AdminComments)

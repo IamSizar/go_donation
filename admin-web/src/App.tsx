@@ -72,6 +72,7 @@ const CityGuideAboutPage = lazy(() => import('./pages/CityGuideAboutPage'))
 const CityGuideContactPage = lazy(() => import('./pages/CityGuideContactPage'))
 const BannedWordsPage = lazy(() => import('./pages/BannedWordsPage'))
 const MarketplaceCategoriesPage = lazy(() => import('./pages/MarketplaceCategoriesPage'))
+const MarketplaceSectionsPage = lazy(() => import('./pages/MarketplaceSectionsPage'))
 const PaymentMethodsPage = lazy(() => import('./pages/PaymentMethodsPage'))
 const DonationTypesPage = lazy(() => import('./pages/DonationTypesPage'))
 const TasksPage = lazy(() => import('./pages/TasksPage'))
@@ -150,6 +151,7 @@ export default function App() {
             <Route path="city-guide-contact" element={<CityGuideContactPage />} />
             <Route path="banned-words" element={<BannedWordsPage />} />
             <Route path="marketplace-categories" element={<MarketplaceCategoriesPage />} />
+            <Route path="marketplace-sections" element={<MarketplaceSectionsPage />} />
             <Route path="payment-methods" element={<PaymentMethodsPage />} />
             <Route path="donation-types" element={<DonationTypesPage />} />
             <Route path="campaigns" element={<CampaignsPage />} />

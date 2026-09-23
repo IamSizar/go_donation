@@ -78,6 +78,9 @@ type ProductFilters struct {
 	Q string
 	// CategorySlug — الفئات. Matches marketplace_categories.slug.
 	CategorySlug string
+	// SectionSlug — an admin-curated shelf (migration 133). Matches
+	// marketplace_sections.slug via the section_products join table.
+	SectionSlug string
 	// Brand — العلامات التجارية. Exact match; the app gets the list of real
 	// brand names from ListBrands, so there is nothing to guess at.
 	Brand string
@@ -228,6 +231,15 @@ func (f ProductFilters) build() (string, []any) {
 	if v := strings.TrimSpace(f.CategorySlug); v != "" {
 		args = append(args, v)
 		conds = append(conds, "p.category_slug = $"+itoa(len(args)))
+	}
+	if v := strings.TrimSpace(f.SectionSlug); v != "" {
+		// EXISTS rather than a JOIN: a product can belong to several sections,
+		// and a JOIN would duplicate its row once per membership.
+		args = append(args, v)
+		conds = append(conds, `EXISTS (
+			SELECT 1 FROM marketplace_section_products sp
+			JOIN marketplace_sections sec ON sec.id = sp.section_id
+			WHERE sp.product_id = p.id AND sec.slug = $`+itoa(len(args))+`)`)
 	}
 	if v := strings.TrimSpace(f.Brand); v != "" {
 		args = append(args, v)

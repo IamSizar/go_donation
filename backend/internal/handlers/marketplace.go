@@ -107,6 +107,7 @@ func catalogueFiltersFrom(c *gin.Context, page, limit int) marketplace.ProductFi
 		Q:     c.Query("q"),
 		// الفئات / العلامات التجارية.
 		CategorySlug: strings.TrimSpace(c.Query("category")),
+		SectionSlug:  strings.TrimSpace(c.Query("section")),
 		Brand:        strings.TrimSpace(c.Query("brand")),
 		Label:        strings.TrimSpace(c.Query("label")),
 		// العروض والخصومات, and التصفية's availability switch.
