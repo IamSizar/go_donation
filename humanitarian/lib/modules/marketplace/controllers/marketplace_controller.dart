@@ -244,7 +244,9 @@ class MarketplaceController extends GetxController
         // dropped `sort=best_selling` would append the catalogue's default
         // order under the best sellers, so the list would claim a ranking it
         // stops honouring at row eleven.
-        ...catalogueQuery.value.toQueryParameters(),
+        ...catalogueQuery.value.toQueryParameters(
+          hasSearch: productSearch.value.trim().isNotEmpty,
+        ),
       },
     );
     return const ModuleApi().getListPage(

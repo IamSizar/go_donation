@@ -135,11 +135,24 @@ class CatalogueQuery {
   /// Every default is omitted rather than sent as an empty value, so an
   /// untouched bar produces exactly the request this endpoint received before
   /// K15 — one page of the approved catalogue in its own order.
-  Map<String, String> toQueryParameters() => {
+  ///
+  /// [hasSearch] is the box above this bar (K15's own scope, not this
+  /// value type's) — passed in rather than folded into this class so a
+  /// keystroke there doesn't need a whole new CatalogueQuery.
+  ///
+  /// [noSection] only ever applies to the plain, untouched browse: the
+  /// six functional labels this bar builds are explicitly whole-catalogue
+  /// queries (see catalogue_filter_bar.dart's header comment) — "الأكثر
+  /// مبيعاً" ranks every approved product, sectioned or not, and a search
+  /// box that only found unassigned products would be missing most of the
+  /// shop. [isActive] (any sort/filter chosen) or a live search both drop
+  /// the unassigned-only restriction, same as [sectionSlug] already does.
+  Map<String, String> toQueryParameters({bool hasSearch = false}) => {
     if (sort != CatalogueSort.none) 'sort': sort,
     if (categorySlug.isNotEmpty) 'category': categorySlug,
     if (sectionSlug.isNotEmpty) 'section': sectionSlug,
-    if (sectionSlug.isEmpty && noSection) 'no_section': '1',
+    if (sectionSlug.isEmpty && noSection && !isActive && !hasSearch)
+      'no_section': '1',
     if (brand.isNotEmpty) 'brand': brand,
     if (onSale) 'on_sale': '1',
     if (inStockOnly) 'in_stock': '1',
