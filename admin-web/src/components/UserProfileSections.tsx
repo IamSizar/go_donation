@@ -70,9 +70,29 @@ type Props = {
   canEditFieldRules?: boolean
 }
 
-/** Empty for display purposes: null, undefined, or a blank/whitespace string. */
-function isBlank(v: unknown): boolean {
-  return v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
+/**
+ * Empty for display purposes: null, undefined, a blank/whitespace string, or
+ * the literal '0'.
+ *
+ * '0' is the seed value user_profiles.profile_picture carries when nobody has
+ * uploaded anything — the column is NOT NULL, so it needed one
+ * (backend/internal/users/registration.go). It is a sentinel, not a path. The
+ * server now translates it to null at the boundary (NULLIF(profile_picture,
+ * '0')), so this is belt and braces; without it, assetUrl('0') produced
+ * "<API base>/0" and the page rendered a broken image where "—" belongs.
+ *
+ * Only the exact string is special. '00', '0.0' and a numeric 0 are real
+ * values — a count field (family size, rooms, floors) answering zero must
+ * still render as 0, not as "—".
+ *
+ * Exported for its unit test; nothing else imports it.
+ */
+export function isBlank(v: unknown): boolean {
+  return (
+    v === null ||
+    v === undefined ||
+    (typeof v === 'string' && (v.trim() === '' || v.trim() === '0'))
+  )
 }
 
 /** A path that a browser can render as an image, as opposed to a PDF etc. */

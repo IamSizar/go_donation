@@ -119,23 +119,12 @@ class _LoginFormState extends State<_LoginForm>
     return msg;
   }
 
-  String? _phoneMessage(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter your phone number'.tr;
-    }
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    if (_dialCode == '964') {
-      // Iraq keeps its precise NSN-length check (10 digits, or 11 with a
-      // leading trunk 0).
-      if (digits.length == 10) return null;
-      if (digits.length == 11 && digits.startsWith('0')) return null;
-      return 'Enter 10 digits (or 11 starting with 0)'.tr;
-    }
-    // Other countries: a generic sanity range; the backend applies the
-    // authoritative E.164 check.
-    if (digits.length >= 4 && digits.length <= 14) return null;
-    return 'Enter a valid phone number'.tr;
-  }
+  /// The rule itself now lives in core/phone_format.dart so the registration
+  /// form's profile phone fields apply the same one — they used to apply none
+  /// at all, because this was private to this State. Kept as a named method
+  /// because [_validatePhone] and the submit gate below both call it.
+  String? _phoneMessage(String? value) =>
+      phoneValidationMessage(value, dialCode: _dialCode);
 
   // Phase 19b — OTP delivery mode toggle. 'real' sends via OTPIQ (WhatsApp
   // first, SMS fallback); 'demo' skips OTPIQ and the backend returns the

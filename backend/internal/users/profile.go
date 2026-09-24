@@ -96,9 +96,16 @@ func (s *Store) GetProfileRow(ctx context.Context, userID int64) (*ProfileRow, e
 func getProfileRow(ctx context.Context, q rowQuerier, userID int64) (*ProfileRow, error) {
 	var r ProfileRow
 	err := q.QueryRow(ctx,
+		// ORDER BY id: user_profiles.user_id has no UNIQUE constraint (see
+		// migrations/124_user_profiles_user_id_index.sql for why it was not
+		// added), so an account can own more than one row and a bare LIMIT 1
+		// returned whichever one Postgres reached first. "Oldest row wins" is
+		// the rule the admin Users list already settled on (OPOS #26603);
+		// every reader now follows it, so two screens cannot describe the
+		// same person differently.
 		`SELECT id, user_id, full_name, address, gender, profile_picture,
 		        COALESCE(to_char(date_of_birth, 'YYYY-MM-DD'), '')
-		   FROM user_profiles WHERE user_id = $1 LIMIT 1`,
+		   FROM user_profiles WHERE user_id = $1 ORDER BY id LIMIT 1`,
 		userID,
 	).Scan(&r.ProfileID, &r.UserID, &r.FullName, &r.Address, &r.Gender, &r.ProfilePicture, &r.DateOfBirth)
 	if err != nil {
