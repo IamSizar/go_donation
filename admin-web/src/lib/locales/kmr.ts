@@ -1965,7 +1965,6 @@ const kmr: DeepPartial<typeof en> = {
     summary_en: 'کورتی (EN)', summary_ar: 'کورتی (AR)',
     public_title_en: 'سەرنڤیسا گشتی (EN)', public_title_ar: 'سەرنڤیسا گشتی (AR)', public_title_sorani: 'سەرنڤیسا گشتی (سۆرانی)', public_title_badini: 'سەرنڤیسا گشتی (بادینی)',
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
-    section: 'بەش',
     whatsapp: 'واتساپ',
     discount_percent: 'رێژا داشکاندنێ ٪',
   },
