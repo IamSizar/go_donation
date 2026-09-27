@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { installStickyTableHeaders } from '../lib/stickyTableHeaders'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api, describeError, canExportData, isSuperAdmin } from '../lib/api'
@@ -121,6 +122,9 @@ export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('humanitarian.admin.sidebar_collapsed') === '1',
   )
+  // Table header rows follow the scroll (lib/stickyTableHeaders.ts).
+  useEffect(() => installStickyTableHeaders(), [])
+
   useEffect(() => {
     localStorage.setItem('humanitarian.admin.sidebar_collapsed', sidebarCollapsed ? '1' : '0')
   }, [sidebarCollapsed])
@@ -229,6 +233,13 @@ export default function AppShell() {
   const [pageHeadSlot, setPageHeadSlot] = useState<HTMLDivElement | null>(null)
   const [pageActionsSlot, setPageActionsSlot] = useState<HTMLDivElement | null>(null)
   const [barSecondarySlot, setBarSecondarySlot] = useState<HTMLDivElement | null>(null)
+  // The top bar's تحديث. Bumping this re-mounts ONLY the routed page (it is
+  // part of that page's key below), so every fetch the page runs on mount
+  // runs again and picks up new data — while the shell, sidebar, session,
+  // sockets and sound settings stay exactly as they are. It replaced a
+  // window.location.reload(), which rebuilt the whole dashboard for what the
+  // operator meant as "show me what's new on this page" (client report).
+  const [refreshNonce, setRefreshNonce] = useState(0)
   useEffect(() => {
     let cancelled = false
     api
@@ -553,16 +564,19 @@ export default function AppShell() {
             slotRef={setPageHeadSlot}
             actionsRef={setPageActionsSlot}
             secondaryRef={setBarSecondarySlot}
+            onRefresh={() => setRefreshNonce((n) => n + 1)}
           />
           {/* Route transitions: each pathname becomes a new key, so
               AnimatePresence treats it as a fresh element with its own
-              enter/exit lifecycle. */}
+              enter/exit lifecycle. The refresh nonce rides in the same key,
+              which is what makes تحديث re-mount (and so re-fetch) just this
+              page. */}
           <PageHeadSlotContext.Provider value={pageHeadSlot}>
           <PageActionsSlotContext.Provider value={pageActionsSlot}>
           <BarSecondarySlotContext.Provider value={barSecondarySlot}>
             <AnimatePresence mode="wait">
               <motion.div
-                key={location.pathname}
+                key={`${location.pathname}#${refreshNonce}`}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}

@@ -5,6 +5,7 @@
  * profile owner's accept) or Decline each pending request.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
@@ -117,7 +118,14 @@ export default function MarriageMeetingRequestsPage() {
           // A decided request shows when it was decided; DateCell prints the
           // em dash itself when the backend left decided_at null (the old
           // `?? '—'` never fired — formatDateTime returns '' for null).
-          <DateCell value={r.decided_at} />
+          // An approved one also links to its chat, which starts CLOSED
+          // until the admin opens it there (OPOS 48992).
+          <div className="cell-stack">
+            <DateCell value={r.decided_at} />
+            {r.status === 'approved' && r.thread_id != null && (
+              <Link to={`/marriage-chats?thread=${r.thread_id}`}>{t('chat_lifecycle.go_to_chat')}</Link>
+            )}
+          </div>
         ),
     },
   ]

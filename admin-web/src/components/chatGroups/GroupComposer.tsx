@@ -27,7 +27,10 @@ type Props = {
 
 export default function GroupComposer({ group, canSend, onSent }: Props) {
   const { t } = useI18n()
-  if (group.lifecycle !== 'open') return <LifecycleNotice group={group} />
+  // Only an ENDED group refuses staff. A closed (paused) group is the normal
+  // waiting state of an admin-supervised chat (OPOS 48992): members can't
+  // write, but the admin can ("I'll open this at 5pm") — the server allows it.
+  if (group.lifecycle === 'ended') return <LifecycleNotice group={group} />
   if (!canSend) {
     return (
       <p className="muted" style={{ margin: 0 }}>
@@ -35,7 +38,12 @@ export default function GroupComposer({ group, canSend, onSent }: Props) {
       </p>
     )
   }
-  return <ComposerForm groupId={group.id} onSent={onSent} />
+  return (
+    <>
+      {group.lifecycle === 'paused' && <LifecycleNotice group={group} />}
+      <ComposerForm groupId={group.id} onSent={onSent} />
+    </>
+  )
 }
 
 /** Why nobody can write: paused or ended, and the reason shown to members. */

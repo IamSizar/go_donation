@@ -7,8 +7,9 @@
  * 2. Stubs the browser APIs jsdom does not implement but the app calls during
  *    an ordinary render. Each stub names the caller that needs it.
  * 3. After every test, removes what that test left behind that the next one
- *    could otherwise see: the rendered DOM, localStorage (the session and the
- *    locale) and the permission matrix cached by lib/permissions.ts.
+ *    could otherwise see: the rendered DOM, localStorage (the locale),
+ *    sessionStorage (the signed-in session) and the permission matrix cached
+ *    by lib/permissions.ts.
  *
  * WHY cleanup() IS CALLED BY HAND
  * Testing Library unmounts automatically only when the runner exposes a global
@@ -33,6 +34,7 @@ Element.prototype.scrollIntoView = vi.fn()
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  sessionStorage.clear()
   // The matrix is cached at module scope, so without this the first test's
   // reply would answer every later permission check in the same file.
   resetPermissionCache()

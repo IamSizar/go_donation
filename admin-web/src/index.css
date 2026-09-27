@@ -1175,6 +1175,53 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .breadcrumb a { color: var(--muted); text-decoration: none; }
 .breadcrumb a:hover { color: var(--text); text-decoration: underline; }
 .page-head .row { gap: var(--space-2); }
+/* Areas page (pages/AreasPage.tsx) — cities → districts → sub-districts as
+   three linked columns; one column per row below 1100px. */
+.areas-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+@media (max-width: 1100px) { .areas-grid { grid-template-columns: 1fr; } }
+.areas-col { padding: 0; overflow: hidden; }
+.areas-col-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border);
+}
+.areas-col-head h2 { margin: 0; font-size: var(--text-md, 15px); font-weight: 600; }
+.areas-col-head .muted { font-size: 12px; }
+.areas-col-head button { flex: 0 0 auto; }
+.areas-empty { padding: var(--space-5) var(--space-4); margin: 0; text-align: center; }
+.areas-list { list-style: none; margin: 0; padding: var(--space-2); display: flex; flex-direction: column; gap: 2px; max-height: 62vh; overflow-y: auto; }
+.areas-row {
+  display: flex; align-items: center; gap: var(--space-2);
+  border-radius: var(--radius-sm); padding: 2px 4px;
+}
+.areas-row:hover { background: var(--color-surface-2); }
+.areas-row.selected { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.areas-row.inactive .areas-row-name { color: var(--muted); text-decoration: line-through; }
+.areas-row-main {
+  flex: 1 1 auto; min-width: 0; height: auto; min-height: 44px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: none; background: transparent; box-shadow: none;
+  color: var(--text-h); text-align: start; font-weight: 400;
+}
+.areas-row-main:hover:not(:disabled) { background: transparent; box-shadow: none; }
+.areas-row-main:disabled { opacity: 1; cursor: default; }
+.areas-row-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.areas-row-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.areas-row-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.areas-row-badges { display: inline-flex; gap: 6px; margin-inline-start: auto; flex: 0 0 auto; }
+.areas-row-actions { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+
+/* Comments page cards — their own layout rather than .page-head, whose first
+   child is a column (which stacked the source badge, author and target on
+   three lines). */
+.comment-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); flex-wrap: wrap;
+  padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border);
+}
+.comment-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.comment-card-body { white-space: pre-wrap; margin: var(--space-3) 0; color: var(--text-h); font-size: 15px; line-height: 1.6; }
+.comment-card-actions { display: flex; align-items: center; gap: 8px; }
+.comment-card-actions select { width: auto; }
 /* Form controls default to `width: 100%` (see the base input/select rule),
    which is right inside a form but wrong in the header's action row: a select
    with no explicit width claims the whole row and shoves every sibling onto
@@ -1932,6 +1979,47 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
    can be raised from a nav action. */
 .modal-overlay.ask-overlay { z-index: 300; }
 
+/* Staff Chat "new conversation" picker (components/StaffPickerModal.tsx).
+   Rows are plain list items, not the global green button: a stack of solid
+   buttons read as a wall of green, with grey text on it nobody could read. */
+.modal-card.staff-picker { width: min(480px, 92vw); height: min(560px, 82vh); }
+.staff-picker-search { padding: var(--space-3) var(--space-5) 0; }
+.staff-picker-search input { width: 100%; }
+.staff-picker-body { padding: var(--space-3) var(--space-3) var(--space-4); }
+.staff-picker-state {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 36px 12px; text-align: center;
+}
+.staff-picker-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.staff-picker-row {
+  width: 100%; height: auto; min-height: 56px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-h);
+  text-align: start; font-weight: 400; box-shadow: none;
+  cursor: pointer; transition: background 120ms ease;
+}
+.staff-picker-row:hover:not(:disabled),
+.staff-picker-row:focus-visible { background: var(--color-surface-2); transform: none; box-shadow: none; }
+.staff-picker-row:disabled { opacity: 1; cursor: default; }
+.staff-picker-row:disabled:not([aria-busy="true"]) { opacity: 0.55; }
+.staff-picker-avatar {
+  flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--text-h);
+}
+.staff-picker-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.staff-picker-name {
+  font-size: 14px; font-weight: 600; color: var(--text-h);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.staff-picker-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.staff-picker-meta .badge { flex: 0 0 auto; }
+.staff-picker-phone { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.staff-picker-end { flex: 0 0 auto; font-size: 12px; }
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1982,6 +2070,11 @@ nav .nav-group-header:hover { background: var(--panel-2); color: var(--text-h); 
 .form-row input:disabled,
 .form-row textarea:disabled,
 .form-row select:disabled { opacity: 0.65; cursor: not-allowed; }
+/* The required/optional/hidden toggle (FieldRuleCell), nested inside the
+   SAME .form-row as the box it governs — New/Edit User modals — so it always
+   sits directly under its own field regardless of which other fields in the
+   form do or don't carry one. See EditModal's `extraRow`. */
+.field-rule-row { margin-top: var(--space-1); }
 @media (max-width: 560px) {
   .form-grid { grid-template-columns: 1fr; }
 }
@@ -2432,6 +2525,37 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
   max-height: 320px;
   overflow: auto;
   white-space: pre-wrap;
+}
+
+/* A table's full-width row directly under a row (Table's renderExpanded) —
+   used by سجلات التدقيق's "+" to show a change's details under its own row. */
+.data-table tr.row-expanded > td {
+  background: var(--color-surface-2);
+  padding: var(--space-3) var(--space-4);
+}
+.audit-details-title {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-h);
+}
+.audit-details dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+.audit-details-row { min-width: 0; }
+.audit-details-row dt {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.audit-details-row dd {
+  margin: 0;
+  color: var(--text-h);
+  /* Full values, not the truncated table cell — long addresses/paths wrap. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Floating toast on new event */
@@ -2981,7 +3105,16 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
 .page-head-slot {
   display: flex;
   flex: 1;
-  min-width: 0;
+  /* A real floor, not 0. With min-width:0 this flex:1 item has nothing
+     stopping it shrinking arbitrarily small when a sibling (.page-actions-slot,
+     flex:0 0 auto — never shrinks) is wide: the BAR has flex-wrap, but wrapping
+     only kicks in once shrinking is exhausted, so a title + tab-row kept
+     getting crushed to a sliver instead of the row wrapping, and overflowed
+     into an overlapping mess (client report, صفحة المستحقون with its Cases/
+     Requests tab-row next to a full filter+action row). 200px is enough for a
+     short title alone; a page whose head also carries a tab-row needs the
+     wrap this floor now triggers. */
+  min-width: 200px;
 }
 
 /* The page's primary action, pinned next to Save. Empty on most pages, where
@@ -3991,4 +4124,56 @@ html[dir='rtl'] .data-table th {
 
 @media (prefers-reduced-motion: reduce) {
   .rule-section-head, .rule-section-head::before { transition: none; }
+}
+
+/* Pinned row-actions column (components/Table.tsx STICKY_END_KEY). A sticky
+   cell needs an opaque background, so each row state below lays its usual
+   tint over the surface colour instead of letting columns show through. */
+.data-table th.col-sticky-end,
+.data-table td.col-sticky-end {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: 1;
+}
+.data-table th.col-sticky-end { background: var(--color-surface-2); }
+.data-table td.col-sticky-end { background: var(--color-surface); }
+.data-table tbody tr:hover td.col-sticky-end {
+  background: linear-gradient(rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.05)), var(--color-surface);
+}
+.data-table tbody tr.row-selected td.col-sticky-end {
+  background: linear-gradient(rgba(99, 179, 237, 0.08), rgba(99, 179, 237, 0.08)), var(--color-surface);
+}
+.data-table tbody tr.is-highlighted td.col-sticky-end {
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-primary, #10b981) 12%, transparent),
+                    color-mix(in srgb, var(--color-primary, #10b981) 12%, transparent)),
+    var(--color-surface);
+}
+/* Only while the table overflows: a divider and a soft shadow on the pinned
+   column's inner edge, the cue that more columns scroll beneath it. */
+.table-wrap.is-overflowing .data-table .col-sticky-end {
+  box-shadow: inset 10px 0 12px -10px rgba(0, 0, 0, 0.45);
+  border-inline-start: 1px solid var(--color-border);
+}
+[dir="rtl"] .table-wrap.is-overflowing .data-table .col-sticky-end {
+  box-shadow: inset -10px 0 12px -10px rgba(0, 0, 0, 0.45);
+}
+/* Phones: the table becomes stacked cards (see the 720px block above) —
+   nothing scrolls sideways, so nothing needs pinning. */
+@media (max-width: 720px) {
+  .data-table th.col-sticky-end,
+  .data-table td.col-sticky-end { position: static; box-shadow: none !important; border-inline-start: 0; background: transparent; }
+}
+
+
+/* ---------- Pinned table header (lib/stickyTableHeaders.ts) ----------
+   While a header is displaced down its table it floats over the rows, so it
+   needs to read as a bar: `border-collapse` borders do not travel with a
+   transform, so the bottom rule is redrawn as an inset shadow, plus a soft
+   drop shadow so the rows slide visibly UNDER it. `position: relative` lifts
+   the cells above every body cell and pinned column. */
+.data-table thead th:not(.col-sticky-end) { position: relative; }
+.data-table thead th.is-stuck {
+  z-index: 6;
+  box-shadow: inset 0 -1px 0 var(--color-border), 0 6px 10px -6px rgba(0, 0, 0, 0.55);
 }

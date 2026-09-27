@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ActionsMenu from '../components/ActionsMenu'
 import DateCell from '../components/DateCell'
-import { api, describeError, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
+import { api, describeError, isAdminLevel, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
 import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import type { UsersListResp, UserAccount } from '../lib/api-types'
@@ -32,6 +32,8 @@ import { fmtId } from '../lib/formatId'
 import { isStaffAccount } from '../lib/staffAccounts'
 import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
+import { fetchAllUsers } from '../lib/fetchAllUsers'
+import { SUPPORT_SECTIONS, useSupportSectionLabel } from '../lib/supportSections'
 
 // Every tier the "Access Permission" column offered on Users before the move
 // — unchanged, including 'super_admin' being a selectable target. This is a
@@ -40,16 +42,16 @@ import { useUserEditProfile } from '../lib/useUserEditProfile'
 const STAFF_TIERS = ['super_admin', 'admin', 'supervisor', 'employee']
 const TIER_CELL_OPTIONS = [...STAFF_TIERS, 'user']
 
-// A large-but-bounded fetch instead of real pagination: staff accounts are a
-// small slice of all users (per_employee picker on PermissionsPage.tsx makes
-// the same per_page:200 assumption for the same reason), and the backend has
-// no staff/non-staff query param to filter server-side.
-const FETCH_PER_PAGE = 200
+// Staff are listed from ?staff=1 (server-side), every page of it — see
+// lib/fetchAllUsers.ts for why the old single per_page:200 request showed an
+// empty list in production. isStaffAccount still filters the result, so a
+// backend that predates the staff param (it ignores it and returns everyone)
+// still produces the right list, just from more pages.
 
 export default function StaffPage() {
   const [q, setQ] = useState('')
   const [statusView, setStatusView] = useState('')
-  const [resp, setResp] = useState<UsersListResp | null>(null)
+  const [rows, setRows] = useState<UserAccount[] | null>(null)
   // Which request last came back. `loading` is derived from it below
   // rather than set at the top of the fetch effect, which costs a second
   // render and is what `react-hooks/set-state-in-effect` objects to.
@@ -77,6 +79,10 @@ export default function StaffPage() {
   const statusLabel = useStatusLabel()
   const { user: authUser } = useAuth()
   const amSuper = isSuperAdmin(authUser)
+  // Support split — which department a staff member answers for is an
+  // admin-level decision (the endpoint is RequireAdminTier).
+  const canAssignSections = isAdminLevel(authUser)
+  const sectionLabel = useSupportSectionLabel()
   const canArchive = usePermission('users', 'archive', authUser)
 
   // ── Promote-to-staff form state ──────────────────────────────────────
@@ -104,12 +110,9 @@ export default function StaffPage() {
 
   useEffect(() => {
     let cancelled = false
-    api
-      .get<UsersListResp>('/api/admin/users', {
-        params: { page: 1, per_page: FETCH_PER_PAGE, q: q || undefined, status: statusView || undefined },
-      })
-      .then((res) => {
-        if (!cancelled) { setResp(res.data); setErr(null) }
+    fetchAllUsers({ staff: 1, q: q || undefined, status: statusView || undefined })
+      .then((all) => {
+        if (!cancelled) { setRows(all); setErr(null) }
       })
       .catch((e) => {
         if (!cancelled) setErr(describeError(e))
@@ -122,7 +125,7 @@ export default function StaffPage() {
     }
   }, [q, statusView, refreshTick, requestKey])
 
-  const staffRows = useMemo(() => (resp?.data ?? []).filter(isStaffAccount), [resp])
+  const staffRows = useMemo(() => (rows ?? []).filter(isStaffAccount), [rows])
 
   const handleSave = useCallback(
     async (u: UserAccount, patch: Record<string, unknown>) => {
@@ -264,6 +267,42 @@ export default function StaffPage() {
           label={t('common.user_tier_ref', { id: u.user_id })}
         />
       ),
+    },
+    {
+      // Support split — which support department this person handles. One
+      // select, three choices: both (the default, as before the split) or
+      // one section. Admin-level staff always see every section whatever is
+      // stored, so their row says so instead of offering a no-op control.
+      key: 'support_sections',
+      header: t('col.support_section'),
+      cell: (u) => {
+        const tier = u.staff_tier ?? 'user'
+        if (tier === 'super_admin' || tier === 'admin') {
+          return <span className="muted">{t('support_section.all_admin')}</span>
+        }
+        const current = u.support_sections?.length === 1 ? u.support_sections[0] : ''
+        return (
+          <select
+            value={current}
+            disabled={!canAssignSections}
+            aria-label={t('col.support_section')}
+            style={{ width: 'auto' }}
+            onChange={async (e) => {
+              const next = e.target.value
+              try {
+                await api.post(`/api/admin/users/${u.user_id}/support_sections`, { sections: next ? [next] : [] })
+                toast.success(t('toast.saved', { noun: t('col.support_section') }))
+                setRefreshTick((n) => n + 1)
+              } catch (err) {
+                toast.error(describeError(err))
+              }
+            }}
+          >
+            <option value="">{t('support_section.all')}</option>
+            {SUPPORT_SECTIONS.map((s) => <option key={s} value={s}>{sectionLabel(s)}</option>)}
+          </select>
+        )
+      },
     },
     {
       key: 'account_status',

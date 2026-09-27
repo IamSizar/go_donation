@@ -67,6 +67,10 @@ const MODULE_TKEY: Record<string, string> = {
   marriage_subscription_packages: 'nav.marriage_subscriptions',
   tasks: 'nav.tasks',
   post_comments: 'nav.comments',
+  // Campaign and marriage comments are moderated (and deleted) from the
+  // Comments page too, and restore through the same Trash.
+  campaign_comments: 'nav.comments',
+  marriage_profile_comments: 'nav.comments',
 
   // E15 — the new recoverable delete on تسجيلات المهام. Without this entry the
   // Trash would print the raw `volunteer_mission_signups` — an English database

@@ -17,6 +17,7 @@ import PasswordGate from './components/PasswordGate'
 // demand. Cuts the >1 MB single-bundle down to small per-route chunks.
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
+const DonorsPage = lazy(() => import('./pages/DonorsPage'))
 const RegistrationsPage = lazy(() => import('./pages/RegistrationsPage'))
 const ProfileChangesPage = lazy(() => import('./pages/ProfileChangesPage'))
 const DonationsPage = lazy(() => import('./pages/DonationsPage'))
@@ -57,6 +58,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const HumanitarianWorkPage = lazy(() => import('./pages/HumanitarianWorkPage'))
 const FieldRulesPage = lazy(() => import('./pages/FieldRulesPage'))
+const AreasPage = lazy(() => import('./pages/AreasPage'))
 const ReceiptsPage = lazy(() => import('./pages/ReceiptsPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const DonationCodesPage = lazy(() => import('./pages/DonationCodesPage'))
@@ -135,6 +137,7 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="donors" element={<DonorsPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="profile-changes" element={<ProfileChangesPage />} />
             <Route path="donations" element={<DonationsPage />} />
@@ -213,6 +216,7 @@ export default function App() {
             <Route path="about" element={<AboutPage />} />
             <Route path="humanitarian-work" element={<HumanitarianWorkPage />} />
             <Route path="field-rules" element={<FieldRulesPage />} />
+            <Route path="areas" element={<AreasPage />} />
             <Route path="receipts" element={<ReceiptsPage />} />
             <Route path="contact" element={<ContactPage />} />
             {/* Reached from a row on /staff, not from the nav: it is about

@@ -30,6 +30,8 @@ import {
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
 import ContactBlocksPanel from '../components/ContactBlocksPanel'
+import { SUPPORT_SECTION_FILTERS, useSupportSectionLabel } from '../lib/supportSections'
+import SupportSectionBadge from '../components/SupportSectionBadge'
 
 /** Columns of the one-conversation export (OPOS #26397), the same for every thread. */
 const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
@@ -53,6 +55,9 @@ type AdminThread = {
   // Note #36 — the "Responsible Staff Member" claim.
   assigned_staff_user_id: number | null
   assigned_staff_name: string | null
+  // Support split — 'events' | 'volunteers'; null on direct chats and on
+  // support chats opened before the split.
+  support_section?: string | null
   message_count: number
   last_message: string | null
   last_message_at: string | null
@@ -97,6 +102,7 @@ const THREAD_CSV_COLUMNS: CsvColumn<AdminThread>[] = [
   { header: 'owner_phone', get: (t) => t.owner_phone ?? '' },
   { header: 'assigned_staff_user_id', get: (t) => t.assigned_staff_user_id ?? '' },
   { header: 'assigned_staff_name', get: (t) => t.assigned_staff_name ?? '' },
+  { header: 'support_section', get: (t) => t.support_section ?? '' },
   { header: 'message_count', get: (t) => t.message_count },
   { header: 'last_message', get: (t) => t.last_message ?? '' },
   { header: 'last_message_at', get: (t) => t.last_message_at ?? '' },
@@ -145,6 +151,10 @@ export default function MessagesPage({
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  // Support split — only the support view has sections to filter by.
+  const [section, setSection] = useState('all')
+  const sectionLabel = useSupportSectionLabel()
+  const isSupport = kind === 'support'
   const [selected, setSelected] = useState<AdminThread | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [reply, setReply] = useState('')
@@ -160,7 +170,7 @@ export default function MessagesPage({
         // `kind` is always sent: the server treats anything but 'support' as
         // 'direct', so an omitted parameter would silently mean the donor list
         // if this component were ever mounted without its prop.
-        params: { q: q || undefined, kind },
+        params: { q: q || undefined, kind, section: isSupport ? section : undefined },
       })
       const items = res.data.items ?? []
       setThreads(items)
@@ -170,9 +180,9 @@ export default function MessagesPage({
       setErr(describeError(e))
       return null
     }
-  }, [q, kind])
+  }, [q, kind, isSupport, section])
 
-  const requestKey = `${q}|${kind}`
+  const requestKey = `${q}|${kind}|${section}`
   const loading = loadedKey !== requestKey
 
   useEffect(() => {
@@ -278,6 +288,18 @@ export default function MessagesPage({
             placeholder={t('common.msg_search')}
             style={{ width: 240 }}
           />
+          {isSupport && (
+            <select
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              style={{ width: 'auto' }}
+              aria-label={t('col.support_section')}
+            >
+              {SUPPORT_SECTION_FILTERS.map((s) => (
+                <option key={s} value={s}>{s === 'all' ? t('support_section.all') : sectionLabel(s === 'none' ? null : s)}</option>
+              ))}
+            </select>
+          )}
           <ExportCsvButton
             rows={threads}
             columns={THREAD_CSV_COLUMNS}
@@ -304,10 +326,12 @@ export default function MessagesPage({
                 key={th.id}
                 onClick={() => { setSelected(th); setMessages([]) }}
                 style={{
-                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
+                  // height:auto — the global `button` rule fixes buttons at
+                  // 36px, which clamped these two-line rows so they overlapped.
+                  width: '100%', height: 'auto', textAlign: 'start', border: 'none', cursor: 'pointer',
                   padding: '11px 12px', borderRadius: 12, marginBottom: 4,
                   background: active ? 'color-mix(in srgb, var(--color-primary, #1B37C9) 12%, transparent)' : 'transparent',
-                  display: 'flex', flexDirection: 'column', gap: 4,
+                  display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
@@ -316,9 +340,15 @@ export default function MessagesPage({
                   </strong>
                   <StatusBadge status={th.status} />
                 </div>
-                <span className="muted" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {th.last_message ?? th.campaign_title ?? '—'}
-                </span>
+                {/* Support split — the section sits on the preview line, not
+                    beside the names: two badges on the first line squeezed
+                    the names in the 340px column until they overlapped. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {isSupport && <SupportSectionBadge section={th.support_section} />}
+                  <span className="muted" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                    {th.last_message ?? th.campaign_title ?? '—'}
+                  </span>
+                </div>
               </button>
             )
           })}
@@ -338,6 +368,7 @@ export default function MessagesPage({
                     {name(selected.donor_name, selected.donor_user_id, t)} {t(leftPartyKey)} ↔ {name(selected.owner_name, selected.owner_user_id, t)} {t(rightPartyKey)}
                   </strong>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {isSupport && <SupportSectionBadge section={selected.support_section} />}
                     <StatusBadge status={selected.status} />
                     {/* OPOS #26397 — export THIS conversation. The rows load
                         only after the PIN, from the messages:view route this

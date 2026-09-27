@@ -26,6 +26,9 @@ export type UserAccount = {
   active: number
   is_admin: number
   staff_tier?: string
+  // Support split — the support sections this staff member answers for;
+  // empty/absent = all of them.
+  support_sections?: string[]
   account_status?: string
   created_at: string
   profile: UserProfile | null
@@ -540,6 +543,8 @@ export type AdminTicket = {
   subject: string
   message: string
   status: string
+  // Support split — 'events' | 'volunteers'; null = unsectioned (pre-split).
+  section: string | null
   created_at: string
   updated_at: string
   // The staff answer written by POST /api/admin/support_tickets/{id}/reply.

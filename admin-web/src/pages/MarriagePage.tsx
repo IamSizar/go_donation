@@ -167,7 +167,8 @@ export default function MarriagePage() {
     {
       key: 'code',
       header: t('col.profile_code'),
-      cell: (p) => <code style={{ background: 'transparent', padding: 0 }}>{p.profile_code}</code>,
+      // nowrap: the code wrapped onto three lines and tripled every row's height.
+      cell: (p) => <code style={{ background: 'transparent', padding: 0, whiteSpace: 'nowrap' }}>{p.profile_code}</code>,
     },
     // gender arrives as a backend token ('Male'/'male'); statusLabel resolves
     // it the same way the visibility and subscription cells below already do.

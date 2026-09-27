@@ -26,6 +26,9 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { to: '/',              tKey: 'nav.dashboard',      module: 'dashboard' },
   { to: '/users',         tKey: 'nav.users',          module: 'users' },
+  // Donors (role 1) — the same accounts as Users, filtered, so it shares the
+  // users permission module.
+  { to: '/donors',        tKey: 'nav.donors',         module: 'users' },
   { to: '/registrations', tKey: 'nav.registrations', countKey: 'registrations', module: 'registrations' },
   { to: '/profile-changes', tKey: 'nav.profile_changes', module: 'users' },
   { to: '/campaigns',     tKey: 'nav.campaigns',      module: 'campaigns' },
@@ -66,6 +69,8 @@ export const NAV: NavItem[] = [
   { to: '/city-sectors',  tKey: 'nav.city_sectors',   module: 'city' },
   { to: '/city-categories', tKey: 'nav.city_categories', module: 'community' },
   { to: '/field-rules',   tKey: 'nav.field_rules',    module: 'users' },
+  // Migration 136 — cities / districts / sub-districts under the 18 governorates.
+  { to: '/areas',         tKey: 'nav.areas',          module: 'users' },
   { to: '/receipts',      tKey: 'nav.receipts',       module: 'beneficiary' },
   { to: '/messages',      tKey: 'nav.messages',        module: 'messages' },
   { to: '/staff-chat',    tKey: 'nav.staff_chat' },
@@ -184,7 +189,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   { kind: 'item', to: '/' },
   {
     kind: 'group', key: 'users_members', tKey: 'nav_group.users_members',
-    items: ['/users', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks',
+    items: ['/users', '/donors', '/beneficiary', '/volunteers', '/volunteer-board', '/tasks',
             '/partners'],
   },
   {
@@ -231,7 +236,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
     items: [
       // Access & staff first — see ACCESS_ITEMS above.
       ...ACCESS_ITEMS,
-      '/payment-methods', '/donation-types', '/donation-codes', '/field-rules',
+      '/payment-methods', '/donation-types', '/donation-codes', '/field-rules', '/areas',
       '/terms', '/about', '/humanitarian-work',
       '/marriage-about', '/marriage-contact', '/city-guide-about', '/city-guide-contact',
       '/trash',

@@ -160,7 +160,7 @@ describe('donorExportRows', () => {
   })
 })
 
-// ─── Marriage chat ───
+// ─── Event (marriage) chat ───
 
 describe('marriageExportRows', () => {
   it('names the requester, the owner and staff the way the marriage chat page does', () => {
@@ -309,7 +309,7 @@ describe('chatExportFilenameBase and chatExportTitle', () => {
     // Assert: Arabic
     localStorage.setItem('locale', 'ar')
     const arabic = chatExportTitle('marriage', 51)
-    expect(arabic).toContain('محادثة زواج')
+    expect(arabic).toContain('محادثة فعالية')
     expect(arabic).toContain('51')
   })
 })

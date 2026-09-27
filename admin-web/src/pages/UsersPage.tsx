@@ -11,7 +11,7 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import StatusCell from '../components/StatusCell'
 import EditModal from '../components/EditModal'
-import { buildEditUserFields, buildNewUserFields, flattenForEdit } from '../lib/userEditFields'
+import { buildEditUserFields, buildNewUserFields, flattenForEdit, NEW_USER_CORE_KEYS } from '../lib/userEditFields'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
@@ -22,6 +22,7 @@ import { usePermission } from '../lib/permissions'
 import { isStaffAccount } from '../lib/staffAccounts'
 import { useFieldRules } from '../lib/fieldRules'
 import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
+import { isCollectedForRole } from '../lib/userProfileFields'
 import FieldRuleCell from '../components/FieldRuleCell'
 import type { FieldSpec } from '../components/EditModal'
 import PageHead from '../components/PageHead'
@@ -70,7 +71,17 @@ function roleLabelToId(label: string): number {
   return 0
 }
 
-export default function UsersPage() {
+// A card's back photo has no rule of its own: it is governed by the front
+// column's rule (the app shows/requires both sides under one key).
+const BACK_PHOTO_RULE_KEY: Record<string, string> = {
+  id_photo_back_path: 'id_photo_path',
+  residence_card_photo_back_path: 'residence_card_photo_path',
+  ration_card_photo_back_path: 'ration_card_photo_path',
+}
+
+// roleId narrows the list to one role — the Donors page is this page with
+// roleId=1 (the same accounts, actions and edit form, just donors only).
+export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = {}) {
   const [page, setPage] = useState(1)
   // #2 — archived accounts leave the main list; this switches to the
   // Archived view rather than mixing them back in.
@@ -108,7 +119,27 @@ export default function UsersPage() {
   const { user: authUser } = useAuth()
   const amSuper = isSuperAdmin(authUser)
   const { state: newUserFieldState } = useFieldRules('user_')
-  const newUserFields = useMemo(() => buildNewUserFields(newUserFieldState), [newUserFieldState])
+  // Client report — the role select's FIRST real option (مانح) is what a
+  // browser shows for a <select> whose bound value matches no option, so the
+  // box LOOKED already set to "مانح" the instant the modal opened, while the
+  // form's actual state was still "no role picked" — nothing below it would
+  // show until the operator picked a role away and back. A genuine blank
+  // option (same convention as GENDER_OPTIONS in userEditFields.ts) makes the
+  // display honest: nothing highlighted until the operator actually picks one,
+  // and isNewUserFieldVisible below already treats "no role" as "show nothing
+  // profile-specific yet", exactly what the blank state now visibly means.
+  const newUserFields = useMemo(() => {
+    const fields = buildNewUserFields(newUserFieldState)
+    return fields.map((f) =>
+      f.key === 'role'
+        ? {
+            ...f,
+            options: ['', ...(f.options ?? [])],
+            optionLabels: { '': t('page.users.role_placeholder'), ...(f.optionLabels ?? {}) },
+          }
+        : f,
+    )
+  }, [newUserFieldState, t])
   // Owner #15 — the Edit form obeys the SAME rules the app's registration form
   // obeys, resolved for the role of the account being edited. USER_FIELDS (the
   // ungated list) is still what renders while the rules load, for an account
@@ -144,13 +175,13 @@ export default function UsersPage() {
 
   // Every dependency of the fetch effect below, so the page reads as loading
   // from the render that changes any of them.
-  const requestKey = `${page}|${q}|${refreshTick}|${statusView}|${hideGuests}`
+  const requestKey = `${page}|${q}|${refreshTick}|${statusView}|${hideGuests}|${onlyRoleId ?? ''}`
   const loading = loadedKey !== requestKey
 
   useEffect(() => {
     let cancelled = false
     api
-      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined, hide_guests: hideGuests ? 1 : undefined } })
+      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined, hide_guests: hideGuests ? 1 : undefined, staff: 0, role_id: onlyRoleId } })
       .then((res) => {
         if (!cancelled) { setResp(res.data); setErr(null) }
       })
@@ -163,14 +194,14 @@ export default function UsersPage() {
     return () => {
       cancelled = true
     }
-  }, [page, q, refreshTick, statusView, hideGuests, requestKey])
+  }, [page, q, refreshTick, statusView, hideGuests, onlyRoleId, requestKey])
 
   // Staff relocation — staff accounts (staff_tier set to anything besides the
   // default 'user') are managed on the Staff page under System Settings
-  // (StaffPage.tsx) and must not also appear here. Filtered client-side
-  // because /api/admin/users has no staff/non-staff query param; staff are a
-  // small fraction of total users, so a page can show fewer than PER_PAGE rows
-  // — a known, accepted imprecision rather than a gate.
+  // (StaffPage.tsx) and must not also appear here. Excluded server-side
+  // (?staff=0) so every page is full and the total counts users only; this
+  // client-side filter stays as the safety net for a backend that predates
+  // the param.
   const visibleRows = useMemo(() => (resp?.data ?? []).filter((u) => !isStaffAccount(u)), [resp])
 
   // Note #6 — the Edit form now includes a password field, but the backend
@@ -615,11 +646,84 @@ export default function UsersPage() {
       )
     }
 
+  /**
+   * New User modal — which profile boxes appear depends on the نوع المستخدم
+   * (role) the operator picks INSIDE the form, so this reads live `values`
+   * rather than a fixed role like editFields above does.
+   *
+   * Client report: a مانح was shown the beneficiary/volunteer-only sections
+   * (health, housing, household counts, ...), and switching the role select
+   * appeared to do nothing — because nothing here ever filtered by role. This
+   * is the same rule source the Edit form and the read-only detail page use
+   * (userProfileFields' per-role `roles` list, refined by the live
+   * grantor_/recipient_/volunteer_ field rules), so New User now matches both.
+   *
+   * Account-level boxes (phone, role, username, password) have no
+   * `labelField` and always show. Before a role is picked, or for a role with
+   * no registration form of its own (employee), every profile box is hidden —
+   * the same as the app, which has no form to show yet either.
+   */
+  const isNewUserFieldVisible = useCallback(
+    (f: FieldSpec, values: Record<string, string>) => {
+      if (!f.labelField) return true
+      // Migration 057's own `user_` rule already decided whether this box
+      // shows at all (buildNewUserFields' isHidden filter, above) — full_name
+      // and address in particular have NO grantor_/recipient_/volunteer_ row
+      // of their own to consult (see NEW_USER_CORE_KEYS), so gating them by
+      // role here would hide them for every role, not just the wrong ones.
+      if (NEW_USER_CORE_KEYS.has(f.key)) return true
+      const picked = roleLabelToId(values.role ?? '')
+      const roleId = picked === 0 ? undefined : picked
+      if (rulePrefixForRole(roleId) === null) return false
+      const usable = !editFieldRules.loading && !editFieldRules.error
+      // id_photo_back_path shares ONE rule with id_photo_path in both the app
+      // (registration_form.dart shows/hides front+back together under a
+      // single `_unlessHidden('grantor_id_photo', ...)`) and the backend
+      // (field_rule_columns.go's `_photo` → `_photo_path` mapping never
+      // touches the `_back_path` twin — confirmed against that file directly,
+      // it is not an oversight I'm inferring). Looking up "id_photo_back_path"
+      // itself finds no rule at all and reads as ungoverned → hidden, which
+      // would silently drop the back photo the client specifically asked for
+      // ("صورة هوية وجه وظهر" — front AND back). Reuse the front column's rule.
+      const ruleKey = BACK_PHOTO_RULE_KEY[f.key] ?? f.key
+      return isCollectedForRole(ruleKey, roleId, usable ? editFieldRules.rulesFor(roleId) : undefined)
+    },
+    [editFieldRules],
+  )
+
+  /**
+   * New User modal — the red "required" dot (and the Save-blocking validation
+   * behind it) for the same ~85 profile fields isNewUserFieldVisible governs.
+   *
+   * Client report: إجباري must always mean the red dot, and only إجباري. This
+   * was broken because buildNewUserFields' own `required` flag reads ONLY the
+   * 13 `user_`-prefixed core keys (migration 057) — every other profile field
+   * was hardcoded to `required: false` regardless of what that role's actual
+   * grantor_/recipient_/volunteer_ rule said, so e.g. a required national_id
+   * for every role showed no dot and, worse, was never enforced on Save.
+   *
+   * NEW_USER_CORE_KEYS fields keep whatever buildNewUserFields already
+   * computed for them (their own rule, unrelated to role) — this only
+   * overrides the fields that mechanism never touched.
+   */
+  const isNewUserFieldRequired = useCallback(
+    (f: FieldSpec, values: Record<string, string>) => {
+      if (!f.labelField || NEW_USER_CORE_KEYS.has(f.key)) return !!f.required
+      const picked = roleLabelToId(values.role ?? '')
+      const roleId = picked === 0 ? undefined : picked
+      if (rulePrefixForRole(roleId) === null) return false
+      if (editFieldRules.loading || editFieldRules.error) return false
+      const ruleKey = BACK_PHOTO_RULE_KEY[f.key] ?? f.key
+      return editFieldRules.rulesFor(roleId)[ruleKey]?.state === 'required'
+    },
+    [editFieldRules],
+  )
+
   return (
     <div className="stack">
       <PageHead>
         <div>
-          <h1>{t('page.users.title')}</h1>
+          <h1>{onlyRoleId === 1 ? t('nav.donors') : t('page.users.title')}</h1>
           <p className="muted">
             {resp ? `${resp.pagination.total_items} ${t('common.total')}` : t('common.loading')}
           </p>
@@ -655,8 +759,8 @@ export default function UsersPage() {
           <ExportCsvButton
             rows={visibleRows}
             columns={USER_CSV_COLUMNS}
-            filenameBase="users"
-            title={t('nav.users')}
+            filenameBase={onlyRoleId === 1 ? 'donors' : 'users'}
+            title={onlyRoleId === 1 ? t('nav.donors') : t('nav.users')}
             module="users"
           />
         </div>
@@ -669,7 +773,7 @@ export default function UsersPage() {
         columns={columns}
         rowKey={(u) => u.user_id}
         loading={loading}
-        empty={t('empty.users')}
+        empty={onlyRoleId === 1 ? t('empty.donors') : t('empty.users')}
       />
       <Pagination
         page={page}
@@ -694,11 +798,13 @@ export default function UsersPage() {
       <EditModal
         open={creating}
         title={t('page.users.new_user')}
-        initial={{}}
+        initial={onlyRoleId === 1 ? { role: 'donor' } : {}}
         fields={newUserFields}
         onSave={handleCreate}
         onClose={() => setCreating(false)}
         renderFieldExtra={renderRuleFor()}
+        isFieldVisible={isNewUserFieldVisible}
+        isFieldRequired={isNewUserFieldRequired}
       />
       <ConfirmDialog
         open={deleting !== null}

@@ -52,17 +52,47 @@ export function isSuperAdmin(user: StoredUser | null): boolean {
   return !!user && user.staff_tier === 'super_admin'
 }
 
+// ─── The login lives only as long as the tab ───────────────────────────
+//
+// Owner note: closing the tab or the browser must end the dashboard session —
+// the next visit signs in again. The token and the signed-in user therefore
+// live in sessionStorage, which the browser discards with the tab; they used to
+// be in localStorage, which survives both. A reload keeps the session (same
+// tab), a new tab starts signed out, and the server-side token still expires
+// on its own schedule and is revoked on logout.
+//
+// Language, theme and sidebar layout are preferences, not credentials, and stay
+// in localStorage.
+function session(): Storage | null {
+  try {
+    return window.sessionStorage
+  } catch {
+    // Storage blocked (privacy mode): behave as signed out rather than crash.
+    return null
+  }
+}
+
+// Sessions written by earlier versions sit in localStorage and would otherwise
+// outlive the browser forever. Dropped on load — this is also what makes
+// everyone sign in once more after the change ships.
+try {
+  window.localStorage.removeItem(TOKEN_KEY)
+  window.localStorage.removeItem(USER_KEY)
+} catch {
+  /* storage unavailable — nothing persisted, nothing to remove */
+}
+
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return session()?.getItem(TOKEN_KEY) ?? null
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
+  if (token) session()?.setItem(TOKEN_KEY, token)
+  else session()?.removeItem(TOKEN_KEY)
 }
 
 export function getStoredUser(): StoredUser | null {
-  const raw = localStorage.getItem(USER_KEY)
+  const raw = session()?.getItem(USER_KEY)
   if (!raw) return null
   try {
     return JSON.parse(raw) as StoredUser
@@ -72,8 +102,8 @@ export function getStoredUser(): StoredUser | null {
 }
 
 export function setStoredUser(user: StoredUser | null) {
-  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
-  else localStorage.removeItem(USER_KEY)
+  if (user) session()?.setItem(USER_KEY, JSON.stringify(user))
+  else session()?.removeItem(USER_KEY)
 }
 
 export const api = axios.create({

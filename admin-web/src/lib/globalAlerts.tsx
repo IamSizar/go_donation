@@ -41,25 +41,35 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from './api'
+import { withHighlight } from './useHighlightedRow'
 import { useAuth } from './auth'
 import { translate, useI18n } from './i18n'
 import { GlobalAlertsContext, type AlertEvent, type Ctx } from './globalAlertsContext'
 
 // === route + meta tables (mirrors EventsFeed; kept local to avoid coupling) ===
-type RouteSpec = { list: string; useUserId?: boolean }
+// entityOnly: highlight by entity_id alone, never fall back to target_id —
+// for events whose target_id is a DIFFERENT record than the list shows (a
+// mission join's target is the mission, the list row is the signup).
+type RouteSpec = { list: string; useUserId?: boolean; entityOnly?: boolean }
 const ROUTE_TABLE: Record<string, RouteSpec> = {
   donation_submit:              { list: '/donations' },
   sponsorship_submit:           { list: '/sponsorships' },
   sponsorship_cancel:           { list: '/sponsorships' },
   in_kind_donation_submit:      { list: '/in-kind' },
-  marketplace_order_submit:     { list: '/marketplace' },
+  // Tabbed pages: name the tab, or the link lands on the first tab where the
+  // highlighted row isn't (orders ≠ products, requests ≠ cases).
+  marketplace_order_submit:     { list: '/marketplace?tab=orders' },
   beneficiary_case_submit:      { list: '/beneficiary' },
-  project_request_submit:       { list: '/beneficiary' },
+  project_request_submit:       { list: '/beneficiary?tab=requests' },
   support_ticket_submit:        { list: '/support' },
   volunteer_application_submit: { list: '/volunteers' },
-  volunteer_mission_join:       { list: '/volunteers' },
+  volunteer_mission_join:       { list: '/volunteers?tab=signups', entityOnly: true },
   marriage_profile_submit:      { list: '/marriage' },
-  comment_submit:               { list: '/comments' },
+  // Comments: one type per source — ids are per-table, so the link must also
+  // pick the source for the highlight to find the right comment.
+  comment_submit:               { list: '/comments?source=media' },
+  campaign_comment_submit:      { list: '/comments?source=campaign' },
+  marriage_comment_submit:      { list: '/comments?source=marriage' },
   profile_update:               { list: '/users', useUserId: true },
   login:                        { list: '/users', useUserId: true },
   register:                     { list: '/users', useUserId: true },
@@ -81,6 +91,8 @@ const BADGE_LABEL_KEY: Record<string, string> = {
   volunteer_mission_join:       'feed_event.volunteer_mission_join',
   marriage_profile_submit:      'feed_event.marriage_profile_submit',
   comment_submit:               'feed_event.comment_submit',
+  campaign_comment_submit:      'feed_event.campaign_comment_submit',
+  marriage_comment_submit:      'feed_event.marriage_comment_submit',
 }
 
 /** Localized badge text for an event type, falling back to the raw type. */
@@ -105,8 +117,8 @@ function routeForAlert(e: AlertEvent): string | null {
     const uid = toId(e.user_id)
     return uid ? `/detail/users/${uid}` : m.list
   }
-  const id = toId(e.entity_id) || toId(e.target_id)
-  return id ? `${m.list}?highlight=${encodeURIComponent(id)}` : m.list
+  const id = toId(e.entity_id) || (m.entityOnly ? '' : toId(e.target_id))
+  return id ? withHighlight(m.list, id) : m.list
 }
 
 // Per-event-type chime presets — same numbers as EventsFeed.tsx originally.
@@ -121,6 +133,8 @@ function playChime(audioCtx: AudioContext, eventType: string) {
     project_request_submit:   { freq: 500, dur: 0.22 },
     support_ticket_submit:    { freq: 440, dur: 0.24 },
     comment_submit:           { freq: 580, dur: 0.14 },
+    campaign_comment_submit:  { freq: 580, dur: 0.14 },
+    marriage_comment_submit:  { freq: 580, dur: 0.14 },
     register:                 { freq: 620, dur: 0.14 },
     login:                    { freq: 600, dur: 0.10 },
   }

@@ -20,13 +20,14 @@ import CaseCategoriesManager from '../components/CaseCategoriesManager'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
 import { IRAQ_GOVERNORATES } from '../lib/iraqGovernorates'
 import { useFieldRules, type FieldRuleState } from '../lib/fieldRules'
-import PageHead from '../components/PageHead'
+import PageHead, { PageActions } from '../components/PageHead'
+import { useUrlTab } from '../lib/useUrlTab'
 import { formatDateTime } from '../lib/dates'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
@@ -209,7 +210,7 @@ function formatAmount(s: string | number): string {
 }
 
 export default function BeneficiaryPage() {
-  const [tab, setTab] = useState<Tab>('cases')
+  const [tab, setTab] = useUrlTab<Tab>(['cases', 'requests'], 'cases')
   const { t } = useI18n()
   return (
     <div className="stack">
@@ -364,11 +365,6 @@ function CasesTab() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`cases-${new Date().toISOString().slice(0, 10)}.csv`, rows, CASE_CSV_COLUMNS)
-  }
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
@@ -499,42 +495,45 @@ function CasesTab() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? t('common.bene_total_cases', { n: resp.total_items }) : t('common.loading')}</p>
-        <div className="row">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
-            placeholder={t('page.beneficiary.cases_search_placeholder')}
-            style={{ width: '220px' }}
-          />
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value)
-              setPage(1)
-              sel.clear()
-            }}
-            style={{ width: 'auto' }}
-          >
-            {CASE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {statusLabel(s)}
-              </option>
-            ))}
-          </select>
-          {/* OPOS #25297 — reordered to match UsersPage.tsx's toolbar
-              convention: filters/search, page-specific actions, the create
-              button, Export last. This used to put Export before the create
-              button, which is what the report flagged as inconsistent. */}
-          <button className="secondary" onClick={() => setCategoriesOpen(true)}>
-            {t('caseCategories.manage_button')}
-          </button>
-          <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_case')}</button>
-          <ExportCsvButton onExport={exportCsv} />
-        </div>
-      </div>
+      {/* Client report (Marketplace) — this used to be ordinary page-body
+          content, so it was always pushed onto its own line below the fixed
+          top bar even when there was room. PageActions portals it into the
+          top bar's own flex-wrap row instead — same behavior now applied
+          here for consistency across pages. */}
+      <PageActions>
+        <p className="muted" style={{ margin: 0 }}>{resp ? t('common.bene_total_cases', { n: resp.total_items }) : t('common.loading')}</p>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
+          placeholder={t('page.beneficiary.cases_search_placeholder')}
+          style={{ width: '220px' }}
+        />
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value)
+            setPage(1)
+            sel.clear()
+          }}
+          style={{ width: 'auto' }}
+        >
+          {CASE_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+        </select>
+        {/* OPOS #25297 — reordered to match UsersPage.tsx's toolbar
+            convention: filters/search, page-specific actions, the create
+            button, Export last. This used to put Export before the create
+            button, which is what the report flagged as inconsistent. */}
+        <button className="secondary" onClick={() => setCategoriesOpen(true)}>
+          {t('caseCategories.manage_button')}
+        </button>
+        <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_case')}</button>
+        <ExportCsvButton rows={resp?.items ?? []} columns={CASE_CSV_COLUMNS} filenameBase="cases" title={t('page.beneficiary.tab_cases')} module="beneficiary" />
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.case')} />
       <Table<BeneficiaryCase>
@@ -711,11 +710,6 @@ function RequestsTab() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`requests-${new Date().toISOString().slice(0, 10)}.csv`, rows, REQUEST_CSV_COLUMNS)
-  }
 
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
@@ -800,37 +794,35 @@ function RequestsTab() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? t('common.bene_total_requests', { n: resp.total_items }) : t('common.loading')}</p>
-        <div className="row">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
-            placeholder={t('page.beneficiary.requests_search_placeholder')}
-            style={{ width: '220px' }}
-          />
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value)
-              setPage(1)
-              sel.clear()
-            }}
-            style={{ width: 'auto' }}
-          >
-            {REQUEST_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {statusLabel(s)}
-              </option>
-            ))}
-          </select>
-          {/* OPOS #25297 — same reorder as the Cases tab above: create button
-              before Export, matching UsersPage.tsx's toolbar convention. */}
-          <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_request')}</button>
-          <ExportCsvButton onExport={exportCsv} />
-        </div>
-      </div>
+      <PageActions>
+        <p className="muted" style={{ margin: 0 }}>{resp ? t('common.bene_total_requests', { n: resp.total_items }) : t('common.loading')}</p>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
+          placeholder={t('page.beneficiary.requests_search_placeholder')}
+          style={{ width: '220px' }}
+        />
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value)
+            setPage(1)
+            sel.clear()
+          }}
+          style={{ width: 'auto' }}
+        >
+          {REQUEST_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+        </select>
+        {/* OPOS #25297 — same reorder as the Cases tab above: create button
+            before Export, matching UsersPage.tsx's toolbar convention. */}
+        <button onClick={() => setCreating(true)}>{t('page.beneficiary.new_request')}</button>
+        <ExportCsvButton rows={resp?.items ?? []} columns={REQUEST_CSV_COLUMNS} filenameBase="requests" title={t('page.beneficiary.tab_requests')} module="beneficiary" />
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.project_request')} />
       <Table<ProjectRequest>

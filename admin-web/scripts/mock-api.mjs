@@ -217,8 +217,8 @@ function printStartupHint(port, scenario) {
   console.log(`[mock-api] run the dashboard against it:  API_TARGET=${base} npm run dev -- --host ${LOOPBACK_HOST}`)
   console.log(`[mock-api] skip the login: open http://${LOOPBACK_HOST}:5173, paste this in its console, then reload:`)
   console.log(
-    `  localStorage.setItem('${SESSION_STORAGE_KEYS.token}', '${MOCK_TOKEN}'); ` +
-      `localStorage.setItem('${SESSION_STORAGE_KEYS.user}', '${user}'); ` +
+    `  sessionStorage.setItem('${SESSION_STORAGE_KEYS.token}', '${MOCK_TOKEN}'); ` +
+      `sessionStorage.setItem('${SESSION_STORAGE_KEYS.user}', '${user}'); ` +
       `localStorage.setItem('${SESSION_STORAGE_KEYS.locale}', 'en')`,
   )
 }
