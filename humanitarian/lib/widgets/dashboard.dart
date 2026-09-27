@@ -250,8 +250,16 @@ class DashboardHomeSection extends StatelessWidget {
   ) {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
     final recentDonations = _listValue(summary, 'recent_donations');
+    // THE BUG THIS FIXES: the bottom nav bar floats OVER this tab's content
+    // now (a Stack in dashboard_screen.dart, so its glass has real content
+    // to blur), not below it as a Scaffold-reserved bar — so this list's own
+    // bottom padding is the only thing keeping its last card clear of the
+    // pill sitting on top of it. 130 matches the clearance already used for
+    // the marketplace list and the cart teaser bar for the same floating
+    // pill (~118pt tall including its own safe-area bottom padding, plus a
+    // small rest margin).
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
       children: [
         _buildHero(
           context: context,
@@ -456,8 +464,10 @@ class DashboardHomeSection extends StatelessWidget {
     final stats = Map<String, dynamic>.from(summary['stats'] as Map? ?? {});
     final recentCases = _listValue(summary, 'recent_cases');
     final recentRequests = _listValue(summary, 'recent_requests');
+    // See _buildDonorDashboard's identical comment — same floating nav bar,
+    // same 130 clearance.
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
       children: [
         _buildHero(
           context: context,
@@ -627,8 +637,10 @@ class DashboardHomeSection extends StatelessWidget {
     );
     final upcomingMissions = _listValue(summary, 'upcoming_missions');
     final applicationStatus = (stats['application_status'] ?? '').toString();
+    // See _buildDonorDashboard's identical comment — same floating nav bar,
+    // same 130 clearance.
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
       children: [
         _buildHero(
           context: context,
@@ -2023,8 +2035,17 @@ class _NewsStrip extends StatelessWidget {
           // this strip just hadn't been given the same treatment yet. Same
           // fix, same reasoning: follow the text instead of ignoring it.
           SizedBox(
+            // THE BUG THIS FIXES: at the default text scale (multiplier
+            // term below is exactly 0), this still overflowed by 1px —
+            // "RenderFlex overflowed by 1.00 pixels" on the card's yellow
+            // stripe. 208 was sized to the title's *nominal* 2-line height
+            // (14px * 1.25 * 2 = 35.0 exactly), but the font's real ascent/
+            // descent rounds up a fraction of a pixel past that on-device,
+            // so the nominal number was never quite enough. +2 is slack for
+            // that rounding, not a second attempt at computing an exact
+            // number.
             height:
-                208 +
+                210 +
                 35 *
                     (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0) -
                         1),

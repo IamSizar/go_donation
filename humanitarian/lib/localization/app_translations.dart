@@ -159,8 +159,16 @@ class AppTranslations extends Translations {
     'Show password': 'Show password',
     'Hide password': 'Hide password',
     'New here? Create an account': 'New here? Create an account',
-    'This number has no password yet. Verify it to choose one.':
-        'This number has no password yet. Verify it to choose one.',
+    // THE BUG THIS FIXES: the server deliberately answers "unknown phone
+    // number" and "known number, no password" with the identical
+    // `otp_required` code (see auth.go's Login handler) so this screen can
+    // never be used to probe which numbers are registered. The old copy —
+    // "This number HAS no password yet" — undid that on its own: it flatly
+    // asserted the account already exists, which is exactly the one bit the
+    // server was withholding. This wording works for both readings without
+    // claiming either.
+    'Verify this number to continue — you\'ll set a password next.':
+        'Verify this number to continue — you\'ll set a password next.',
     'Verify my number': 'Verify my number',
     'Choose a password': 'Choose a password',
     'Your number is verified. This password is how you will sign in from now on.':
@@ -574,6 +582,11 @@ class AppTranslations extends Translations {
     'error_service_request_failed': 'Could not send your service request.',
     'error_subscription_failed': 'Could not complete your subscription.',
     'error_photo_upload_failed': 'Could not upload your photo.',
+    'photo_source_camera': 'Take Photo',
+    'photo_source_gallery': 'Choose from Gallery',
+    'error_photo_access_denied':
+        'Permission was denied. Enable camera or photo access in Settings to continue.',
+    'error_camera_unavailable': 'The camera is not available right now.',
     'error_attachment_upload_failed': 'Could not upload that document.',
     'error_order_checkout_failed': 'Could not place your order.',
     'error_case_submit_failed': 'Could not submit your case.',
@@ -815,7 +828,7 @@ class AppTranslations extends Translations {
     'Still waiting for approval. Please check back soon.':
         'Still waiting for approval. Please check back soon.',
     'Your details': 'Your details',
-    'Humanitarian Platform': 'BalanceNex',
+    'Humanitarian Platform': 'Tawazzn',
     'Secure Verification': 'Secure Verification',
     'Verify': 'Verify',
     'Choose your role': 'Choose your role',
@@ -1453,6 +1466,7 @@ class AppTranslations extends Translations {
     'reg_volunteer_ration_card_photo': 'Ration Card',
     'reg_volunteer_residence_card_photo': 'Residence Card',
     'reg_residence_card_photo_back': 'Residence Card (back)',
+    'reg_ration_card_photo_back': 'Ration Card (back)',
     'reg_volunteer_passport_photo': 'Passport (optional)',
     'reg_volunteer_personal_photo': 'Formal personal photo',
     'reg_volunteer_graduation_cert_photo': 'Graduation certificate',
@@ -1603,6 +1617,30 @@ class AppTranslations extends Translations {
     'Not now': 'Not now',
     'chat_support': 'Contact support',
     'chat_support_desc': 'Chat directly with our support / tech team.',
+    'chat_supervised_closed_title': 'This conversation is closed for now.',
+    'chat_supervised_closed_body':
+        'It opens when the admin joins. You can read it meanwhile, and you will be notified when it opens.',
+    'chat_state_open': 'Open',
+    'chat_state_closed': 'Closed',
+    'area_city_hint': 'Choose your city',
+    'area_district': 'District',
+    'area_district_hint': 'Choose the district',
+    'area_subdistrict': 'Sub-district',
+    'area_subdistrict_hint': 'Choose the sub-district',
+    'area_optional': '(optional)',
+    'area_none': '— None —',
+    'areas_load_failed': 'Could not load the city list.',
+    'support_section_title': 'Which support team?',
+    'support_section_hint': 'Pick the team your question is about.',
+    'support_section_events': 'Events support',
+    'support_section_events_desc':
+        'Questions about events and the events section',
+    'support_section_volunteers': 'Volunteers support',
+    'support_section_volunteers_desc':
+        'Questions about volunteering and missions',
+    'support_section_required': 'Choose a support section',
+    'volunteers_support_tile': 'Message the volunteers support team',
+    'volunteers_support_tile_desc': 'Questions or issues about volunteering',
     'chat_support_failed': 'Could not open support chat. Please try again.',
     // The PERMANENT counterpart of chat_support_failed. Worded for a user who
     // cannot fix it and should not be asked to try again — it says what is
@@ -1777,7 +1815,7 @@ class AppTranslations extends Translations {
     'marriage_chat_status_active': 'Active',
     'marriage_chat_status_declined': 'Declined',
     'marriage_chat_mediated_notice':
-        'Staff can view this chat and help mediate.',
+        'This conversation takes place in the presence of the admin, who opens and closes it.',
     'marriage_chat_pending_owner_notice':
         'Someone requested to chat about your profile.',
     'marriage_chat_pending_requester_notice':
@@ -1791,9 +1829,8 @@ class AppTranslations extends Translations {
     'approx_location_note': 'Location privacy',
     'approx_location_hint': 'Shown approximately (~500m) to protect privacy.',
     'share_app': 'Share the app',
-    'share_app_desc': 'Invite others to BalanceNex via other apps.',
-    'share_app_text':
-        'Try BalanceNex — a humanitarian donations & community app.',
+    'share_app_desc': 'Invite others to Tawazzn via other apps.',
+    'share_app_text': 'Try Tawazzn — a humanitarian donations & community app.',
     'receipts_title': 'Aid receipts',
     'receipts_subtitle': 'Your aid-delivery receipts with photos.',
     'receipts_empty': 'You have no receipts yet.',
@@ -1869,7 +1906,7 @@ class AppTranslations extends Translations {
     'Use a darker appearance across the app.':
         'Use a darker appearance across the app.',
     'Sign out of your account securely.': 'Sign out of your account securely.',
-    'Humanitarian platform': 'BalanceNex',
+    'Humanitarian platform': 'Tawazzn',
     'Balance and Stability for a Better Life!':
         'Balance and Stability for a Better Life!',
     'Build impact with a calmer, smarter experience.':
@@ -2665,6 +2702,13 @@ class AppTranslations extends Translations {
     'Social summary': 'Social summary',
     'Sponsorship type': 'Support type',
     'Status': 'Status',
+    // Campaign row's `status` DB column is one of exactly these 3 raw values
+    // (migrations/004_campaigns_status.sql's CHECK constraint) — the detail
+    // screen used to print the raw column value, in English, even under
+    // Arabic/Kurdish locales. These keys map it to a real translated label.
+    'campaign_status_active': 'Active',
+    'campaign_status_hidden': 'Hidden',
+    'campaign_status_finished': 'Finished',
     'Status & activity': 'Status & activity',
     'Status alerts': 'Status alerts',
     'Subject': 'Subject',
@@ -3203,6 +3247,15 @@ class AppTranslations extends Translations {
         'Staff chats for accepted meetings',
     'Browse by category': 'Browse by category',
     'Contribute': 'Contribute',
+    'Saved campaigns': 'Saved campaigns',
+    'Campaigns you bookmarked to give to later.':
+        'Campaigns you bookmarked to give to later.',
+    'No saved campaigns yet.': 'No saved campaigns yet.',
+    'Tap the bookmark on any campaign to save it here for later.':
+        'Tap the bookmark on any campaign to save it here for later.',
+    'Could not load your saved campaigns.':
+        'Could not load your saved campaigns.',
+    'Could not remove this campaign.': 'Could not remove this campaign.',
     'Contribution amount': 'Contribution amount',
     'Contribution status': 'Contribution status',
     'Contribution summary': 'Contribution summary',
@@ -3428,8 +3481,8 @@ class AppTranslations extends Translations {
     'Show password': 'إظهار كلمة المرور',
     'Hide password': 'إخفاء كلمة المرور',
     'New here? Create an account': 'جديد هنا؟ أنشئ حساباً',
-    'This number has no password yet. Verify it to choose one.':
-        'لا توجد كلمة مرور لهذا الرقم بعد. تحقق منه لاختيار واحدة.',
+    'Verify this number to continue — you\'ll set a password next.':
+        'تحقّق من هذا الرقم للمتابعة — ستحدّد كلمة مرور بعد ذلك.',
     'Verify my number': 'تحقق من رقمي',
     'Choose a password': 'اختر كلمة مرور',
     'Your number is verified. This password is how you will sign in from now on.':
@@ -3764,6 +3817,11 @@ class AppTranslations extends Translations {
     'error_service_request_failed': 'تعذّر إرسال طلب الخدمة.',
     'error_subscription_failed': 'تعذّر إتمام اشتراكك.',
     'error_photo_upload_failed': 'تعذّر رفع صورتك.',
+    'photo_source_camera': 'التقاط صورة',
+    'photo_source_gallery': 'اختيار من المعرض',
+    'error_photo_access_denied':
+        'تم رفض الإذن. فعّل إذن الكاميرا أو الصور من الإعدادات للمتابعة.',
+    'error_camera_unavailable': 'الكاميرا غير متاحة حالياً.',
     'error_attachment_upload_failed': 'تعذّر رفع هذا المستند.',
     'error_order_checkout_failed': 'تعذّر تسجيل طلبك.',
     'error_case_submit_failed': 'تعذّر إرسال حالتك.',
@@ -4516,6 +4574,7 @@ class AppTranslations extends Translations {
     'reg_volunteer_ration_card_photo': 'البطاقة التموينية',
     'reg_volunteer_residence_card_photo': 'بطاقة السكن',
     'reg_residence_card_photo_back': 'بطاقة السكن (الوجه الخلفي)',
+    'reg_ration_card_photo_back': 'البطاقة التموينية (الوجه الخلفي)',
     'reg_volunteer_passport_photo': 'جواز السفر (اختياري)',
     'reg_volunteer_personal_photo': 'صورة شخصية رسمية',
     'reg_volunteer_graduation_cert_photo': 'شهادة التخرج',
@@ -4662,6 +4721,28 @@ class AppTranslations extends Translations {
     'Not now': 'ليس الآن',
     'chat_support': 'التواصل مع الدعم',
     'chat_support_desc': 'تحدّث مباشرة مع فريق الدعم / الفني.',
+    'chat_supervised_closed_title': 'المحادثة مغلقة حالياً.',
+    'chat_supervised_closed_body':
+        'تُفتح عند انضمام الإدارة. يمكنك قراءتها في هذه الأثناء، وسيصلك إشعار عند فتحها.',
+    'chat_state_open': 'مفتوحة',
+    'chat_state_closed': 'مغلقة',
+    'area_city_hint': 'اختر مدينتك',
+    'area_district': 'القضاء',
+    'area_district_hint': 'اختر القضاء',
+    'area_subdistrict': 'الناحية',
+    'area_subdistrict_hint': 'اختر الناحية',
+    'area_optional': '(اختياري)',
+    'area_none': '— بدون —',
+    'areas_load_failed': 'تعذّر تحميل قائمة المدن.',
+    'support_section_title': 'أي قسم دعم؟',
+    'support_section_hint': 'اختر القسم الذي يخص سؤالك.',
+    'support_section_events': 'قسم دعم خاص بالفعاليات',
+    'support_section_events_desc': 'استفسارات حول الفعاليات وقسم الفعاليات',
+    'support_section_volunteers': 'قسم دعم خاص بالمتطوعين',
+    'support_section_volunteers_desc': 'استفسارات حول التطوع والمهام',
+    'support_section_required': 'اختر قسم الدعم',
+    'volunteers_support_tile': 'راسل قسم دعم المتطوعين',
+    'volunteers_support_tile_desc': 'أسئلة أو مشاكل تخص التطوع',
     'chat_support_failed': 'تعذّر فتح محادثة الدعم. حاول مرة أخرى.',
     'chat_support_unavailable_title': 'محادثة الدعم غير مفعّلة بعد',
     'chat_support_unavailable_body':
@@ -4793,7 +4874,7 @@ class AppTranslations extends Translations {
     'marriage_chat_status_active': 'نشطة',
     'marriage_chat_status_declined': 'مرفوضة',
     'marriage_chat_mediated_notice':
-        'يمكن للموظفين رؤية هذه المحادثة والمساعدة في الوساطة.',
+        'تتم هذه المحادثة بحضور الإدارة، وهي من تفتحها وتغلقها.',
     'marriage_chat_pending_owner_notice': 'طلب أحدهم التحدث بخصوص ملفك.',
     'marriage_chat_pending_requester_notice':
         'بانتظار موافقة صاحب الملف على طلبك.',
@@ -5638,6 +5719,9 @@ class AppTranslations extends Translations {
     'Social summary': 'ملخص اجتماعي',
     'Sponsorship type': 'نوع الدعم',
     'Status': 'الحالة',
+    'campaign_status_active': 'نشطة',
+    'campaign_status_hidden': 'مخفية',
+    'campaign_status_finished': 'منتهية',
     'Status & activity': 'الحالة والنشاط',
     'Status alerts': 'تنبيهات الحالة',
     'Subject': 'الموضوع',
@@ -6112,6 +6196,14 @@ class AppTranslations extends Translations {
         'محادثات بوساطة الموظفين للقاءات المقبولة',
     'Browse by category': 'تصفح حسب الفئة',
     'Contribute': 'تبرّع',
+    'Saved campaigns': 'الحملات المحفوظة',
+    'Campaigns you bookmarked to give to later.':
+        'الحملات التي حفظتها للمساهمة فيها لاحقًا.',
+    'No saved campaigns yet.': 'لا توجد حملات محفوظة بعد.',
+    'Tap the bookmark on any campaign to save it here for later.':
+        'اضغط على أيقونة الحفظ في أي حملة لحفظها هنا للاحقًا.',
+    'Could not load your saved campaigns.': 'تعذّر تحميل حملاتك المحفوظة.',
+    'Could not remove this campaign.': 'تعذّر إزالة هذه الحملة.',
     'Contribution amount': 'مبلغ التبرّع',
     'Contribution status': 'حالة التبرّع',
     'Contribution summary': 'ملخّص التبرّع',
@@ -7044,6 +7136,30 @@ class AppTranslations extends Translations {
     'Not now': 'ئێستا نا',
     'chat_support': 'پەیوەندی بە پشتگیری',
     'chat_support_desc': 'ڕاستەوخۆ لەگەڵ تیمی پشتگیری / تەکنیکی گفتوگۆ بکە.',
+    'chat_supervised_closed_title': 'ئەم گفتوگۆیە بۆ ئێستا داخراوە.',
+    'chat_supervised_closed_body':
+        'کاتێک بەڕێوەبەرایەتی بەشداری دەکات دەکرێتەوە. لەم ماوەیەدا دەتوانیت بیخوێنیتەوە و کاتێک کرایەوە ئاگادار دەکرێیتەوە.',
+    'chat_state_open': 'کراوە',
+    'chat_state_closed': 'داخراو',
+    'area_city_hint': 'شارەکەت هەڵبژێرە',
+    'area_district': 'قەزا',
+    'area_district_hint': 'قەزا هەڵبژێرە',
+    'area_subdistrict': 'ناحیە',
+    'area_subdistrict_hint': 'ناحیە هەڵبژێرە',
+    'area_optional': '(ئارەزوومەندانە)',
+    'area_none': '— هیچ —',
+    'areas_load_failed': 'نەتوانرا لیستی شارەکان باربکرێت.',
+    'support_section_title': 'کام بەشی پشتگیری؟',
+    'support_section_hint':
+        'ئەو بەشە هەڵبژێرە کە پرسیارەکەت پەیوەندی پێیەوە هەیە.',
+    'support_section_events': 'پشتگیری چالاکییەکان',
+    'support_section_events_desc':
+        'پرسیار دەربارەی چالاکییەکان و بەشی چالاکییەکان',
+    'support_section_volunteers': 'پشتگیری خۆبەخشان',
+    'support_section_volunteers_desc': 'پرسیار دەربارەی خۆبەخشی و ئەرکەکان',
+    'support_section_required': 'بەشی پشتگیری هەڵبژێرە',
+    'volunteers_support_tile': 'نامە بۆ تیمی پشتگیری خۆبەخشان بنێرە',
+    'volunteers_support_tile_desc': 'پرسیار یان کێشە دەربارەی خۆبەخشی',
     'chat_support_failed': 'نەتوانرا چاتی پشتگیری بکرێتەوە. دووبارە هەوڵ بدە.',
     // Copied VERBATIM from 'Technical Support' in this same map. The title and
     // body are deliberately absent: Kurdish is merged over English, so they
@@ -7119,7 +7235,7 @@ class AppTranslations extends Translations {
     'marriage_chat_status_active': 'چالاک',
     'marriage_chat_status_declined': 'ڕەتکراوە',
     'marriage_chat_mediated_notice':
-        'کارمەندان دەتوانن ئەم گفتوگۆیە ببینن و یارمەتی ڕێکخستنی بدەن.',
+        'ئەم گفتوگۆیە بە ئامادەبوونی بەڕێوەبەرایەتی دەکرێت، کە دەیکاتەوە و دایدەخات.',
     'marriage_chat_pending_owner_notice':
         'کەسێک داوای گفتوگۆی دەربارەی پرۆفایلەکەت کردووە.',
     'marriage_chat_pending_requester_notice':
@@ -7700,6 +7816,9 @@ class AppTranslations extends Translations {
     'Social summary': 'کورتەی کۆمەڵایەتی',
     'Sponsorship type': 'جۆری پاڵپشتی',
     'Status': 'بارودۆخ',
+    'campaign_status_active': 'چالاک',
+    'campaign_status_hidden': 'شاراوە',
+    'campaign_status_finished': 'تەواوبوو',
     'Status & activity': 'بارودۆخ و چالاکی',
     'Status alerts': 'ئاگادارکردنەوەکانی بارودۆخ',
     'Subject': 'بابەت',
@@ -8420,6 +8539,15 @@ class AppTranslations extends Translations {
         'گفتوگۆی بەڕێوەبراو لەلایەن ستافەوە بۆ چاوپێکەوتنە پەسەندکراوەکان',
     'Browse by category': 'بەپێی جۆر بگەڕێ',
     'Contribute': 'بەخشین',
+    'Saved campaigns': 'کەمپینە هەڵگیراوەکان',
+    'Campaigns you bookmarked to give to later.':
+        'ئەو کەمپینانەی کە هەڵتگرتوون بۆ بەخشین لە دواتردا.',
+    'No saved campaigns yet.': 'هێشتا هیچ کەمپینێک هەڵنەگیراوە.',
+    'Tap the bookmark on any campaign to save it here for later.':
+        'کلیک لەسەر ئایکۆنی هەڵگرتن لە هەر کەمپینێک بکە بۆ هەڵگرتنی لێرە.',
+    'Could not load your saved campaigns.':
+        'نەتوانرا کەمپینە هەڵگیراوەکانت باربکرێن.',
+    'Could not remove this campaign.': 'نەتوانرا ئەم کەمپینە لابردرێت.',
     'Contribution amount': 'بڕی بەخشین',
     'Contribution status': 'بارودۆخی بەخشین',
     'Contribution summary': 'پوختەی بەخشین',
@@ -8486,6 +8614,7 @@ class AppTranslations extends Translations {
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
     'reg_id_photo_back': 'کارتی نیشتمانی / ناسنامە (لای پشتەوە)',
     'reg_residence_card_photo_back': 'کارتی نیشتەجێبوون (لای پشتەوە)',
+    'reg_ration_card_photo_back': 'کارتی خۆراک (لای پشتەوە)',
     'admin_announcement': 'ڕاگەیاندنی بەڕێوەبەرایەتی',
     'admin_new_beneficiary_case': 'کەیسی نوێی وەرگری شایستە',
     'admin_new_guest_account': 'هەژماری میوانی نوێ',
@@ -8600,8 +8729,8 @@ class AppTranslations extends Translations {
     'Show password': 'پیشاندانی وشەی تێپەڕ',
     'Hide password': 'شاردنەوەی وشەی تێپەڕ',
     'New here? Create an account': 'نوێیت لێرە؟ هەژمارێک دروست بکە',
-    'This number has no password yet. Verify it to choose one.':
-        'ئەم ژمارەیە هێشتا وشەی تێپەڕی نییە. پشتڕاستی بکەرەوە بۆ هەڵبژاردنی یەکێک.',
+    'Verify this number to continue — you\'ll set a password next.':
+        'ئەم ژمارەیە پشتڕاست بکەرەوە بۆ بەردەوامبوون — دواتر وشەیەکی تێپەڕ هەڵدەبژێریت.',
     'Verify my number': 'پشتڕاستکردنەوەی ژمارەکەم',
     'Choose a password': 'وشەیەکی تێپەڕ هەڵبژێرە',
     'Your number is verified. This password is how you will sign in from now on.':
@@ -8784,6 +8913,11 @@ class AppTranslations extends Translations {
         'نەتوانرا داواکاری خزمەتگوزارییەکەت بنێردرێت.',
     'error_subscription_failed': 'نەتوانرا بەشداریەکەت تەواو بکرێت.',
     'error_photo_upload_failed': 'نەتوانرا وێنەکەت بارکرێت.',
+    'photo_source_camera': 'وێنە گرتن',
+    'photo_source_gallery': 'هەڵبژاردن لە گەلەری',
+    'error_photo_access_denied':
+        'ڕێگە نەدرا. مۆڵەتی کامێرا یان وێنەکان لە ڕێکخستنەکان چالاک بکە بۆ بەردەوامبوون.',
+    'error_camera_unavailable': 'کامێرا ئێستا بەردەست نییە.',
     'error_attachment_upload_failed': 'نەتوانرا ئەو بەڵگەنامەیە بارکرێت.',
     'error_order_checkout_failed': 'نەتوانرا داواکارییەکەت تۆمار بکرێت.',
     'error_case_submit_failed': 'نەتوانرا کەیسەکەت بنێردرێت.',
@@ -10218,6 +10352,9 @@ class AppTranslations extends Translations {
     'Social summary': 'کورتەیا جڤاکی',
     'Sponsorship type': 'جۆرێ پاڵپشتیێ',
     'Status': 'بارودۆخ (Status)',
+    'campaign_status_active': 'چالاک',
+    'campaign_status_hidden': 'شاراوە',
+    'campaign_status_finished': 'تەواببوو',
     'Status & activity': 'بارودۆخ و چالاکی',
     'Status alerts': 'ئاگەهداریێن حالەتی',
     'Subject': 'بابەت',
@@ -10937,6 +11074,28 @@ class AppTranslations extends Translations {
     'Not now': 'نوکە نە',
     'chat_support': 'پەیوەندی ب پشتەڤانیێ',
     'chat_support_desc': 'ڕاستەرێک لەگەل تیما پشتەڤانی / تەکنیکی ئاخڤتنێ بکە.',
+    'chat_supervised_closed_title': 'ئەڤ ئاخفتنە بۆ نوکە گرتییە.',
+    'chat_supervised_closed_body':
+        'دەمێ رێڤەبەری بەشداری دکەت دێ هێتە ڤەکرن. د ڤێ ناڤبەرێ دا دشێی بخوینی و دێ ئاگەهدار بی دەمێ هاتە ڤەکرن.',
+    'chat_state_open': 'ڤەکری',
+    'chat_state_closed': 'گرتی',
+    'area_city_hint': 'باژێرێ خۆ هەلبژێرە',
+    'area_district': 'قەزا',
+    'area_district_hint': 'قەزایێ هەلبژێرە',
+    'area_subdistrict': 'ناحیە',
+    'area_subdistrict_hint': 'ناحیێ هەلبژێرە',
+    'area_optional': '(ب دلخوازی)',
+    'area_none': '— چ نە —',
+    'areas_load_failed': 'نەشیا لیستا باژێران بهێتە بارکرن.',
+    'support_section_title': 'کیژ بەشێ پشتەڤانیێ؟',
+    'support_section_hint': 'وی بەشی هەلبژێرە یێ پسیارا تە پێڤە گرێدای.',
+    'support_section_events': 'پشتەڤانیا چالاکیان',
+    'support_section_events_desc': 'پسیار دەربارەی چالاکیان و بەشێ چالاکیان',
+    'support_section_volunteers': 'پشتەڤانیا خۆبەخشان',
+    'support_section_volunteers_desc': 'پسیار دەربارەی خۆبەخشیێ و ئەرکان',
+    'support_section_required': 'بەشێ پشتەڤانیێ هەلبژێرە',
+    'volunteers_support_tile': 'نامەیەکێ بۆ تیما پشتەڤانیا خۆبەخشان بهنێرە',
+    'volunteers_support_tile_desc': 'پسیار یان ئاریشە دەربارەی خۆبەخشیێ',
     'chat_support_failed': 'نەشیا چاتێ پشتەڤانیێ ڤەبیت. دیسا هەوڵ بدە.',
     // Copied VERBATIM from 'Technical Support' in this same map; see the note
     // in the Sorani map.
@@ -11011,7 +11170,7 @@ class AppTranslations extends Translations {
     'marriage_chat_status_active': 'چالاک',
     'marriage_chat_status_declined': 'هاتیە ڕەتکرن',
     'marriage_chat_mediated_notice':
-        'کارمەند دشێن ڤێ گفتوگۆیێ ببینن و یارمەتیا ڕێکخستنێ بدەن.',
+        'ئەڤ ئاخفتنە ب ئامادەبوونا رێڤەبەریێ دبیت، ئەو ڤەدکەت و دگریت.',
     'marriage_chat_pending_owner_notice':
         'کەسەکێ داخوازا گفتوگۆیێ دەربارەی پرۆفایلا تە کریە.',
     'marriage_chat_pending_requester_notice':
@@ -11310,6 +11469,15 @@ class AppTranslations extends Translations {
         'گفتوگۆیێن ب ڕێڤەبرنا ستافی بۆ چاڤدیتنێن پەسندکری',
     'Browse by category': 'ب جۆری بگەڕە',
     'Contribute': 'بەخشین',
+    'Saved campaigns': 'کەمپینە هەڵگیراوەکان',
+    'Campaigns you bookmarked to give to later.':
+        'ئەو کەمپینانەی کە هەڵتگرتوون بۆ بەخشین لە دواتردا.',
+    'No saved campaigns yet.': 'هێشتا هیچ کەمپینێک هەڵنەگیراوە.',
+    'Tap the bookmark on any campaign to save it here for later.':
+        'کلیک لەسەر ئایکۆنی هەڵگرتن لە هەر کەمپینێک بکە بۆ هەڵگرتنی لێرە.',
+    'Could not load your saved campaigns.':
+        'نەتوانرا کەمپینە هەڵگیراوەکانت باربکرێن.',
+    'Could not remove this campaign.': 'نەتوانرا ئەم کەمپینە لابردرێت.',
     'Contribution amount': 'بڕێ بەخشینێ',
     'Contribution status': 'دۆخا بەخشینێ',
     'Contribution summary': 'کورتاهیا بەخشینێ',
@@ -11375,6 +11543,7 @@ class AppTranslations extends Translations {
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
     'reg_id_photo_back': 'کارتا نەتەوەیی / ناسنامێ (لایێ پشت)',
     'reg_residence_card_photo_back': 'کارتا نشینگەهێ (لایێ پشت)',
+    'reg_ration_card_photo_back': 'کارتا خوارنێ (لایێ پشت)',
     'admin_announcement': 'ڕاگەهاندنا بەڕێڤەبەریێ',
     'admin_new_beneficiary_case': 'کەیسا نوی یا وەرگرێ شایستە',
     'admin_new_guest_account': 'هەژمارا میوانێ نوی',
@@ -11489,8 +11658,8 @@ class AppTranslations extends Translations {
     'Show password': 'پەیڤا تێپەڕێ نیشا بدە',
     'Hide password': 'پەیڤا تێپەڕێ ڤەشێرە',
     'New here? Create an account': 'نویی ل ڤێرێ؟ هەژمارەکێ چێکە',
-    'This number has no password yet. Verify it to choose one.':
-        'ڤێ ژمارەی هێشتا پەیڤا تێپەڕێ نینە. وێ پشتڕاست بکە دا ئێکێ هەلبژێری.',
+    'Verify this number to continue — you\'ll set a password next.':
+        'ڤێ ژمارەی پشتڕاست بکە دا بەردەوام بی — دویتر تێ پەیڤەکا تێپەڕێ هەلبژێری.',
     'Verify my number': 'ژمارا خۆ پشتڕاست بکە',
     'Choose a password': 'پەیڤەکا تێپەڕێ هەلبژێرە',
     'Your number is verified. This password is how you will sign in from now on.':
@@ -11671,6 +11840,11 @@ class AppTranslations extends Translations {
         'نەشیا داخوازا خزمەتگوزاریا تە بهێتە شاندن.',
     'error_subscription_failed': 'نەشیا بەشداریا تە بهێتە تەمامکرن.',
     'error_photo_upload_failed': 'نەشیا وێنا تە بهێتە بارکرن.',
+    'photo_source_camera': 'وێنە گرتن',
+    'photo_source_gallery': 'هەلبژارتن ژ گەلەری',
+    'error_photo_access_denied':
+        'مۆڵەت نەهاتە دان. مۆڵەتا کامێرا یان وێنان ژ ڕێکخستنان چالاک بکە بۆ بەردەوامبوونێ.',
+    'error_camera_unavailable': 'کامێرا نوکە بەردەست نینە.',
     'error_attachment_upload_failed': 'نەشیا ئەو بەلگەنامە بهێتە بارکرن.',
     'error_order_checkout_failed': 'نەشیا داخوازا تە بهێتە تۆمارکرن.',
     'error_case_submit_failed': 'نەشیا کەیسا تە بهێتە شاندن.',

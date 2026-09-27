@@ -177,6 +177,8 @@ const String cityCategoriesUrl = '${baseUrl}city-categories';
 /// pickers. Public, like the two above; scoped with `?group=` (see
 /// districts_api.dart).
 const String districtsUrl = '${baseUrl}districts';
+// Migration 136 — cities / districts / sub-districts under one governorate.
+const String areasUrl = '${baseUrl}areas';
 
 /// POST: a user suggests a new City Guide place → admin approval queue (#30).
 const String communitySubmitUrl = '${baseUrl}community/submit';

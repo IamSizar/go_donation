@@ -1,22 +1,167 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
+import 'package:flutter_application_1/core/app_share.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
+import 'package:flutter_application_1/modules/donations/widgets/campaign_engagement.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/shared/widgets/operation_status_badge.dart';
 import 'package:get/get.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Full campaign details from the list API; opened when the user taps a featured card.
-class CampaignDetailScreen extends StatelessWidget {
+class CampaignDetailScreen extends StatefulWidget {
   const CampaignDetailScreen({super.key, required this.campaign});
 
   final FeaturedCampaignData campaign;
 
   @override
+  State<CampaignDetailScreen> createState() => _CampaignDetailScreenState();
+}
+
+class _CampaignDetailScreenState extends State<CampaignDetailScreen> {
+  final _api = ModuleApi();
+
+  // Client report 2026-09-22 — the screen used to show `campaign.likeCount` /
+  // `commentCount` as dead numbers with no way to move them. Seeded from the
+  // list payload, then updated locally as the viewer likes/comments so the
+  // screen doesn't need a full reload to reflect their own action.
+  late int _likeCount = widget.campaign.likeCount;
+  late int _commentCount = widget.campaign.commentCount;
+  bool _liked = false;
+
+  // Client report — a spinner on every tap made a spammed like/unlike feel
+  // laggy, even though the toggle itself is cheap. `_liked`/`_likeCount`
+  // flip instantly on tap; the server call is debounced behind that so a
+  // burst of taps produces exactly one request once the user stops, not one
+  // per tap. `_likedSyncedWithServer` is the last state the server actually
+  // confirmed — the debounced sync only fires the (toggle-only) API when the
+  // user's current choice still disagrees with that, so it self-corrects
+  // for the net effect of however many taps happened, not literally each one.
+  bool _likedSyncedWithServer = false;
+  bool _likeSyncInFlight = false;
+  Timer? _likeSyncDebounce;
+
+  @override
+  void dispose() {
+    _likeSyncDebounce?.cancel();
+    _saveSyncDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggleLike() async {
+    if (!await requireSignIn(context)) return;
+    if (!mounted) return;
+    setState(() {
+      _liked = !_liked;
+      _likeCount += _liked ? 1 : -1;
+    });
+    AppHaptics.gentle();
+    _likeSyncDebounce?.cancel();
+    _likeSyncDebounce = Timer(
+      const Duration(milliseconds: 700),
+      _syncLikeWithServer,
+    );
+  }
+
+  Future<void> _syncLikeWithServer() async {
+    if (_likeSyncInFlight) return;
+    if (_liked == _likedSyncedWithServer) return;
+    _likeSyncInFlight = true;
+    final target = _liked;
+    try {
+      final res = await _api.likeCampaign(widget.campaign.id);
+      if (!mounted) return;
+      _likedSyncedWithServer = res['liked'] == true;
+      // Only adopt the server's count if the viewer's choice hasn't moved
+      // on again while this request was in flight — otherwise the retry
+      // below will catch the newer state on its own next pass.
+      if (_liked == target) {
+        setState(() {
+          _likeCount = (res['like_count'] as num?)?.toInt() ?? _likeCount;
+        });
+      }
+    } catch (_) {
+      // Left as a local-only state; the next tap's debounce (or the retry
+      // below finding _liked still != _likedSyncedWithServer) tries again.
+    } finally {
+      _likeSyncInFlight = false;
+      if (mounted && _liked != _likedSyncedWithServer) {
+        _syncLikeWithServer();
+      }
+    }
+  }
+
+  // Client report — save mirrors the like button's optimistic pattern
+  // (instant flip, debounced single sync call) for the same reason: a
+  // bookmark toggle is cheap, so there's no reason a tap should ever show
+  // a spinner or wait on the network.
+  bool _saved = false;
+  bool _savedSyncedWithServer = false;
+  bool _saveSyncInFlight = false;
+  Timer? _saveSyncDebounce;
+
+  Future<void> _toggleSave() async {
+    if (!await requireSignIn(context)) return;
+    if (!mounted) return;
+    setState(() => _saved = !_saved);
+    AppHaptics.gentle();
+    _saveSyncDebounce?.cancel();
+    _saveSyncDebounce = Timer(
+      const Duration(milliseconds: 700),
+      _syncSaveWithServer,
+    );
+  }
+
+  Future<void> _syncSaveWithServer() async {
+    if (_saveSyncInFlight) return;
+    if (_saved == _savedSyncedWithServer) return;
+    _saveSyncInFlight = true;
+    try {
+      final res = await _api.saveCampaign(widget.campaign.id);
+      if (!mounted) return;
+      _savedSyncedWithServer = res['saved'] == true;
+    } catch (_) {
+      // Same posture as _syncLikeWithServer: left local-only, retried below.
+    } finally {
+      _saveSyncInFlight = false;
+      if (mounted && _saved != _savedSyncedWithServer) {
+        _syncSaveWithServer();
+      }
+    }
+  }
+
+  Future<void> _shareCampaign(BuildContext context) async {
+    final c = widget.campaign;
+    final parts = <String>[c.title, if (c.summary.trim().isNotEmpty) c.summary];
+    // Client report — this used to have no share action at all; deep links
+    // straight back to this campaign (see app_share.dart's withEntityLink).
+    await Share.share(
+      withEntityLink(parts.join('\n\n'), 'campaigns', c.id),
+      sharePositionOrigin: shareAnchor(context),
+    );
+  }
+
+  Future<void> _openComments() async {
+    if (!await requireSignIn(context)) return;
+    if (!mounted) return;
+    openCampaignComments(
+      context,
+      campaignId: widget.campaign.id,
+      api: _api,
+      onCommentPosted: () => setState(() => _commentCount++),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = campaign;
+    final c = widget.campaign;
     final accent = AppThemeConfig.accent(context);
     final summaryShort = c.summary.trim();
     final heroSummary = summaryShort.isNotEmpty
@@ -48,6 +193,18 @@ class CampaignDetailScreen extends StatelessWidget {
                     campaign: c,
                     accent: accent,
                     summaryText: heroSummary,
+                  ),
+                  const SizedBox(height: 12),
+                  _EngagementBar(
+                    accent: accent,
+                    liked: _liked,
+                    saved: _saved,
+                    likeCount: _likeCount,
+                    commentCount: _commentCount,
+                    onLike: _toggleLike,
+                    onComment: _openComments,
+                    onSave: _toggleSave,
+                    onShare: () => _shareCampaign(context),
                   ),
                   const SizedBox(height: 18),
                   if (c.descriptionLong.isNotEmpty &&
@@ -221,29 +378,10 @@ class CampaignDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  _DetailSection(
-                    title: 'Status & activity',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _DetailRow(
-                          label: 'Status',
-                          value: c.status.trim().isNotEmpty ? c.status : '—',
-                        ),
-                        _DetailRow(label: 'Likes', value: '${c.likeCount}'),
-                        _DetailRow(
-                          label: 'Comments',
-                          value: '${c.commentCount}',
-                        ),
-                        if (c.userId > 0)
-                          _DetailRow(
-                            label: 'Organizer user ID',
-                            value: '${c.userId}',
-                          ),
-                      ],
-                    ),
-                  ),
+                  // "Status & activity" section removed entirely (client
+                  // request) — Status/Likes/Comments/Organizer user ID were
+                  // internal-looking fields with no donor-facing value, and
+                  // Likes/Comments duplicated the real _EngagementBar above.
                   const SizedBox(height: 100),
                 ],
               ),
@@ -301,6 +439,120 @@ class CampaignDetailScreen extends StatelessWidget {
   }
 }
 
+/// Client report 2026-09-22 — a real like toggle + a "open the comments
+/// sheet" button, replacing the dead like_count/comment_count display.
+class _EngagementBar extends StatelessWidget {
+  const _EngagementBar({
+    required this.accent,
+    required this.liked,
+    required this.saved,
+    required this.likeCount,
+    required this.commentCount,
+    required this.onLike,
+    required this.onComment,
+    required this.onSave,
+    required this.onShare,
+  });
+
+  final Color accent;
+  final bool liked;
+  final bool saved;
+  final int likeCount;
+  final int commentCount;
+  final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onSave;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _EngagementButton(
+          icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          color: liked ? accent : AppThemeConfig.mutedText(context),
+          label: '$likeCount',
+          onTap: onLike,
+        ),
+        const SizedBox(width: 10),
+        _EngagementButton(
+          icon: Icons.mode_comment_outlined,
+          color: AppThemeConfig.mutedText(context),
+          label: '$commentCount',
+          onTap: onComment,
+        ),
+        const Spacer(),
+        // Client report — Save/Share existed on marriage posts and news but
+        // not here; same two icon-only buttons (no count — neither is a
+        // tally the way likes/comments are), trailing rather than grouped
+        // with like/comment since they're actions ON the card, not reactions
+        // TO it.
+        _EngagementButton(
+          icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+          color: saved ? accent : AppThemeConfig.mutedText(context),
+          onTap: onSave,
+        ),
+        const SizedBox(width: 10),
+        _EngagementButton(
+          icon: Icons.share_outlined,
+          color: AppThemeConfig.mutedText(context),
+          onTap: onShare,
+        ),
+      ],
+    );
+  }
+}
+
+class _EngagementButton extends StatelessWidget {
+  const _EngagementButton({
+    required this.icon,
+    required this.color,
+    this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String? label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppThemeConfig.surface(context),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // THE BUG THIS FIXES: a spinner here on every tap made a
+              // spammed like/unlike feel laggy even though the toggle is
+              // cheap — the button now flips instantly (see _toggleLike's
+              // comment) and the icon never shows a loading state.
+              Icon(icon, size: 18, color: color),
+              if (label != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label!,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroSummaryCard extends StatelessWidget {
   const _HeroSummaryCard({
     required this.campaign,
@@ -354,20 +606,26 @@ class _HeroSummaryCard extends StatelessWidget {
                     // "X% Partially funded" is wide — leaving the title's
                     // Expanded only the leftover sliver. For a long title
                     // ("Medical Aid for Cancer Patients") that sliver was
-                    // narrower than a single word at this 22px bold size,
+                    // narrower than a single word at the title's font size,
                     // so every word wrapped onto its own line, turning the
                     // title into a tall single-word-per-line column. Giving
                     // the title its own full-width line first, with the
                     // pill on the line below, means the title always wraps
                     // against the card's full width instead of whatever the
                     // pill left over.
+                    // THE BUG THIS FIXES: `c.title` is often the campaign's
+                    // full descriptive sentence, not a short headline (seed/
+                    // admin data quality, not a client fix) — at 22px/w800
+                    // that read as a wall of shouting text spanning 6-7
+                    // lines. Sized down to a normal-weight paragraph size so
+                    // a long title reads as a title, not a cluttered block.
                     Text(
                       c.title,
                       style: TextStyle(
                         color: AppThemeConfig.text(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                        height: 1.25,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 8),

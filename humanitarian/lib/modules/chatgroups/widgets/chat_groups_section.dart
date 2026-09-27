@@ -296,6 +296,11 @@ class _GroupTile extends StatelessWidget {
         _GroupAvatar(isMasked: group.isMasked),
         const SizedBox(width: AppSpace.sm),
         Expanded(child: _GroupText(group: group)),
+        // OPOS 48992 — "closed" until the admin opens the conversation.
+        if (group.isClosed) ...[
+          const SizedBox(width: AppSpace.xs),
+          _ClosedChip(),
+        ],
         if (hasUnread) ...[
           const SizedBox(width: AppSpace.xs),
           _UnreadBadge(groupId: group.id, count: group.unreadCount),
@@ -428,6 +433,29 @@ class _UnreadBadge extends StatelessWidget {
               color: AppThemeConfig.onAccent(context),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Closed" marker on a group the admin has not opened (or has closed).
+class _ClosedChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFB26A00);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        'chat_state_closed'.tr,
+        style: const TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

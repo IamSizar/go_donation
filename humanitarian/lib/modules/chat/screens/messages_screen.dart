@@ -18,6 +18,7 @@ import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
 import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/chat/widgets/chat_request_card.dart';
@@ -47,24 +48,34 @@ final ValueNotifier<String?> supportChatError = ValueNotifier<String?>(null);
 /// treatment on screen — see [SupportChatResult].
 final ValueNotifier<bool> supportChatUnavailable = ValueNotifier<bool>(false);
 
+/// The department the last attempt was for, so Retry repeats that attempt
+/// instead of asking the user to choose again.
+String? _lastSupportSection;
+
 Future<void> openSupportChat(
   BuildContext context, {
+  // The support department; asked for when not given (see support_sections).
+  String? section,
   // A seam for tests, defaulted so every call site is unchanged. The two
   // failure branches set different notifiers and that difference is the whole
   // fix, so it needs asserting.
   ModuleApi api = const ModuleApi(),
 }) async {
+  section ??= await pickSupportSection(context);
+  if (section == null) return;
+  _lastSupportSection = section;
+
   supportChatError.value = null;
   supportChatUnavailable.value = false;
 
-  final result = await api.openSupportThread();
+  final result = await api.openSupportThread(section: section);
 
   switch (result) {
     case SupportChatOpened(:final threadId):
       Get.to(
         () => ChatConversationScreen(
           threadId: threadId,
-          title: 'chat_support'.tr,
+          title: supportSectionLabel(section) ?? 'chat_support'.tr,
         ),
       );
 
@@ -173,7 +184,8 @@ class MessagesScreen extends StatelessWidget {
               padding: const EdgeInsets.only(top: 10),
               child: AppErrorState(
                 message: message,
-                onRetry: () => openSupportChat(context),
+                onRetry: () =>
+                    openSupportChat(context, section: _lastSupportSection),
               ),
             );
           },

@@ -46,7 +46,7 @@ const List<BotQA> _aboutAppQAs = [
       'kmr': 'ئەڤ ئەپە چییە و چ دکەت؟',
     },
     answer:
-        'BalanceNex is a humanitarian aid platform that connects grantors, '
+        'Tawazzn is a humanitarian aid platform that connects grantors, '
         'eligibles and volunteers. You can donate to campaigns, sponsor '
         'families through Kafala, request or receive aid, buy and sell in the '
         'eligible marketplace, join volunteer missions, and reach community '

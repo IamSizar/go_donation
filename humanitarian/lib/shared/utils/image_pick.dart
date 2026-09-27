@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 
 /// Pick a photo and let the user choose its shape before it is uploaded (#20).
 ///
@@ -105,7 +108,16 @@ const Set<String> _accountImageRules = {
 };
 
 /// Opens the gallery (or camera), then the cropper, and returns the path of
-/// the cropped file — or null if the user backed out of either step.
+/// the cropped file — or null if the user backed out of any step.
+///
+/// Client note — every upload button (ID card, personal photo, attachments…)
+/// only ever opened the gallery: there was no way to take a new picture and
+/// have it uploaded on the spot. [source] now defaults to null, which means
+/// "ask": [chooseImageSource] puts up a sheet offering the camera or the
+/// gallery, and whichever the user taps is what opens. Passing an explicit
+/// [source] skips the sheet and opens that one directly — for a caller that
+/// only ever wants one of the two (mission check-in's camera-only capture
+/// does this itself, without going through here at all).
 ///
 /// [lockRatio] fixes the crop box to one shape and hides the ratio chooser.
 /// Leave it null to offer [shapes] plus a free-form option.
@@ -115,19 +127,43 @@ const Set<String> _accountImageRules = {
 /// chose is the file that is uploaded, byte for byte.
 Future<String?> pickCroppedImage(
   BuildContext context, {
-  ImageSource source = ImageSource.gallery,
+  ImageSource? source,
   PhotoShape? lockRatio,
   List<PhotoShape> shapes = PhotoShape.values,
   PhotoFidelity fidelity = PhotoFidelity.display,
 }) async {
-  final picked = await ImagePicker().pickImage(
-    source: source,
-    // Null for a document, which is what makes image_picker hand back the
-    // original rather than a re-encoded copy of it.
-    maxWidth: fidelity._maxEdge,
-    maxHeight: fidelity._maxEdge,
-    imageQuality: fidelity.pickQuality,
-  );
+  final chosenSource = source ?? await chooseImageSource(context);
+  // Null means the sheet was dismissed without a choice — the same "backed
+  // out" outcome as cancelling the picker itself.
+  if (chosenSource == null) return null;
+  if (!context.mounted) return null;
+
+  XFile? picked;
+  try {
+    picked = await ImagePicker().pickImage(
+      source: chosenSource,
+      // Null for a document, which is what makes image_picker hand back the
+      // original rather than a re-encoded copy of it.
+      maxWidth: fidelity._maxEdge,
+      maxHeight: fidelity._maxEdge,
+      imageQuality: fidelity.pickQuality,
+    );
+  } on PlatformException catch (e) {
+    // The one failure worth telling the user about by name: the camera (or
+    // photo library, on iOS) permission was refused, or revoked in Settings
+    // since — tapping the button and having nothing happen would read as a
+    // broken control. Every other PlatformException (no camera hardware, the
+    // picker already open) is rare enough that the generic message covers it.
+    if (context.mounted) {
+      final denied =
+          e.code == 'camera_access_denied' || e.code == 'photo_access_denied';
+      Get.snackbar(
+        'Error'.tr,
+        (denied ? 'error_photo_access_denied' : 'error_camera_unavailable').tr,
+      );
+    }
+    return null;
+  }
   if (picked == null) return null;
 
   // A document skips the crop. Framing is not worth a second JPEG generation
@@ -216,5 +252,89 @@ Future<String?> cropImage(
     return cropped?.path;
   } catch (_) {
     return path;
+  }
+}
+
+/// Puts up a sheet offering the camera or the gallery, and returns whichever
+/// the user tapped — or null if they dismissed it without choosing.
+///
+/// Client note: every upload button in the app only ever opened the gallery.
+/// There was no way to take a NEW picture on the spot and have it uploaded —
+/// this sheet is the missing choice, shown by [pickCroppedImage] before it
+/// asks `image_picker` for anything.
+Future<ImageSource?> chooseImageSource(BuildContext context) {
+  return showModalBottomSheet<ImageSource>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => const _ImageSourceSheet(),
+  );
+}
+
+class _ImageSourceSheet extends StatelessWidget {
+  const _ImageSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(AppSpace.md),
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+        decoration: BoxDecoration(color: c.card, borderRadius: AppRadius.mdAll),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SourceRow(
+              icon: Icons.camera_alt_outlined,
+              label: 'photo_source_camera'.tr,
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            Divider(height: 1, color: c.ink.withValues(alpha: 0.08)),
+            _SourceRow(
+              icon: Icons.photo_library_outlined,
+              label: 'photo_source_gallery'.tr,
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceRow extends StatelessWidget {
+  const _SourceRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return AppPressable(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.lg,
+          vertical: AppSpace.md,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: c.ink),
+            const SizedBox(width: AppSpace.md),
+            Text(
+              label,
+              style: TextStyle(fontSize: AppType.body, color: c.ink),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

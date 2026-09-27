@@ -540,7 +540,17 @@ class _EngagementBar extends StatelessWidget {
           child: _EngageButton(
             icon: Icons.mode_comment_outlined,
             label: commentCount > 0 ? '$commentCount' : 'Comment'.tr,
-            onTap: () => _openComments(context, item, feed),
+            // THE BUG THIS FIXES: Like and Save both gate a guest behind
+            // requireSignIn (see #44); Comment never did, so a guest could
+            // open the compose sheet and post — the one engagement action
+            // here that writes new content, not just toggles existing
+            // state — with no gate at all.
+            onTap: () async {
+              final signedIn = await requireSignIn(context);
+              if (signedIn && context.mounted) {
+                _openComments(context, item, feed);
+              }
+            },
           ),
         ),
         Expanded(
@@ -621,14 +631,15 @@ Future<void> _sharePost(
   final body = localizedContentFromMap(item, 'body');
   final parts = <String>[title];
   if (body.trim().isNotEmpty) parts.add(body);
-  // #49 — include the app link so recipients can find the app.
+  // Client report — deep link back to this post, not just plain text (was
+  // the generic app link, which is empty, so no link at all).
   //
   // sharePositionOrigin is required, not cosmetic: without it iOS throws
   // "sharePositionOrigin: argument must be set" and this function never
   // reaches the shareMediaPost call below, so the share count went unrecorded
   // as well as the sheet never opening. See [shareAnchor].
   await Share.share(
-    withAppLink(parts.join('\n\n')),
+    withEntityLink(parts.join('\n\n'), 'media_posts', id == 0 ? null : id),
     sharePositionOrigin: shareAnchor(context),
   );
   if (id > 0) {

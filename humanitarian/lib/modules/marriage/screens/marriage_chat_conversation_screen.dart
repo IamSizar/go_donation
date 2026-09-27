@@ -225,7 +225,10 @@ class _MarriageChatConversationScreenState
           if (_status == 'pending' && isOwner)
             MarriageChatInviteBar(
               deciding: _deciding,
-              canAccept: !_acceptClosed && !ChatLifecycle.isClosed(_lifecycle),
+              // OPOS 48992: the chat STARTS closed (waiting for the admin),
+              // so closed must not block accepting — only an ended chat does.
+              canAccept:
+                  !_acceptClosed && _lifecycle != ChatLifecycle.ended,
               onAnswer: _decide,
             )
           else if (_status == 'pending' && !isOwner)
@@ -276,7 +279,11 @@ class _MarriageChatConversationScreenState
           // handshake, because a paused or ended chat is closed regardless of
           // whether the two sides ever accepted each other.
           if (ChatLifecycle.isClosed(_lifecycle))
-            ChatLifecycleNotice(lifecycle: _lifecycle, reason: _lifecycleReason)
+            ChatLifecycleNotice(
+              lifecycle: _lifecycle,
+              reason: _lifecycleReason,
+              supervised: true,
+            )
           else if (_status == 'active')
             _Composer(input: _input, sending: _sending, onSend: _send)
           else if (_status == 'declined')

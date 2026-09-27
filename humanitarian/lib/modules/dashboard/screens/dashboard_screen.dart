@@ -9,6 +9,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_screen.dart' show HeaderLogo;
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
@@ -799,15 +800,32 @@ class _TopBarTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text.tr,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-        color: AppThemeConfig.text(context),
-      ),
+    // Client note (2026-09-27, corrected same day): the app logo belongs
+    // right beside THIS title — the 4 bottom-nav tabs' own bar (لوحة التحكم /
+    // Marketplace / Events / City Guide) — not beside every screen's header
+    // app-wide, which an earlier version of this change wrongly did.
+    //
+    // 18, 30, then 40 (matching the bar's own ~42px icon-button circles) all
+    // still read as "too small" on the owner's screen. 56 makes it the
+    // dominant mark in the bar — clearly bigger than every control beside
+    // it, which is what "bigger and visible" turned out to mean.
+    return Row(
+      children: [
+        const HeaderLogo(size: 56),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            text.tr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppThemeConfig.text(context),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

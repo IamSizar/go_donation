@@ -20,6 +20,8 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/chat/chat_actions.dart';
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -295,6 +297,20 @@ class _SupportSectionState extends State<SupportSection>
                     await _refresh();
                   }
                 },
+              ),
+              const SizedBox(height: 12),
+              // Support split — this screen is the volunteers department, so
+              // its support door goes straight to the volunteers team (the
+              // events section's tile does the same for events).
+              SectionTile(
+                icon: Icons.support_agent_rounded,
+                title: 'volunteers_support_tile',
+                subtitle: 'volunteers_support_tile_desc',
+                color: AppThemeConfig.accent(context),
+                onTap: () => ChatActions.startSupportChat(
+                  context,
+                  section: kSupportSectionVolunteers,
+                ),
               ),
               const SizedBox(height: 12),
               if (joinedMissions.isNotEmpty) ...[

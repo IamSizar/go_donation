@@ -1,4 +1,4 @@
-package com.easytech.humanitarian
+package com.tawazzn
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

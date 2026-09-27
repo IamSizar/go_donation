@@ -214,6 +214,7 @@ class _ChatGroupConversationScreenState
       return ChatLifecycleNotice(
         lifecycle: lifecycle,
         reason: _ctrl.lifecycleReason.value,
+        supervised: true,
       );
     }
     return ChatGroupComposer(

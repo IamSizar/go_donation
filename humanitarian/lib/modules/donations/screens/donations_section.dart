@@ -10,6 +10,7 @@ import 'package:flutter_application_1/modules/donations/models/donation_draft.da
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donation_kind_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
+import 'package:flutter_application_1/modules/donations/screens/saved_campaigns_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -159,48 +160,68 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
       title: 'Contribute',
       subtitle:
           'Choose an amount, pick general support or a featured campaign, and make your support count.',
-      trailing: AppPressable(
-        onTap: () => Get.to(() => const MyDonationsPage()),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppThemeConfig.accent(context),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.teal.withValues(alpha: 0.13),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Client report — "where can I see the campaigns I've saved?".
+          // Same "See all"-adjacent placement marriage_posts_screen.dart
+          // uses for its own Saved entry point.
+          IconButton.filledTonal(
+            onPressed: () => Get.to(() => const SavedCampaignsScreen()),
+            icon: const Icon(Icons.bookmark_rounded, size: 20),
+            tooltip: 'Saved campaigns'.tr,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+              visualDensity: VisualDensity.standard,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.receipt_long_rounded,
-                color: AppThemeConfig.onAccent(context),
-                size: 18,
+          const SizedBox(width: 8),
+          AppPressable(
+            onTap: () => Get.to(() => const MyDonationsPage()),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppThemeConfig.accent(context),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.teal.withValues(alpha: 0.13),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              const SizedBox(width: 7),
-              Text(
-                'See all'.tr,
-                style: TextStyle(
-                  color: AppThemeConfig.onAccent(context),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15.5,
-                  letterSpacing: 0.1,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    color: AppThemeConfig.onAccent(context),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    'See all'.tr,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.5,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    AppIcons.forward(context),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.6),
+                    size: 16,
+                  ),
+                ],
               ),
-              const SizedBox(width: 2),
-              Icon(
-                AppIcons.forward(context),
-                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.6),
-                size: 16,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
       child: RefreshIndicator(
         onRefresh: campaignsController.refreshCampaigns,

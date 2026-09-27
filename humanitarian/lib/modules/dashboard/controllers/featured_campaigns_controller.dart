@@ -236,6 +236,54 @@ class FeaturedCampaignsController extends GetxController
 
   Future<void> refreshCampaigns() => fetchCampaigns();
 
+  /// Client report — "where can I see the campaigns I've saved?" GET
+  /// [featuredCampaignsUrl] with `saved=1&user_id=` (the campaigns list's own
+  /// save toggle is POST /campaigns/:id/save; this is the matching read side,
+  /// same `?saved=1` shape as GET /media?saved=1). Throws on failure rather
+  /// than returning an empty list, so the "My saved campaigns" screen can
+  /// tell "you saved nothing" apart from "the request failed".
+  Future<List<FeaturedCampaignData>> fetchSavedCampaigns(int userId) async {
+    var token = sharedPreferences.getString(kCampaignsCsrfPrefsKey);
+    if (token == null || token.isEmpty) {
+      if (!await fetchCampaignsCsrfToken()) {
+        throw Exception('Could not load campaigns security token.');
+      }
+      token = sharedPreferences.getString(kCampaignsCsrfPrefsKey);
+    }
+    if (token == null || token.isEmpty) {
+      throw Exception('Missing campaigns security token.');
+    }
+
+    final uri = Uri.parse(featuredCampaignsUrl).replace(
+      queryParameters: <String, String>{
+        'per_page': '100',
+        'status': 'all',
+        'saved': '1',
+        'user_id': '$userId',
+        'csrf_token': token,
+      },
+    );
+    final response = await _dio.get<dynamic>(uri.toString());
+    final body = _dioDataAsMap(response.data);
+    if (response.statusCode != 200 ||
+        body == null ||
+        body['status']?.toString() != 'success' ||
+        body['data'] is! List) {
+      throw Exception(body?['error']?.toString() ?? 'Failed to load saved campaigns.');
+    }
+    _persistCampaignsCsrfFromBody(body);
+
+    final raw = body['data'] as List;
+    final items = <FeaturedCampaignData>[];
+    for (final e in raw) {
+      final map = e is Map<String, dynamic>
+          ? e
+          : (e is Map ? Map<String, dynamic>.from(e) : null);
+      if (map != null) items.add(FeaturedCampaignData.fromJson(map));
+    }
+    return items;
+  }
+
   /// #33 — resolve a campaign id to its full [FeaturedCampaignData], even
   /// when it isn't within [campaigns] (that list caps at [fetchCampaigns]'s
   /// first page). Used to open a search result's exact campaign instead of

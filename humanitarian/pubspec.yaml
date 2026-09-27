@@ -51,6 +51,12 @@ dependencies:
   cached_network_image: ^3.4.1
   audioplayers: ^6.1.0
   url_launcher: ^6.3.1
+  # Client report — sharing a post/campaign had no real link in it at all
+  # (appShareUrl was empty), so tapping the shared text in some apps ran a
+  # web search instead of opening anything. app_links reads the custom
+  # balancenex:// scheme registered in Info.plist/AndroidManifest.xml so a
+  # tapped share link reopens THIS app at the specific thing that was shared.
+  app_links: ^6.3.3
   share_plus: ^10.1.4
   flutter_tts: ^4.2.0
   video_player: ^2.10.0
@@ -88,7 +94,7 @@ dev_dependencies:
   # mark. Run: dart run flutter_launcher_icons
   flutter_launcher_icons: ^0.14.1
 
-# BalanceNex launcher-icon config. The teal mark sits on a near-white plate;
+# Tawazzn launcher-icon config. The mark sits on a near-white plate;
 # iOS and Android apply their own corner masking, so the source stays square.
 #
 # THREE SOURCES, NOT ONE, because Android draws the icon three different ways
@@ -108,10 +114,10 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/branding/balancenex_icon.png"
+  image_path: "assets/branding/tawazzn_icon.png"
   adaptive_icon_background: "#FEFEFE"
-  adaptive_icon_foreground: "assets/branding/balancenex_icon_foreground.png"
-  adaptive_icon_monochrome: "assets/branding/balancenex_icon_monochrome.png"
+  adaptive_icon_foreground: "assets/branding/tawazzn_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/branding/tawazzn_icon_monochrome.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -155,10 +161,18 @@ flutter:
     # splash / about; also the source for the launcher + notification icons).
     - assets/branding/et_logo.png
     - assets/branding/et_logo_mono.png
-    # BalanceNex brand mark (icon crop) + full logo with wordmark, shown in-app
-    # on splash / welcome / login and used as the launcher-icon source.
-    - assets/branding/balancenex_icon.png
-    - assets/branding/balancenex_logo.png
+    # Tawazzn brand mark, shown in-app on splash / welcome / login and used as
+    # the launcher-icon source. Replaced 2026-09-27 (owner-supplied artwork) —
+    # the previous three files under this name were a leftover from the
+    # project's starting template and were never meant to ship; deleted along
+    # with `balancenex_logo.png`, an unused wordmark crediting that template
+    # by name, which never appeared on any screen but is gone now regardless.
+    - assets/branding/tawazzn_icon.png
+    # Transparent crop of the same mark (RGBA — no white square), for the
+    # bottom-nav top bar's own title (DashboardTopBar — لوحة التحكم /
+    # Marketplace / Events / City Guide). The plain icon above is opaque and
+    # would show a white tile on a dark header.
+    - assets/branding/tawazzn_icon_foreground.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

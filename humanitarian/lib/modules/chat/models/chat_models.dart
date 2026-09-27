@@ -23,6 +23,10 @@ class ChatThread {
   /// closed thread. Defaults to open, so an older server leaves Accept working.
   final String lifecycle;
 
+  /// Support split — the department of a support chat ('events' /
+  /// 'volunteers'); null for other chats and support chats from before it.
+  final String? supportSection;
+
   const ChatThread({
     required this.id,
     required this.status,
@@ -39,6 +43,7 @@ class ChatThread {
     required this.unreadCount,
     required this.assignedStaffName,
     this.lifecycle = 'open',
+    this.supportSection,
   });
 
   bool get isActive => status == 'active';
@@ -69,6 +74,7 @@ class ChatThread {
           ? null
           : m['assigned_staff_name'] as String?,
       lifecycle: (m['lifecycle'] ?? 'open').toString(),
+      supportSection: m['support_section']?.toString(),
     );
   }
 }

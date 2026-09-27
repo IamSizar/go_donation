@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,7 +25,12 @@ import 'package:url_launcher/url_launcher.dart';
 /// off in one frustrated sitting is a single attempt, not three, and should not
 /// unlock a channel that bypasses the queue.
 class TechnicalSupportScreen extends StatefulWidget {
-  const TechnicalSupportScreen({super.key});
+  const TechnicalSupportScreen({super.key, this.initialSection});
+
+  /// The support department to preselect ('events' / 'volunteers') when the
+  /// screen is opened from a place that already knows it. Otherwise the user
+  /// picks one on the form.
+  final String? initialSection;
 
   @override
   State<TechnicalSupportScreen> createState() => _TechnicalSupportScreenState();
@@ -33,6 +39,10 @@ class TechnicalSupportScreen extends StatefulWidget {
 class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   final _subject = TextEditingController();
   final _message = TextEditingController();
+
+  /// Support split — which department the new ticket is for. Required, so
+  /// it reaches the right staff instead of the unsectioned queue.
+  late String? _section = widget.initialSection;
 
   List<Map<String, dynamic>> _tickets = const [];
   bool _loading = true;
@@ -48,7 +58,9 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   /// True while both fields hold something. Drives the send button, so a
   /// doomed request can never fire (rule 5.6).
   bool get _canSend =>
-      _subject.text.trim().isNotEmpty && _message.text.trim().isNotEmpty;
+      _section != null &&
+      _subject.text.trim().isNotEmpty &&
+      _message.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -127,7 +139,7 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
     // The button is already gated on _canSend, so this only catches a send
     // racing the last keystroke. The inline messages under the fields, not a
     // snackbar, are what tell the user WHICH field is missing.
-    if (subject.isEmpty || message.isEmpty) {
+    if (_section == null || subject.isEmpty || message.isEmpty) {
       setState(() => _submitAttempted = true);
       return;
     }
@@ -142,6 +154,7 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
       await const ModuleApi().postJson(supportTicketsUrl, {
         'subject': subject,
         'message': message,
+        'section': _section,
       });
       _subject.clear();
       _message.clear();
@@ -201,6 +214,14 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  SupportSectionSelector(
+                    value: _section,
+                    onChanged: (s) => setState(() => _section = s),
+                    errorText: _submitAttempted && _section == null
+                        ? 'support_section_required'.tr
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   // Inline, per-field validation. The error names the rule
@@ -406,6 +427,7 @@ class _TicketCard extends StatelessWidget {
     final status = (ticket['status'] ?? 'open').toString();
     final reply = (ticket['admin_reply'] ?? '').toString().trim();
     final created = (ticket['created_at'] ?? '').toString();
+    final section = supportSectionLabel(ticket['section']);
     final done = const {
       'closed',
       'resolved',
@@ -459,10 +481,15 @@ class _TicketCard extends StatelessWidget {
               ),
             ],
           ),
-          if (created.trim().isNotEmpty) ...[
+          // Which department the ticket went to, beside the date (null on
+          // tickets sent before support was split, which show the date only).
+          if (created.trim().isNotEmpty || section != null) ...[
             const SizedBox(height: 4),
             Text(
-              localizedDate(created),
+              [
+                if (section != null) section,
+                if (created.trim().isNotEmpty) localizedDate(created),
+              ].join('  ·  '),
               style: TextStyle(
                 color: AppThemeConfig.mutedText(context),
                 fontSize: 12,

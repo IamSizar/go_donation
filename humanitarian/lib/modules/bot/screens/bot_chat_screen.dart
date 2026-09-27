@@ -131,7 +131,7 @@ class _BotChatScreenState extends State<BotChatScreen>
   /// version of this unfocused whenever the inset read zero, and scheduled a
   /// post-frame callback on every metrics event. Unfocusing CHANGES the
   /// metrics, which schedules another check, which unfocuses again — the app
-  /// spun frames until Android put up "BalanceNex isn't responding". Acting
+  /// spun frames until Android put up "Tawazzn isn't responding". Acting
   /// only on open→closed makes it fire once and then find nothing to do,
   /// because after the keyboard is down the transition cannot repeat.
   @override

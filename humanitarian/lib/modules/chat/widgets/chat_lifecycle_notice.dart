@@ -45,10 +45,17 @@ class ChatLifecycleNotice extends StatelessWidget {
     super.key,
     required this.lifecycle,
     this.reason,
+    this.supervised = false,
   });
 
   final String lifecycle;
   final String? reason;
+
+  /// OPOS 48992 — a chat between two people that only runs while the admin
+  /// has it open (connect-request groups, marriage chats). Closed is its
+  /// normal waiting state, so it says "waiting for the admin" rather than
+  /// "paused by our team".
+  final bool supervised;
 
   @override
   Widget build(BuildContext context) {
@@ -59,10 +66,14 @@ class ChatLifecycleNotice extends StatelessWidget {
     // so it reads as neutral information rather than as a failure. Neither is
     // an error colour: nothing has gone wrong for the user.
     final tint = paused ? const Color(0xFFB26A00) : AppThemeConfig.mutedText(context);
-    final title = paused
+    final title = paused && supervised
+        ? 'chat_supervised_closed_title'.tr
+        : paused
         ? 'This conversation has been paused by our team.'.tr
         : 'This conversation has been closed by our team.'.tr;
-    final body = paused
+    final body = paused && supervised
+        ? 'chat_supervised_closed_body'.tr
+        : paused
         ? 'You can still read it. New messages can\'t be sent while it is paused.'
               .tr
         : 'You can still read the whole conversation, but no new messages can be sent.'

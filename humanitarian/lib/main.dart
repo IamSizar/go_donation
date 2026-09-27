@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/push_registration.dart';
+import 'package:flutter_application_1/core/deep_link_router.dart';
 import 'package:flutter_application_1/core/push_tap_router.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/app_translations.dart';
@@ -136,6 +137,10 @@ Future<void> main() async {
   // one decision, so a tap lands on the thing the notification is about.
   PushTapRouter.wire();
 
+  // Same idea as PushTapRouter, for a tapped balancenex:// share link
+  // instead of a tapped push — see deep_link_router.dart's header.
+  DeepLinkRouter.wire();
+
   await initializeAppState();
   // Loads the persisted access token into memory from the OS-encrypted
   // secure store (migrating any leftover plaintext token from older app
@@ -156,14 +161,45 @@ class HumanitarianApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, themeMode, _) => GetMaterialApp(
-        title: 'BalanceNex',
+        title: 'Tawazzn',
         debugShowCheckedModeBanner: false,
-        // Global swipe-back: enable the iOS-style edge drag-to-pop gesture on
-        // every pushed route AND on Android (GetX defaults this to iOS-only).
-        // On the root shell there's nothing to pop, so the gesture is inert
-        // there and the shell's own PopScope/back handling is unaffected. The
-        // Cupertino back gesture honors Directionality, so it mirrors under RTL.
-        popGesture: true,
+        // THE BUG THIS FIXES: this used to be a hardcoded `true`, turning on
+        // GetX's edge-swipe-to-pop gesture on Android too (GetX defaults it
+        // to iOS-only). Reported live: back out of a pushed screen (e.g.
+        // Events → a profile) with Android's OWN back gesture — a touch
+        // starting right at the screen edge, exactly where this recognizer
+        // also lives — and the WHOLE APP stops responding to any touch,
+        // needing a restart. Captured with adb logcat at the moment it
+        // happens: a system `BackPanelController` window (Android's native
+        // predictive-back edge panel) appears, the pop completes, and then
+        // not even a raw `PointerDownEvent` reaches Flutter's own root
+        // Listener again — not a widget swallowing the event, the SURFACE
+        // stops receiving input. Two separate "edge drag = go back"
+        // recognizers — Android's own gesture-nav panel and this one —
+        // owning the same screen edge at once. Android already has its own
+        // back gesture; it does not also need Flutter's. iOS has no
+        // equivalent system gesture GetX can hook into, which is why GetX's
+        // own default restricts this to iOS in the first place — this line
+        // now just stops overriding that default instead of fighting it.
+        popGesture: GetPlatform.isIOS,
+        // THE BUG THIS FIXES: every `Get.to()` call in this app that doesn't
+        // name its own `transition:` — the large majority of them — fell
+        // through to GetX's own default, `Transition.cupertino`. That
+        // transition keeps BOTH the outgoing and incoming screen's widget
+        // trees mounted and animating together (an iOS-style slide-over),
+        // so for the ~200ms the animation runs, the screen being popped is
+        // still on screen sliding away — including its own back arrow.
+        // Reported live: backing out of Events shows a stray back button
+        // top-left for "half a second" before it disappears — that stray
+        // button is the outgoing screen's real header, still mid-exit. A
+        // plain fade has no second screen's chrome to leak through: the
+        // outgoing screen fades out in place while the incoming one fades
+        // in, never both fully opaque and slid apart at once. Explicit
+        // `transition:`s already set on individual GetPages (splash,
+        // welcome, the auth flow) are unaffected — this only fills in the
+        // fallback for routes that never specified one.
+        defaultTransition: Transition.fadeIn,
+        transitionDuration: const Duration(milliseconds: 220),
         translations: AppTranslations(),
         locale: appLocale,
         fallbackLocale: AppLocaleService.english,
@@ -212,13 +248,32 @@ class HumanitarianApp extends StatelessWidget {
             transitionDuration: const Duration(milliseconds: 320),
           ),
           GetPage(name: AppRoutes.authLogin, page: () => const LoginPage()),
+          // THE BUG THIS FIXES: left without an explicit `transition`, these
+          // two fell back to GetX's own default — `Transition.cupertino`,
+          // which (unlike every other route here that bothered to pin one)
+          // keeps an edge-swipe-to-pop gesture recognizer live for the whole
+          // transition. A tap landing on the incoming page's first
+          // interactive control — reported here as tapping the new
+          // password field the instant "Choose a password" appeared — could
+          // land while that recognizer was still in the gesture arena
+          // deciding whether the touch was a tap or the start of a
+          // swipe-back, and lose the ambiguity: the route popped back to
+          // the OTP screen instead of focusing the field. Intermittent by
+          // nature (a timing race against the transition's own animation),
+          // which matches it working after a few retries once the
+          // transition had settled before the tap landed. `fadeIn` has no
+          // gesture recognizer of its own to race against.
           GetPage(
             name: AppRoutes.authVerify,
             page: () => const VerificationPage(),
+            transition: Transition.fadeIn,
+            transitionDuration: const Duration(milliseconds: 220),
           ),
           GetPage(
             name: AppRoutes.authCreatePassword,
             page: () => const CreatePasswordPage(),
+            transition: Transition.fadeIn,
+            transitionDuration: const Duration(milliseconds: 220),
           ),
           GetPage(
             name: AppRoutes.registration,

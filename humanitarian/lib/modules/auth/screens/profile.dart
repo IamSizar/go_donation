@@ -278,6 +278,19 @@ class _ProfileSectionState extends State<ProfileSection> {
                     },
                   ),
 
+                  // THE BUG THIS FIXES: the language switcher used to sit
+                  // under "Preferences", four sections and a full scroll
+                  // down from the top — reachable only by someone who could
+                  // already read "Profile & Settings" and "Preferences" to
+                  // navigate there. A person who opened the app in the
+                  // wrong language and can't read Latin script at all had no
+                  // way to find their way to the one control that would fix
+                  // that. Right after the identity card — the first thing
+                  // this screen shows — is the one placement that doesn't
+                  // depend on being able to read anything to reach it.
+                  const SizedBox(height: 16),
+                  const _LanguagePreferenceCard(),
+
                   const SizedBox(height: 22),
                   _SectionLabel('Account'.tr),
                   const SizedBox(height: 10),
@@ -366,8 +379,6 @@ class _ProfileSectionState extends State<ProfileSection> {
                   const SizedBox(height: 22),
                   _SectionLabel('Preferences'.tr),
                   const SizedBox(height: 10),
-                  const _LanguagePreferenceCard(),
-                  const SizedBox(height: 12),
                   const _ThemePreferenceCard(),
                   const SizedBox(height: 12),
                   const _NotificationPreferenceCard(),

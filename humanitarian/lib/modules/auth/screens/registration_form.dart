@@ -16,6 +16,7 @@ import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
+import 'package:flutter_application_1/modules/auth/widgets/area_picker.dart';
 import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
 import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
@@ -325,6 +326,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // "Attachments" section. Personal photo and National Card photo reuse the
   // grantor pickers' _personalPhotoPath/_idPhotoPath above.
   String? _rationCardPhotoPath;
+  // 138 — the ration card's back side (volunteer form).
+  String? _rationCardPhotoBackPath;
   String? _propertyProofPhotoPath;
   String? _medicalReportPhotoPath;
   String? _houseFacadePhotoPath;
@@ -347,17 +350,64 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // Volunteer/Employee registration spec — Personal / Housing / Social Media.
   final Set<String> _languages = <String>{};
   String? _district;
+  // Migration 136 — optional district (قضاء) / sub-district (ناحية) under the
+  // city, picked from the dashboard-managed Areas list. The city itself stays
+  // in _cityController (the `city` column), whether picked or typed.
+  String _areaDistrict = '';
+  String _areaSubdistrict = '';
+
+  /// True once the chosen governorate is known to have cities in the Areas
+  /// list: the city is then PICKED (AreaPicker under the governorate) and the
+  /// free-text city box goes away.
+  bool get _governorateHasCities =>
+      AreaDirectory.instance.peek(_governorate)?.hasCities ?? false;
+
+  /// The city is "filled" when it is one of the governorate's cities (picked),
+  /// or — for a governorate staff have not listed cities for — any typed text.
+  bool get _cityFilled {
+    final lists = AreaDirectory.instance.peek(_governorate);
+    if (lists != null && lists.hasCities) {
+      return lists.cityFor(_cityController.text) != null;
+    }
+    return _cityController.text.trim().isNotEmpty;
+  }
+
+  /// A new governorate invalidates the district / sub-district, and a city
+  /// that was PICKED from the old governorate's list (typed text is kept).
+  void _resetAreasFor(String? previousGovernorate) {
+    final prev = AreaDirectory.instance.peek(previousGovernorate);
+    if (prev != null && prev.cityFor(_cityController.text) != null) {
+      _cityController.clear();
+    }
+    _areaDistrict = '';
+    _areaSubdistrict = '';
+  }
+
+  /// The cascading city → district → sub-district pickers, placed under each
+  /// role's governorate dropdown.
+  Widget _areaPicker(BuildContext context) => AreaPicker(
+    governorate: _governorate,
+    city: _cityController.text,
+    district: _areaDistrict,
+    subdistrict: _areaSubdistrict,
+    showCity: !_isHidden('city'),
+    cityLabel: _label(context, 'reg_city', ruleKey: 'city'),
+    onChanged: (city, district, subdistrict) => setState(() {
+      _cityController.text = city;
+      _areaDistrict = district;
+      _areaSubdistrict = subdistrict;
+    }),
+  );
   final _socialOtherController = TextEditingController();
   // "Attachments" section — the formal personal photo, unified National Card
-  // and Ration Card reuse the pickers above.
-  String? _goldenSquarePhotoPath;
+  // and Ration Card reuse the pickers above. The merged "Golden Square" photo
+  // is no longer asked (migration 138): each card is its own front + back pair.
   String? _residenceCardPhotoPath;
   // 127 — the residence card's back side.
   String? _residenceCardPhotoBackPath;
   String? _passportPhotoPath;
   String? _graduationCertPhotoPath;
   String? _cvPhotoPath;
-
 
   // ─── Edit mode: the profile picture ────────────────────────────────────
   //
@@ -430,66 +480,66 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   // which is the worst failure this screen can have — it invites them to
   // retype what they already gave, or to save a blank over it.
   Map<String, TextEditingController> get _columnControllers => {
-      'address': _addressController,
-      'age_0_5_count': _age0To5Controller,
-      'age_10_15_count': _age10To15Controller,
-      'age_15_25_count': _age15To25Controller,
-      'age_25_40_count': _age25To40Controller,
-      'age_40_plus_count': _age40PlusController,
-      'age_5_10_count': _age5To10Controller,
-      'availability': _availabilityController,
-      'available_furniture': _availableFurnitureController,
-      'certificates_count': _certificatesCountController,
-      'chronic_illnesses': _chronicIllnessesController,
-      'city': _cityController,
-      'disability_type': _disabilityTypeController,
-      'divorced_count': _divorcedCountController,
-      'email': _emailController,
-      'emergency_phone': _emergencyPhoneController,
-      'families_count': _familiesCountController,
-      'family_size': _familySizeController,
-      'female_children_count': _femaleChildrenController,
-      'height': _heightController,
-      'household_disabled_count': _householdDisabledController,
-      'household_employees_count': _householdEmployeesController,
-      'housing_area': _housingAreaController,
-      'monthly_income': _incomeController,
-      'job_description': _jobDescriptionController,
-      'male_children_count': _maleChildrenController,
-      'medical_conditions_count': _medicalConditionsCountController,
-      'medical_conditions_desc': _medicalConditionsDescController,
-      'men_count': _menCountController,
-      'full_name': _nameController,
-      'name_family': _nameFamilyController,
-      'name_father': _nameFatherController,
-      'name_first': _nameFirstController,
-      'name_grandfather': _nameGrandfatherController,
-      'national_id': _nationalIdController,
-      'nearest_landmark': _nearestLandmarkController,
-      'needs_description': _needsDescriptionController,
-      'occupation': _occupationController,
-      'orphans_count': _orphansCountController,
-      'other_certificate': _otherCertificateController,
-      'phone1': _phone1Controller,
-      'phone2': _phone2Controller,
-      'previous_occupation': _previousOccupationController,
-      'rental_amount': _rentalAmountController,
-      'rooms_count': _roomsCountController,
-      'skills': _skillsController,
-      'social_facebook': _socialFacebookController,
-      'social_instagram': _socialInstagramController,
-      'social_other': _socialOtherController,
-      'social_telegram': _socialTelegramController,
-      'students_count': _studentsCountController,
-      'title_surname': _titleSurnameController,
-      'tribe_clan': _tribeClanController,
-      'wage_amount': _wageAmountController,
-      'weight': _weightController,
-      'widows_count': _widowsCountController,
-      'women_count': _womenCountController,
-      'working_hours': _workingHoursController,
-      'working_members_count': _workingMembersController,
-      'workplace': _workplaceController,
+    'address': _addressController,
+    'age_0_5_count': _age0To5Controller,
+    'age_10_15_count': _age10To15Controller,
+    'age_15_25_count': _age15To25Controller,
+    'age_25_40_count': _age25To40Controller,
+    'age_40_plus_count': _age40PlusController,
+    'age_5_10_count': _age5To10Controller,
+    'availability': _availabilityController,
+    'available_furniture': _availableFurnitureController,
+    'certificates_count': _certificatesCountController,
+    'chronic_illnesses': _chronicIllnessesController,
+    'city': _cityController,
+    'disability_type': _disabilityTypeController,
+    'divorced_count': _divorcedCountController,
+    'email': _emailController,
+    'emergency_phone': _emergencyPhoneController,
+    'families_count': _familiesCountController,
+    'family_size': _familySizeController,
+    'female_children_count': _femaleChildrenController,
+    'height': _heightController,
+    'household_disabled_count': _householdDisabledController,
+    'household_employees_count': _householdEmployeesController,
+    'housing_area': _housingAreaController,
+    'monthly_income': _incomeController,
+    'job_description': _jobDescriptionController,
+    'male_children_count': _maleChildrenController,
+    'medical_conditions_count': _medicalConditionsCountController,
+    'medical_conditions_desc': _medicalConditionsDescController,
+    'men_count': _menCountController,
+    'full_name': _nameController,
+    'name_family': _nameFamilyController,
+    'name_father': _nameFatherController,
+    'name_first': _nameFirstController,
+    'name_grandfather': _nameGrandfatherController,
+    'national_id': _nationalIdController,
+    'nearest_landmark': _nearestLandmarkController,
+    'needs_description': _needsDescriptionController,
+    'occupation': _occupationController,
+    'orphans_count': _orphansCountController,
+    'other_certificate': _otherCertificateController,
+    'phone1': _phone1Controller,
+    'phone2': _phone2Controller,
+    'previous_occupation': _previousOccupationController,
+    'rental_amount': _rentalAmountController,
+    'rooms_count': _roomsCountController,
+    'skills': _skillsController,
+    'social_facebook': _socialFacebookController,
+    'social_instagram': _socialInstagramController,
+    'social_other': _socialOtherController,
+    'social_telegram': _socialTelegramController,
+    'students_count': _studentsCountController,
+    'title_surname': _titleSurnameController,
+    'tribe_clan': _tribeClanController,
+    'wage_amount': _wageAmountController,
+    'weight': _weightController,
+    'widows_count': _widowsCountController,
+    'women_count': _womenCountController,
+    'working_hours': _workingHoursController,
+    'working_members_count': _workingMembersController,
+    'workplace': _workplaceController,
   };
 
   /// Fills the form from the profile the server returned.
@@ -535,6 +585,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     _experience ??= textOf('experience');
     _neighborhoodDropdown ??= textOf('neighborhood');
     _district ??= textOf('district');
+    _areaDistrict = textOf('area_district') ?? '';
+    _areaSubdistrict = textOf('area_subdistrict') ?? '';
 
     // Date of birth drives three dropdowns AND _dob; the stored value is
     // YYYY-MM-DD, which is what _fmt writes on the way out.
@@ -643,7 +695,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       ),
       'city': (
         applies: true,
-        filled: !blank(_cityController.text),
+        // Picked from the governorate's city list when it has one (a stale
+        // typed value that matches no listed city does not count), typed
+        // otherwise.
+        filled: _cityFilled,
         labelKey: 'reg_city',
       ),
       'occupation': (
@@ -708,6 +763,101 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       ),
       // Eligible Recipient registration spec — required for the beneficiary
       // role only.
+      // قواعد الحقول client report — these 17 keys are real rules on the
+      // dashboard's Field Rules page, but had no entry here, and the loop
+      // below skips any required key it has no entry for (`if (c != null`).
+      // So switching them to مطلوب saved fine and did nothing in the app.
+      // Each entry mirrors its volunteer twin, including WHEN the field is on
+      // screen (rental amount only for rented housing, housing side only for
+      // Nineveh) — a field that isn't shown must never block submission.
+      'grantor_national_id': (
+        applies: _roleId == 1,
+        filled: !blank(_nationalIdController.text),
+        labelKey: 'reg_grantor_national_id',
+      ),
+      'grantor_phone1': (
+        applies: _roleId == 1,
+        filled: !blank(_phone1Controller.text),
+        labelKey: 'reg_grantor_phone1',
+      ),
+      'grantor_phone2': (
+        applies: _roleId == 1,
+        filled: !blank(_phone2Controller.text),
+        labelKey: 'reg_grantor_phone2',
+      ),
+      'grantor_email': (
+        applies: _roleId == 1,
+        filled: !blank(_emailController.text),
+        labelKey: 'reg_grantor_email',
+      ),
+      'grantor_gps_location': (
+        applies: _roleId == 1,
+        filled: _gpsLat != null,
+        labelKey: 'reg_grantor_gps_location',
+      ),
+      'grantor_personal_photo': (
+        applies: _roleId == 1,
+        filled: _personalPhotoPath != null,
+        labelKey: 'reg_grantor_personal_photo',
+      ),
+      // One rule governs both sides of the card (the back tile sits under the
+      // same _unlessHidden) — "required" means both, per the client's
+      // "صورة هوية وجه وظهر".
+      'grantor_id_photo': (
+        applies: _roleId == 1,
+        filled: _idPhotoPath != null && _idPhotoBackPath != null,
+        labelKey: 'reg_grantor_id_photo',
+      ),
+      'recipient_tribe_clan': (
+        applies: _roleId == 2,
+        filled: !blank(_tribeClanController.text),
+        labelKey: 'reg_recipient_tribe_clan',
+      ),
+      'recipient_phone2': (
+        applies: _roleId == 2,
+        filled: !blank(_phone2Controller.text),
+        labelKey: 'reg_recipient_phone2',
+      ),
+      'recipient_gps_location': (
+        applies: _roleId == 2,
+        filled: _gpsLat != null,
+        labelKey: 'reg_grantor_gps_location',
+      ),
+      'recipient_housing_side': (
+        applies: _roleId == 2 && _governorate == 'Nineveh',
+        filled: _housingSide != null,
+        labelKey: 'reg_recipient_housing_side',
+      ),
+      'recipient_nearest_landmark': (
+        applies: _roleId == 2,
+        filled: !blank(_nearestLandmarkController.text),
+        labelKey: 'reg_recipient_nearest_landmark',
+      ),
+      'recipient_rental_amount': (
+        applies: _roleId == 2 && _housingType == 'rented',
+        filled: !blank(_rentalAmountController.text),
+        labelKey: 'reg_recipient_rental_amount',
+      ),
+      'recipient_housing_area': (
+        applies: _roleId == 2,
+        filled: !blank(_housingAreaController.text),
+        labelKey: 'reg_recipient_housing_area',
+      ),
+      'recipient_floors_count': (
+        applies: _roleId == 2,
+        filled: _floorsCount != null,
+        labelKey: 'reg_recipient_floors_count',
+      ),
+      'recipient_rooms_count': (
+        applies: _roleId == 2,
+        filled: !blank(_roomsCountController.text),
+        labelKey: 'reg_recipient_rooms_count',
+      ),
+      'recipient_families_count': (
+        applies: _roleId == 2,
+        filled: !blank(_familiesCountController.text),
+        labelKey: 'reg_recipient_families_count',
+      ),
       'recipient_national_id': (
         applies: _roleId == 2,
         filled: !blank(_nationalIdController.text),
@@ -969,7 +1119,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       ),
       'recipient_id_photo': (
         applies: _roleId == 2,
-        filled: _idPhotoPath != null,
+        filled: _idPhotoPath != null && _idPhotoBackPath != null,
         labelKey: 'reg_recipient_id_photo',
       ),
       'recipient_ration_card_photo': (
@@ -1115,7 +1265,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         labelKey: 'reg_grantor_governorate',
       ),
       'volunteer_district': (
-        applies: _roleId == 3 && _governorate == 'Nineveh',
+        // Retired once Nineveh's cities come from the Areas list (migration
+        // 136 copied these ten districts in as its cities) — the city picker
+        // asks the same question, and a hidden field must never block.
+        applies:
+            _roleId == 3 && _governorate == 'Nineveh' && !_governorateHasCities,
         filled: _district != null,
         labelKey: 'reg_volunteer_district',
       ),
@@ -1191,24 +1345,23 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         filled: _experience != null,
         labelKey: 'reg_experience',
       ),
-      'volunteer_golden_square_photo': (
-        applies: _roleId == 3,
-        filled: _goldenSquarePhotoPath != null,
-        labelKey: 'reg_volunteer_golden_square_photo',
-      ),
       'volunteer_id_photo': (
         applies: _roleId == 3,
-        filled: _idPhotoPath != null,
+        filled: _idPhotoPath != null && _idPhotoBackPath != null,
         labelKey: 'reg_volunteer_id_photo_doc',
       ),
       'volunteer_ration_card_photo': (
         applies: _roleId == 3,
+        // Front only: unsure the ration card has a back (it may be a booklet),
+        // so the back tile below is offered but never required.
         filled: _rationCardPhotoPath != null,
         labelKey: 'reg_volunteer_ration_card_photo',
       ),
       'volunteer_residence_card_photo': (
         applies: _roleId == 3,
-        filled: _residenceCardPhotoPath != null,
+        filled:
+            _residenceCardPhotoPath != null &&
+            _residenceCardPhotoBackPath != null,
         labelKey: 'reg_volunteer_residence_card_photo',
       ),
       'volunteer_passport_photo': (
@@ -1515,6 +1668,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         if (_roleId == 3) 'volunteer_gender',
       ], _gender ?? ''),
       city: _cityController.text.trim(),
+      areaDistrict: _isHidden('city') ? '' : _areaDistrict,
+      areaSubdistrict: _isHidden('city') ? '' : _areaSubdistrict,
       occupation: _valueOfAny([
         'occupation',
         if (_roleId == 3) 'volunteer_occupation',
@@ -1839,12 +1994,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             idPhotoPath: _idPhotoPath,
             idPhotoBackPath: _idPhotoBackPath,
             rationCardPhotoPath: _rationCardPhotoPath,
+            rationCardPhotoBackPath: _rationCardPhotoBackPath,
             propertyProofPhotoPath: _propertyProofPhotoPath,
             medicalReportPhotoPath: _medicalReportPhotoPath,
             houseFacadePhotoPath: _houseFacadePhotoPath,
             houseInsidePhotoPath: _houseInsidePhotoPath,
             houseOutsidePhotoPath: _houseOutsidePhotoPath,
-            goldenSquarePhotoPath: _goldenSquarePhotoPath,
             residenceCardPhotoPath: _residenceCardPhotoPath,
             residenceCardPhotoBackPath: _residenceCardPhotoBackPath,
             passportPhotoPath: _passportPhotoPath,
@@ -2004,19 +2159,27 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 GestureDetector(
                                   onTap: _pickAvatar,
                                   child: CachedProfileAvatar(
-                                    localPath: _avatarPath ??
+                                    localPath:
+                                        _avatarPath ??
                                         (_removeAvatar
                                             ? null
-                                            : sharedPreferences
-                                                .getString('profile_image_path')),
+                                            : sharedPreferences.getString(
+                                                'profile_image_path',
+                                              )),
                                     imageUrl: _removeAvatar
                                         ? null
-                                        : sharedPreferences
-                                            .getString('profile_picture_url'),
+                                        : sharedPreferences.getString(
+                                            'profile_picture_url',
+                                          ),
                                     radius: 44,
-                                    backgroundColor: AppThemeConfig.accent(context),
-                                    placeholder: const Icon(Icons.person,
-                                        color: Colors.white, size: 44),
+                                    backgroundColor: AppThemeConfig.accent(
+                                      context,
+                                    ),
+                                    placeholder: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 44,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -2031,7 +2194,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   children: [
                                     TextButton.icon(
                                       onPressed: _pickAvatar,
-                                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                                      icon: const Icon(
+                                        Icons.photo_camera_outlined,
+                                        size: 18,
+                                      ),
                                       label: Text('Profile picture'.tr),
                                     ),
                                     if (_avatarPath != null || !_removeAvatar)
@@ -2040,7 +2206,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           _avatarPath = null;
                                           _removeAvatar = true;
                                         }),
-                                        icon: const Icon(Icons.delete_outline, size: 18),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                        ),
                                         label: Text('Remove photo'.tr),
                                       ),
                                   ],
@@ -2079,7 +2248,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ],
                               [
                                 const SizedBox(height: 16),
-                                _label(context, 'Date of birth'),
+                                _label(
+                                  context,
+                                  'Date of birth',
+                                  ruleKeys: [
+                                    'date_of_birth',
+                                    if (_roleId == 3) 'volunteer_date_of_birth',
+                                  ],
+                                ),
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
@@ -2193,7 +2369,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ['gender', if (_roleId == 3) 'volunteer_gender'],
                               [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_gender'),
+                                _label(
+                                  context,
+                                  'reg_gender',
+                                  ruleKeys: [
+                                    'gender',
+                                    if (_roleId == 3) 'volunteer_gender',
+                                  ],
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _gender,
@@ -2216,19 +2399,41 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 ),
                               ],
                             ),
+                            // Free-text city only while the governorate has no
+                            // city list — otherwise the city is picked under
+                            // the governorate (AreaPicker). Rebuilt when a
+                            // governorate's list finishes loading.
                             ..._unlessHidden('city', [
-                              const SizedBox(height: 16),
-                              _label(context, 'reg_city'),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _cityController,
-                                textInputAction: TextInputAction.next,
-                                decoration: InputDecoration(
-                                  hintText: 'reg_city_hint'.tr,
-                                  prefixIcon: const Icon(
-                                    Icons.location_city_outlined,
-                                  ),
-                                ),
+                              ValueListenableBuilder<int>(
+                                valueListenable: AreaDirectory.instance.changes,
+                                builder: (context, _, _) {
+                                  if (_governorateHasCities) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 16),
+                                      _label(
+                                        context,
+                                        'reg_city',
+                                        ruleKey: 'city',
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextFormField(
+                                        controller: _cityController,
+                                        textInputAction: TextInputAction.next,
+                                        decoration: InputDecoration(
+                                          hintText: 'reg_city_hint'.tr,
+                                          prefixIcon: const Icon(
+                                            Icons.location_city_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ]),
                             ..._unlessHiddenAny(
@@ -2238,7 +2443,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ],
                               [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_occupation'),
+                                _label(
+                                  context,
+                                  'reg_occupation',
+                                  ruleKeys: [
+                                    'occupation',
+                                    if (_roleId == 3) 'volunteer_occupation',
+                                  ],
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _occupationController,
@@ -2263,35 +2475,35 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       // them to pick, with a real chance of submitting under
                       // a different role than they hold.
                       if (!widget.editMode) ...[
-                      const SizedBox(height: 18),
-                      _label(context, 'Select your role'),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.volunteer_activism_rounded,
-                        color: Colors.amber,
-                        label: 'Donor',
-                        tagline: 'Give and support causes',
-                        selected: _roleId == 1,
-                        onTap: () => setState(() => _roleId = 1),
-                      ),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.family_restroom_rounded,
-                        color: Colors.deepOrangeAccent,
-                        label: 'Beneficiary',
-                        tagline: 'Receive aid and support',
-                        selected: _roleId == 2,
-                        onTap: () => setState(() => _roleId = 2),
-                      ),
-                      const SizedBox(height: 10),
-                      _RoleTile(
-                        icon: Icons.handshake_rounded,
-                        color: Colors.lightBlue,
-                        label: 'Volunteer',
-                        tagline: 'Help on the ground',
-                        selected: _roleId == 3,
-                        onTap: () => setState(() => _roleId = 3),
-                      ),
+                        const SizedBox(height: 18),
+                        _label(context, 'Select your role'),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.volunteer_activism_rounded,
+                          color: Colors.amber,
+                          label: 'Donor',
+                          tagline: 'Give and support causes',
+                          selected: _roleId == 1,
+                          onTap: () => setState(() => _roleId = 1),
+                        ),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.family_restroom_rounded,
+                          color: Colors.deepOrangeAccent,
+                          label: 'Beneficiary',
+                          tagline: 'Receive aid and support',
+                          selected: _roleId == 2,
+                          onTap: () => setState(() => _roleId = 2),
+                        ),
+                        const SizedBox(height: 10),
+                        _RoleTile(
+                          icon: Icons.handshake_rounded,
+                          color: Colors.lightBlue,
+                          label: 'Volunteer',
+                          tagline: 'Help on the ground',
+                          selected: _roleId == 3,
+                          onTap: () => setState(() => _roleId = 3),
+                        ),
                       ],
                       // Grantor registration spec — extra fields.
                       if (_roleId == 1) ...[
@@ -2304,7 +2516,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_grantor_section'),
                               ..._unlessHidden('grantor_national_id', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_grantor_national_id'),
+                                _label(
+                                  context,
+                                  'reg_grantor_national_id',
+                                  ruleKey: 'grantor_national_id',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nationalIdController,
@@ -2319,7 +2535,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_name_parts', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_name_parts'),
+                                _label(
+                                  context,
+                                  'reg_grantor_name_parts',
+                                  ruleKey: 'grantor_name_parts',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nameFirstController,
@@ -2368,7 +2588,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_title_surname', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_title_surname'),
+                                _label(
+                                  context,
+                                  'reg_grantor_title_surname',
+                                  ruleKey: 'grantor_title_surname',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _titleSurnameController,
@@ -2384,7 +2608,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_phone1', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_phone1'),
+                                _label(
+                                  context,
+                                  'reg_grantor_phone1',
+                                  ruleKey: 'grantor_phone1',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _phone1Controller,
@@ -2398,7 +2626,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_phone2', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_phone2'),
+                                _label(
+                                  context,
+                                  'reg_grantor_phone2',
+                                  ruleKey: 'grantor_phone2',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _phone2Controller,
@@ -2412,7 +2644,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_email', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_email'),
+                                _label(
+                                  context,
+                                  'reg_grantor_email',
+                                  ruleKey: 'grantor_email',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _emailController,
@@ -2438,7 +2674,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_governorate', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_governorate'),
+                                _label(
+                                  context,
+                                  'reg_grantor_governorate',
+                                  ruleKey: 'grantor_governorate',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _governorate,
@@ -2453,13 +2693,20 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                         child: Text(g.tr),
                                       ),
                                   ],
-                                  onChanged: (v) =>
-                                      setState(() => _governorate = v),
+                                  onChanged: (v) => setState(() {
+                                    _resetAreasFor(_governorate);
+                                    _governorate = v;
+                                  }),
                                 ),
                               ]),
+                              _areaPicker(context),
                               ..._unlessHidden('grantor_education_level', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_education_level'),
+                                _label(
+                                  context,
+                                  'reg_grantor_education_level',
+                                  ruleKey: 'grantor_education_level',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _educationLevel,
@@ -2490,7 +2737,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_gps_location', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_gps_location'),
+                                _label(
+                                  context,
+                                  'reg_grantor_gps_location',
+                                  ruleKey: 'grantor_gps_location',
+                                ),
                                 const SizedBox(height: 6),
                                 OutlinedButton.icon(
                                   onPressed: _gpsLoading
@@ -2514,7 +2765,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_personal_photo', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_personal_photo'),
+                                _label(
+                                  context,
+                                  'reg_grantor_personal_photo',
+                                  ruleKey: 'grantor_personal_photo',
+                                ),
                                 const SizedBox(height: 6),
                                 _PhotoPickerTile(
                                   imagePath: _personalPhotoPath,
@@ -2524,7 +2779,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('grantor_id_photo', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_id_photo'),
+                                _label(
+                                  context,
+                                  'reg_grantor_id_photo',
+                                  ruleKey: 'grantor_id_photo',
+                                ),
                                 const SizedBox(height: 6),
                                 _PhotoPickerTile(
                                   imagePath: _idPhotoPath,
@@ -2533,7 +2792,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 ),
                                 // 127 — the ID card's back side.
                                 const SizedBox(height: 10),
-                                _label(context, 'reg_id_photo_back'),
+                                _label(
+                                  context,
+                                  'reg_id_photo_back',
+                                  ruleKey: 'grantor_id_photo',
+                                ),
                                 const SizedBox(height: 6),
                                 _PhotoPickerTile(
                                   imagePath: _idPhotoBackPath,
@@ -2605,7 +2868,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((s) => !_isHidden(s.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, s.label),
+                                _label(context, s.label, ruleKey: s.rule),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: s.controller,
@@ -2636,7 +2899,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('recipient_national_id', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_national_id'),
+                                _label(
+                                  context,
+                                  'reg_recipient_national_id',
+                                  ruleKey: 'recipient_national_id',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nationalIdController,
@@ -2657,7 +2924,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_name_parts', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_name_parts'),
+                                _label(
+                                  context,
+                                  'reg_recipient_name_parts',
+                                  ruleKey: 'recipient_name_parts',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nameFirstController,
@@ -2706,7 +2977,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_tribe_clan', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_tribe_clan'),
+                                _label(
+                                  context,
+                                  'reg_recipient_tribe_clan',
+                                  ruleKey: 'recipient_tribe_clan',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _tribeClanController,
@@ -2722,7 +2997,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_title_surname', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_title_surname'),
+                                _label(
+                                  context,
+                                  'reg_recipient_title_surname',
+                                  ruleKey: 'recipient_title_surname',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _titleSurnameController,
@@ -2738,7 +3017,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_email', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_email'),
+                                _label(
+                                  context,
+                                  'reg_recipient_email',
+                                  ruleKey: 'recipient_email',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _emailController,
@@ -2764,7 +3047,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_phone1', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_phone1'),
+                                _label(
+                                  context,
+                                  'reg_recipient_phone1',
+                                  ruleKey: 'recipient_phone1',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _phone1Controller,
@@ -2778,7 +3065,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_phone2', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_phone2'),
+                                _label(
+                                  context,
+                                  'reg_recipient_phone2',
+                                  ruleKey: 'recipient_phone2',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _phone2Controller,
@@ -2795,6 +3086,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_emergency_phone',
+                                  ruleKey: 'recipient_emergency_phone',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -2822,7 +3114,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_recipient_personal_section'),
                               ..._unlessHidden('recipient_nationality', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_nationality'),
+                                _label(
+                                  context,
+                                  'reg_recipient_nationality',
+                                  ruleKey: 'recipient_nationality',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _nationality,
@@ -2851,7 +3147,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_marital_status', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_marital_status'),
+                                _label(
+                                  context,
+                                  'reg_recipient_marital_status',
+                                  ruleKey: 'recipient_marital_status',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _maritalStatus,
@@ -2887,6 +3187,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_residency_status',
+                                  ruleKey: 'recipient_residency_status',
                                 ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
@@ -2925,34 +3226,49 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                             children: [
                               _label(context, 'reg_recipient_housing_section'),
                               const SizedBox(height: 12),
-                              _label(context, 'reg_grantor_governorate'),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                initialValue: _governorate,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.map_outlined),
+                              // قواعد الحقول client report — this box was
+                              // drawn unconditionally, so مخفي on
+                              // recipient_governorate did nothing.
+                              ..._unlessHidden('recipient_governorate', [
+                                _label(
+                                  context,
+                                  'reg_grantor_governorate',
+                                  ruleKey: 'recipient_governorate',
                                 ),
-                                hint: Text('reg_grantor_governorate_hint'.tr),
-                                items: [
-                                  for (final g in iraqGovernorates)
-                                    DropdownMenuItem(
-                                      value: g,
-                                      child: Text(g.tr),
-                                    ),
-                                ],
-                                onChanged: (v) => setState(() {
-                                  _governorate = v;
-                                  // Switching governorate invalidates any
-                                  // previously-picked Nineveh side/neighborhood.
-                                  _housingSide = null;
-                                  _neighborhoodDropdown = null;
-                                }),
-                              ),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _governorate,
+                                  decoration: const InputDecoration(
+                                    prefixIcon: Icon(Icons.map_outlined),
+                                  ),
+                                  hint: Text('reg_grantor_governorate_hint'.tr),
+                                  items: [
+                                    for (final g in iraqGovernorates)
+                                      DropdownMenuItem(
+                                        value: g,
+                                        child: Text(g.tr),
+                                      ),
+                                  ],
+                                  onChanged: (v) => setState(() {
+                                    _resetAreasFor(_governorate);
+                                    _governorate = v;
+                                    // Switching governorate invalidates any
+                                    // previously-picked Nineveh side/neighborhood.
+                                    _housingSide = null;
+                                    _neighborhoodDropdown = null;
+                                  }),
+                                ),
+                              ]),
+                              _areaPicker(context),
                               if (_governorate == 'Nineveh') ...[
                                 _ninevehListsStatusBanner(),
                                 ..._unlessHidden('recipient_housing_side', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_housing_side'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_housing_side',
+                                    ruleKey: 'recipient_housing_side',
+                                  ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
                                     initialValue: _housingSide,
@@ -2994,7 +3310,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 if (_housingSide == 'other') ...[
                                   ..._unlessHidden('recipient_neighborhood', [
                                     const SizedBox(height: 16),
-                                    _label(context, 'reg_recipient_neighborhood'),
+                                    _label(
+                                      context,
+                                      'reg_recipient_neighborhood',
+                                      ruleKey: 'recipient_neighborhood',
+                                    ),
                                     const SizedBox(height: 6),
                                     TextFormField(
                                       controller: _neighborhoodController,
@@ -3012,7 +3332,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 ] else ...[
                                   ..._unlessHidden('recipient_neighborhood', [
                                     const SizedBox(height: 16),
-                                    _label(context, 'reg_recipient_neighborhood'),
+                                    _label(
+                                      context,
+                                      'reg_recipient_neighborhood',
+                                      ruleKey: 'recipient_neighborhood',
+                                    ),
                                     const SizedBox(height: 6),
                                     DropdownButtonFormField<String>(
                                       initialValue: _neighborhoodDropdown,
@@ -3038,7 +3362,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ] else ...[
                                 ..._unlessHidden('recipient_neighborhood', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_neighborhood'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_neighborhood',
+                                    ruleKey: 'recipient_neighborhood',
+                                  ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _neighborhoodController,
@@ -3059,6 +3387,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_nearest_landmark',
+                                  ruleKey: 'recipient_nearest_landmark',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3076,7 +3405,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_gps_location', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_gps_location'),
+                                _label(
+                                  context,
+                                  'reg_grantor_gps_location',
+                                  ruleKey: 'recipient_gps_location',
+                                ),
                                 const SizedBox(height: 6),
                                 OutlinedButton.icon(
                                   onPressed: _gpsLoading
@@ -3100,7 +3433,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_housing_type', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_housing_type'),
+                                _label(
+                                  context,
+                                  'reg_recipient_housing_type',
+                                  ruleKey: 'recipient_housing_type',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _housingType,
@@ -3131,7 +3468,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               if (_housingType == 'rented' &&
                                   !_isHidden('recipient_rental_amount')) ...[
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_rental_amount'),
+                                _label(
+                                  context,
+                                  'reg_recipient_rental_amount',
+                                  ruleKey: 'recipient_rental_amount',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _rentalAmountController,
@@ -3148,7 +3489,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ],
                               ..._unlessHidden('recipient_housing_area', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_housing_area'),
+                                _label(
+                                  context,
+                                  'reg_recipient_housing_area',
+                                  ruleKey: 'recipient_housing_area',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _housingAreaController,
@@ -3165,7 +3510,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_floors_count', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_floors_count'),
+                                _label(
+                                  context,
+                                  'reg_recipient_floors_count',
+                                  ruleKey: 'recipient_floors_count',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _floorsCount,
@@ -3193,7 +3542,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_rooms_count', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_rooms_count'),
+                                _label(
+                                  context,
+                                  'reg_recipient_rooms_count',
+                                  ruleKey: 'recipient_rooms_count',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _roomsCountController,
@@ -3210,7 +3563,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_families_count', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_families_count'),
+                                _label(
+                                  context,
+                                  'reg_recipient_families_count',
+                                  ruleKey: 'recipient_families_count',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _familiesCountController,
@@ -3246,7 +3603,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('recipient_education_level', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_grantor_education_level'),
+                                _label(
+                                  context,
+                                  'reg_grantor_education_level',
+                                  ruleKey: 'recipient_education_level',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _educationLevel,
@@ -3280,6 +3641,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_other_certificate',
+                                  ruleKey: 'recipient_other_certificate',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3300,6 +3662,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_certificates_count',
+                                  ruleKey: 'recipient_certificates_count',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3321,6 +3684,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_previous_occupation',
+                                  ruleKey: 'recipient_previous_occupation',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3341,6 +3705,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_job_description',
+                                  ruleKey: 'recipient_job_description',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3359,7 +3724,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_working_hours', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_working_hours'),
+                                _label(
+                                  context,
+                                  'reg_recipient_working_hours',
+                                  ruleKey: 'recipient_working_hours',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _workingHoursController,
@@ -3391,7 +3760,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('recipient_is_employed', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_is_employed'),
+                                _label(
+                                  context,
+                                  'reg_recipient_is_employed',
+                                  ruleKey: 'recipient_is_employed',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _isEmployed,
@@ -3415,7 +3788,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               if (_isEmployed == 'yes') ...[
                                 ..._unlessHidden('recipient_workplace', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_workplace'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_workplace',
+                                    ruleKey: 'recipient_workplace',
+                                  ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _workplaceController,
@@ -3431,7 +3808,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 ]),
                                 ..._unlessHidden('recipient_wage_amount', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_wage_amount'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_wage_amount',
+                                    ruleKey: 'recipient_wage_amount',
+                                  ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _wageAmountController,
@@ -3467,6 +3848,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   _label(
                                     context,
                                     'reg_recipient_registered_social_welfare',
+                                    ruleKey:
+                                        'recipient_registered_social_welfare',
                                   ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
@@ -3500,6 +3883,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   _label(
                                     context,
                                     'reg_recipient_registered_unemployed',
+                                    ruleKey: 'recipient_registered_unemployed',
                                   ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
@@ -3639,7 +4023,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((f) => !_isHidden(f.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, f.label),
+                                _label(context, f.label, ruleKey: f.rule),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: f.controller,
@@ -3664,7 +4048,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_recipient_health_section'),
                               ..._unlessHidden('recipient_height', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_height'),
+                                _label(
+                                  context,
+                                  'reg_recipient_height',
+                                  ruleKey: 'recipient_height',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _heightController,
@@ -3680,7 +4068,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_weight', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_weight'),
+                                _label(
+                                  context,
+                                  'reg_recipient_weight',
+                                  ruleKey: 'recipient_weight',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _weightController,
@@ -3696,7 +4088,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_smoking_status', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_smoking_status'),
+                                _label(
+                                  context,
+                                  'reg_recipient_smoking_status',
+                                  ruleKey: 'recipient_smoking_status',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _smokingStatus,
@@ -3728,6 +4124,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_eyesight_condition',
+                                  ruleKey: 'recipient_eyesight_condition',
                                 ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
@@ -3756,7 +4153,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_has_disability', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_has_disability'),
+                                _label(
+                                  context,
+                                  'reg_recipient_has_disability',
+                                  ruleKey: 'recipient_has_disability',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _hasDisability,
@@ -3783,6 +4184,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_disability_type',
+                                  ruleKey: 'recipient_disability_type',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3800,6 +4202,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_household_disabled',
+                                  ruleKey: 'recipient_household_disabled',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3821,6 +4224,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_chronic_illnesses',
+                                  ruleKey: 'recipient_chronic_illnesses',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -3845,6 +4249,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   _label(
                                     context,
                                     'reg_recipient_medical_conditions_count',
+                                    ruleKey:
+                                        'recipient_medical_conditions_count',
                                   ),
                                   const SizedBox(height: 6),
                                   TextFormField(
@@ -3870,6 +4276,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   _label(
                                     context,
                                     'reg_recipient_medical_conditions_desc',
+                                    ruleKey:
+                                        'recipient_medical_conditions_desc',
                                   ),
                                   const SizedBox(height: 6),
                                   TextFormField(
@@ -4059,7 +4467,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((a) => !_isHidden(a.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, a.label),
+                                _label(context, a.label, ruleKey: a.rule),
                                 const SizedBox(height: 6),
                                 _PhotoPickerTile(
                                   imagePath: a.path,
@@ -4083,6 +4491,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_available_furniture',
+                                  ruleKey: 'recipient_available_furniture',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -4102,7 +4511,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('recipient_owns_car', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_owns_car'),
+                                _label(
+                                  context,
+                                  'reg_recipient_owns_car',
+                                  ruleKey: 'recipient_owns_car',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _ownsCar,
@@ -4138,6 +4551,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_needs_description',
+                                  ruleKey: 'recipient_needs_description',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -4203,7 +4617,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((s) => !_isHidden(s.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, s.label),
+                                _label(context, s.label, ruleKey: s.rule),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: s.controller,
@@ -4244,6 +4658,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   _label(
                                     context,
                                     'reg_recipient_consent_show_real_name',
+                                    ruleKey: 'recipient_consent_show_real_name',
                                   ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
@@ -4273,6 +4688,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_consent_share_info',
+                                  ruleKey: 'recipient_consent_share_info',
                                 ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
@@ -4308,7 +4724,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_eligible_section'),
                               ..._unlessHidden('family_size', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_family_size'),
+                                _label(
+                                  context,
+                                  'reg_family_size',
+                                  ruleKey: 'family_size',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _familySizeController,
@@ -4324,7 +4744,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('housing_status', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_housing'),
+                                _label(
+                                  context,
+                                  'reg_housing',
+                                  ruleKey: 'housing_status',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _housingStatus,
@@ -4350,7 +4774,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('monthly_income', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_income'),
+                                _label(
+                                  context,
+                                  'reg_income',
+                                  ruleKey: 'monthly_income',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _incomeController,
@@ -4401,7 +4829,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('volunteer_national_id', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_volunteer_national_id'),
+                                _label(
+                                  context,
+                                  'reg_volunteer_national_id',
+                                  ruleKey: 'volunteer_national_id',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _nationalIdController,
@@ -4418,7 +4850,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_name_parts', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_volunteer_name_parts'),
+                                _label(
+                                  context,
+                                  'reg_volunteer_name_parts',
+                                  ruleKey: 'volunteer_name_parts',
+                                ),
                                 for (final n
                                     in <
                                       ({
@@ -4459,7 +4895,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_tribe_clan', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_volunteer_tribe_clan'),
+                                _label(
+                                  context,
+                                  'reg_volunteer_tribe_clan',
+                                  ruleKey: 'volunteer_tribe_clan',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _tribeClanController,
@@ -4475,7 +4915,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_title_surname', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_volunteer_title_surname'),
+                                _label(
+                                  context,
+                                  'reg_volunteer_title_surname',
+                                  ruleKey: 'volunteer_title_surname',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _titleSurnameController,
@@ -4542,7 +4986,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((ct) => !_isHidden(ct.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, ct.label),
+                                _label(context, ct.label, ruleKey: ct.rule),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: ct.controller,
@@ -4569,7 +5013,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_volunteer_personal_section'),
                               ..._unlessHidden('volunteer_nationality', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_nationality'),
+                                _label(
+                                  context,
+                                  'reg_recipient_nationality',
+                                  ruleKey: 'volunteer_nationality',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _nationality,
@@ -4598,7 +5046,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_languages', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_volunteer_languages'),
+                                _label(
+                                  context,
+                                  'reg_volunteer_languages',
+                                  ruleKey: 'volunteer_languages',
+                                ),
                                 const SizedBox(height: 6),
                                 for (final lang in volunteerLanguages)
                                   CheckboxListTile(
@@ -4630,7 +5082,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_volunteer_housing_section'),
                               ..._unlessHidden('volunteer_governorate', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_grantor_governorate'),
+                                _label(
+                                  context,
+                                  'reg_grantor_governorate',
+                                  ruleKey: 'volunteer_governorate',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _governorate,
@@ -4646,6 +5102,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ),
                                   ],
                                   onChanged: (v) => setState(() {
+                                    _resetAreasFor(_governorate);
                                     _governorate = v;
                                     // Switching governorate invalidates the
                                     // Nineveh-only district/side/neighborhood.
@@ -4655,34 +5112,46 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                   }),
                                 ),
                               ]),
+                              _areaPicker(context),
                               // Nineveh opens the district picker, then the
                               // side, then the side's neighborhoods.
                               if (_governorate == 'Nineveh') ...[
                                 _ninevehListsStatusBanner(),
-                                ..._unlessHidden('volunteer_district', [
-                                  const SizedBox(height: 16),
-                                  _label(context, 'reg_volunteer_district'),
-                                  const SizedBox(height: 6),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _district,
-                                    decoration: const InputDecoration(
-                                      prefixIcon: Icon(
-                                        Icons.location_on_outlined,
+                                // Retired while Nineveh has a city list (the
+                                // AreaPicker above asks the same question).
+                                if (!_governorateHasCities)
+                                  ..._unlessHidden('volunteer_district', [
+                                    const SizedBox(height: 16),
+                                    _label(
+                                      context,
+                                      'reg_volunteer_district',
+                                      ruleKey: 'volunteer_district',
+                                    ),
+                                    const SizedBox(height: 6),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _district,
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.location_on_outlined,
+                                        ),
                                       ),
+                                      hint: Text(
+                                        'reg_volunteer_district_hint'.tr,
+                                      ),
+                                      items: _districtDropdownItems(
+                                        _ninevehDistrictItems,
+                                      ),
+                                      onChanged: (v) =>
+                                          setState(() => _district = v),
                                     ),
-                                    hint: Text(
-                                      'reg_volunteer_district_hint'.tr,
-                                    ),
-                                    items: _districtDropdownItems(
-                                      _ninevehDistrictItems,
-                                    ),
-                                    onChanged: (v) =>
-                                        setState(() => _district = v),
-                                  ),
-                                ]),
+                                  ]),
                                 ..._unlessHidden('volunteer_housing_side', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_housing_side'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_housing_side',
+                                    ruleKey: 'volunteer_housing_side',
+                                  ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
                                     initialValue: _housingSide,
@@ -4716,7 +5185,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 if (_housingSide == 'other') ...[
                                   ..._unlessHidden('volunteer_neighborhood', [
                                     const SizedBox(height: 16),
-                                    _label(context, 'reg_recipient_neighborhood'),
+                                    _label(
+                                      context,
+                                      'reg_recipient_neighborhood',
+                                      ruleKey: 'volunteer_neighborhood',
+                                    ),
                                     const SizedBox(height: 6),
                                     TextFormField(
                                       controller: _neighborhoodController,
@@ -4734,7 +5207,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 ] else ...[
                                   ..._unlessHidden('volunteer_neighborhood', [
                                     const SizedBox(height: 16),
-                                    _label(context, 'reg_recipient_neighborhood'),
+                                    _label(
+                                      context,
+                                      'reg_recipient_neighborhood',
+                                      ruleKey: 'volunteer_neighborhood',
+                                    ),
                                     const SizedBox(height: 6),
                                     DropdownButtonFormField<String>(
                                       initialValue: _neighborhoodDropdown,
@@ -4760,7 +5237,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ] else ...[
                                 ..._unlessHidden('volunteer_neighborhood', [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_recipient_neighborhood'),
+                                  _label(
+                                    context,
+                                    'reg_recipient_neighborhood',
+                                    ruleKey: 'volunteer_neighborhood',
+                                  ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _neighborhoodController,
@@ -4781,6 +5262,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_nearest_landmark',
+                                  ruleKey: 'volunteer_nearest_landmark',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -4798,7 +5280,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_housing_type', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_housing_type'),
+                                _label(
+                                  context,
+                                  'reg_recipient_housing_type',
+                                  ruleKey: 'volunteer_housing_type',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _housingType,
@@ -4829,7 +5315,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_housing_area', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_recipient_housing_area'),
+                                _label(
+                                  context,
+                                  'reg_recipient_housing_area',
+                                  ruleKey: 'volunteer_housing_area',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _housingAreaController,
@@ -4846,7 +5336,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_family_size', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_family_size'),
+                                _label(
+                                  context,
+                                  'reg_family_size',
+                                  ruleKey: 'volunteer_family_size',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue:
@@ -4871,7 +5365,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ]),
                               ..._unlessHidden('volunteer_gps_location', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_grantor_gps_location'),
+                                _label(
+                                  context,
+                                  'reg_grantor_gps_location',
+                                  ruleKey: 'volunteer_gps_location',
+                                ),
                                 const SizedBox(height: 6),
                                 OutlinedButton.icon(
                                   onPressed: _gpsLoading
@@ -4906,7 +5404,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               _label(context, 'reg_volunteer_social_section'),
                               ..._unlessHidden('volunteer_marital_status', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_recipient_marital_status'),
+                                _label(
+                                  context,
+                                  'reg_recipient_marital_status',
+                                  ruleKey: 'volunteer_marital_status',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _maritalStatus,
@@ -4954,7 +5456,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('volunteer_education_level', [
                                 const SizedBox(height: 12),
-                                _label(context, 'reg_grantor_education_level'),
+                                _label(
+                                  context,
+                                  'reg_grantor_education_level',
+                                  ruleKey: 'volunteer_education_level',
+                                ),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _educationLevel,
@@ -4988,6 +5494,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_other_certificate',
+                                  ruleKey: 'volunteer_other_certificate',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -5008,6 +5515,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 _label(
                                   context,
                                   'reg_recipient_previous_occupation',
+                                  ruleKey: 'volunteer_previous_occupation',
                                 ),
                                 const SizedBox(height: 6),
                                 TextFormField(
@@ -5048,16 +5556,6 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                         })
                                       >[
                                         (
-                                          rule: 'volunteer_golden_square_photo',
-                                          label:
-                                              'reg_volunteer_golden_square_photo',
-                                          path: _goldenSquarePhotoPath,
-                                          icon:
-                                              Icons.workspace_premium_outlined,
-                                          assign: (p) =>
-                                              _goldenSquarePhotoPath = p,
-                                        ),
-                                        (
                                           rule: 'volunteer_id_photo',
                                           label: 'reg_volunteer_id_photo_doc',
                                           path: _idPhotoPath,
@@ -5080,6 +5578,18 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           icon: Icons.credit_card_outlined,
                                           assign: (p) =>
                                               _rationCardPhotoPath = p,
+                                        ),
+                                        // 138 — the ration card's back side. OPTIONAL:
+                                        // its own rule key means no red `*`; it is
+                                        // hidden together with the front (below).
+                                        (
+                                          rule:
+                                              'volunteer_ration_card_photo_back',
+                                          label: 'reg_ration_card_photo_back',
+                                          path: _rationCardPhotoBackPath,
+                                          icon: Icons.credit_card_outlined,
+                                          assign: (p) =>
+                                              _rationCardPhotoBackPath = p,
                                         ),
                                         (
                                           rule:
@@ -5134,9 +5644,17 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           assign: (p) => _cvPhotoPath = p,
                                         ),
                                       ]
-                                      .where((a) => !_isHidden(a.rule))) ...[
+                                      .where(
+                                        (a) =>
+                                            !_isHidden(a.rule) &&
+                                            !(a.rule ==
+                                                    'volunteer_ration_card_photo_back' &&
+                                                _isHidden(
+                                                  'volunteer_ration_card_photo',
+                                                )),
+                                      )) ...[
                                 const SizedBox(height: 16),
-                                _label(context, a.label),
+                                _label(context, a.label, ruleKey: a.rule),
                                 const SizedBox(height: 6),
                                 _PhotoPickerTile(
                                   imagePath: a.path,
@@ -5198,7 +5716,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                       ]
                                       .where((sm) => !_isHidden(sm.rule))) ...[
                                 const SizedBox(height: 16),
-                                _label(context, sm.label),
+                                _label(context, sm.label, ruleKey: sm.rule),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: sm.controller,
@@ -5224,7 +5742,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 const ['skills', 'volunteer_skills'],
                                 [
                                   const SizedBox(height: 12),
-                                  _label(context, 'reg_skills'),
+                                  _label(
+                                    context,
+                                    'reg_skills',
+                                    ruleKeys: ['skills', 'volunteer_skills'],
+                                  ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: _skillsController,
@@ -5242,7 +5764,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               ),
                               ..._unlessHidden('availability', [
                                 const SizedBox(height: 16),
-                                _label(context, 'reg_availability'),
+                                _label(
+                                  context,
+                                  'reg_availability',
+                                  ruleKey: 'availability',
+                                ),
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _availabilityController,
@@ -5259,7 +5785,14 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                 const ['experience', 'volunteer_experience'],
                                 [
                                   const SizedBox(height: 16),
-                                  _label(context, 'reg_experience'),
+                                  _label(
+                                    context,
+                                    'reg_experience',
+                                    ruleKeys: [
+                                      'experience',
+                                      'volunteer_experience',
+                                    ],
+                                  ),
                                   const SizedBox(height: 6),
                                   DropdownButtonFormField<String>(
                                     initialValue: _experience,
@@ -5296,49 +5829,52 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         padding: const EdgeInsets.only(top: 16),
                       ),
                       if (!widget.editMode) ...[
-                      const SizedBox(height: 18),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: Checkbox(
-                              value: _agreeToTerms,
-                              onChanged: (v) =>
-                                  setState(() => _agreeToTerms = v ?? false),
+                        const SizedBox(height: 18),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: Checkbox(
+                                value: _agreeToTerms,
+                                onChanged: (v) =>
+                                    setState(() => _agreeToTerms = v ?? false),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: AppPressable(
-                              onTap: () => Get.to(() => const TermsScreen()),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text.rich(
-                                  TextSpan(
-                                    style: TextStyle(
-                                      color: AppThemeConfig.mutedText(context),
-                                      fontSize: 13.5,
-                                    ),
-                                    children: [
-                                      TextSpan(text: 'I agree to the '.tr),
-                                      TextSpan(
-                                        text: 'Terms & Conditions'.tr,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          decoration: TextDecoration.underline,
-                                          color: AppThemeConfig.text(context),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: AppPressable(
+                                onTap: () => Get.to(() => const TermsScreen()),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      style: TextStyle(
+                                        color: AppThemeConfig.mutedText(
+                                          context,
                                         ),
+                                        fontSize: 13.5,
                                       ),
-                                    ],
+                                      children: [
+                                        TextSpan(text: 'I agree to the '.tr),
+                                        TextSpan(
+                                          text: 'Terms & Conditions'.tr,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            color: AppThemeConfig.text(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       ],
                       const SizedBox(height: 22),
                       SizedBox(
@@ -5373,15 +5909,47 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     );
   }
 
-  Widget _label(BuildContext context, String text) => Text(
-    text.tr,
-    style: TextStyle(
+  // Client report — إجباري must show a red required dot, on every field the
+  // admin has switched to Required (`_required`, from fetchFieldRuleSets()),
+  // and on no other field. Before this the form only surfaced "required" as
+  // an error message after Save — nothing on screen said so up front.
+  //
+  // [ruleKey] is the SAME rule-key string every `_unlessHidden`/`_isHidden`
+  // check at the call site already carries; a caller with no rule key (a
+  // section heading, not a field) gets the plain label, unchanged. [ruleKeys]
+  // is the `_unlessHiddenAny` equivalent — required if the admin required
+  // ANY of them, the same "any" semantics `_unlessHiddenAny` already hides by.
+  Widget _label(
+    BuildContext context,
+    String text, {
+    String? ruleKey,
+    List<String>? ruleKeys,
+  }) {
+    final keys = ruleKeys ?? (ruleKey != null ? [ruleKey] : const <String>[]);
+    final isRequired = keys.any(_required.contains);
+    final style = TextStyle(
       fontSize: 12.5,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.3,
       color: AppThemeConfig.mutedText(context),
-    ),
-  );
+    );
+    // The label stays a plain Text holding exactly the translated words, so a
+    // screen reader (and every test that finds a field by its label) reads
+    // the label and not "label *". The red mark is a separate, decorative
+    // widget beside it.
+    final label = Text(text.tr, style: style);
+    if (!isRequired) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(child: label),
+        ExcludeSemantics(
+          child: Text(' *', style: style.copyWith(color: Colors.red)),
+        ),
+      ],
+    );
+  }
 }
 
 class _RoleTile extends StatelessWidget {

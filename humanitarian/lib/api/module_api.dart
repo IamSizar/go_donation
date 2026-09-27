@@ -584,6 +584,11 @@ class ModuleApi {
   Future<List<Map<String, dynamic>>> districts(String groupKey) =>
       getItems('$districtsUrl?group=$groupKey');
 
+  /// Every active city, district (قضاء) and sub-district (ناحية) of one
+  /// governorate, in the dashboard's order (migration 136).
+  Future<List<Map<String, dynamic>>> areas(String governorate) =>
+      getItems('$areasUrl?governorate=${Uri.encodeQueryComponent(governorate)}');
+
   Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
       postJson(communitySubmitUrl, body);
 
@@ -1051,8 +1056,10 @@ class ModuleApi {
       getItems(aidReceiptsUrl);
 
   // #45 — open (or reuse) a direct chat with support/tech; returns thread_id.
-  Future<int?> startSupportChat() async {
-    final res = await postJson(chatSupportUrl, {});
+  Future<int?> startSupportChat({String? section}) async {
+    final res = await postJson(chatSupportUrl, {
+      if (section != null) 'section': section,
+    });
     final id = res['thread_id'];
     return id is int ? id : int.tryParse('$id');
   }
@@ -1072,14 +1079,19 @@ class ModuleApi {
   /// back out of an exception message. [postJson] collapses every failure into
   /// `Exception('Request failed (503)')`, and matching on that string would
   /// break the first time anyone reworded it.
-  Future<SupportChatResult> openSupportThread() async {
+  ///
+  /// [section] is the support department ('events' / 'volunteers'); the
+  /// server keeps one chat per user per department.
+  Future<SupportChatResult> openSupportThread({String? section}) async {
     final http.Response response;
     try {
       final uri = Uri.parse(chatSupportUrl);
       final headers = withApiAuthHeaders(const {
         'Content-Type': 'application/json',
       });
-      final body = jsonEncode(withApiAuthJsonBody(const {}));
+      final body = jsonEncode(
+        withApiAuthJsonBody({if (section != null) 'section': section}),
+      );
       response =
           await (httpClient?.post(uri, headers: headers, body: body) ??
                   http.post(uri, headers: headers, body: body))

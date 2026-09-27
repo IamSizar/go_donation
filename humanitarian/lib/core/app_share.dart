@@ -13,6 +13,22 @@ String withAppLink(String text) {
   return link.isEmpty ? text : '$text\n\n$link';
 }
 
+/// A `balancenex://open?type=...&id=...` link to one specific thing —
+/// [entityType] matches the same `related_entity_type` strings the backend
+/// and notification_destination.dart already use ('campaigns',
+/// 'marriage_profiles', 'media_posts', …), so deep_link_router.dart can
+/// resolve it with the exact table a push notification's tap already uses.
+String entityDeepLink(String entityType, int id) =>
+    'balancenex://open?type=$entityType&id=$id';
+
+/// [withAppLink], but for sharing one specific entity: appends the entity's
+/// own deep link when [id] is usable, falling back to the generic app link
+/// (or no link at all) otherwise — never a broken/empty link.
+String withEntityLink(String text, String entityType, int? id) {
+  if (id == null || id <= 0) return withAppLink(text);
+  return '$text\n\n${entityDeepLink(entityType, id)}';
+}
+
 /// The rect the share sheet is anchored to, in the source view's coordinates.
 ///
 /// WHY THIS IS NOT OPTIONAL. iOS presents the share sheet as a popover pinned

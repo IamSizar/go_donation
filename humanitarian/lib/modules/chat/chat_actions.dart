@@ -6,6 +6,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
 import 'package:flutter_application_1/modules/chat/widgets/support_chat_unavailable_notice.dart';
 import 'package:flutter_application_1/modules/support/screens/technical_support_screen.dart';
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:flutter_application_1/modules/chat/screens/chat_conversation_screen.dart';
 import 'package:get/get.dart';
 
@@ -33,13 +34,19 @@ abstract final class ChatActions {
   static Future<void> startSupportChat(
     BuildContext context, {
     String? conversationTitle,
+    // The support department. Callers that know it (the events section)
+    // pass it; otherwise the user is asked.
+    String? section,
     // A seam for tests, defaulted so the call site is unchanged.
     ModuleApi api = const ModuleApi(),
   }) async {
     if (!await requireUpgrade(context)) return;
     if (!context.mounted) return;
 
-    final result = await api.openSupportThread();
+    section ??= await pickSupportSection(context);
+    if (section == null || !context.mounted) return;
+
+    final result = await api.openSupportThread(section: section);
     if (!context.mounted) return;
 
     switch (result) {
@@ -47,7 +54,10 @@ abstract final class ChatActions {
         Get.to(
           () => ChatConversationScreen(
             threadId: threadId,
-            title: conversationTitle ?? 'Staff support'.tr,
+            title:
+                conversationTitle ??
+                supportSectionLabel(section) ??
+                'Staff support'.tr,
           ),
         );
 
@@ -95,7 +105,8 @@ abstract final class ChatActions {
             // dead-end on a screen whose whole purpose was reaching someone.
             action: SnackBarAction(
               label: 'chat_support_unavailable_action'.tr,
-              onPressed: () => Get.to(() => const TechnicalSupportScreen()),
+              onPressed: () =>
+                  Get.to(() => TechnicalSupportScreen(initialSection: section)),
             ),
           ),
         );

@@ -11,12 +11,12 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/chat/chat_actions.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
 
 import 'event_service_request_screen.dart';
 import 'marriage_chats_screen.dart';
 import 'marriage_my_profile_screen.dart';
-import 'marriage_posts_screen.dart';
 import 'marriage_search_screen.dart';
 import 'marriage_subscription_screen.dart';
 import '../widgets/event_hub_cards.dart';
@@ -196,13 +196,11 @@ class EventsSectionGroupScreen extends StatelessWidget {
           subtitle: 'Search event profiles by name or gender',
           onTap: () => Get.to(() => const MarriageSearchScreen()),
         ),
-        _GroupItem(
-          icon: Icons.article_outlined,
-          color: AppThemeConfig.accent(context),
-          title: 'Event posts',
-          subtitle: 'News and stories from the events section',
-          onTap: () => Get.to(() => const MarriagePostsScreen()),
-        ),
+        // Client report — "Event posts" used to open here as its own
+        // screen; the feed now renders straight on the hub (below its two
+        // cards, see marriage_hub_screen.dart), so this door to the SAME
+        // feed is redundant and removed. MarriagePostsScreen itself is
+        // untouched — still linked from proposal_services_section.dart.
         if (!guest) ...[
           // Spec item 11 — one entry landing on the status view, which knows
           // the profile's state and offers the right next action itself
@@ -237,7 +235,7 @@ class EventsSectionGroupScreen extends StatelessWidget {
             subtitle: 'Questions or issues about the events section',
             onTap: () => ChatActions.startSupportChat(
               context,
-              conversationTitle: 'Staff support'.tr,
+              section: kSupportSectionEvents,
             ),
           ),
         ],
