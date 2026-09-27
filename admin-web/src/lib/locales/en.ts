@@ -2170,7 +2170,6 @@ const en = {
     social_links: 'Social links',
     sku: 'SKU', specs: 'Specs', labels: 'Labels',
     status: 'Status', city: 'City', phone: 'Phone', currency: 'Currency', category: 'Category',
-    section: 'Section',
     // F7 — the section a volunteer mission is filed under on قائمة المهام.
     section: 'Section',
     address: 'Address', type: 'Type', full_name: 'Full name', website: 'Website',

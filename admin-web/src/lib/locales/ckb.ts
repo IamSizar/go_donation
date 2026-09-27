@@ -1962,7 +1962,6 @@ const ckb: DeepPartial<typeof en> = {
     summary_en: 'کورتە (EN)', summary_ar: 'کورتە (AR)',
     public_title_en: 'سەردێری گشتی (EN)', public_title_ar: 'سەردێری گشتی (AR)', public_title_sorani: 'سەردێری گشتی (سۆرانی)', public_title_badini: 'سەردێری گشتی (بادینی)',
     // ─── Machine-drafted Kurdish — UNREVIEWED (see file header) ───
-    section: 'بەش',
     whatsapp: 'واتساپ',
     discount_percent: 'ڕێژەی داشکاندن ٪',
   },

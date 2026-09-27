@@ -2012,7 +2012,6 @@ const ar: DeepPartial<typeof en> = {
     social_links: 'روابط التواصل',
     sku: 'الرمز التخزيني', specs: 'المواصفات', labels: 'الوسوم',
     status: 'الحالة', city: 'المدينة', phone: 'الهاتف', currency: 'العملة', category: 'الفئة',
-    section: 'القسم',
     // F7 — القسم الذي تُصنَّف تحته مهمة التطوع في قائمة المهام.
     section: 'القسم',
     address: 'العنوان', type: 'النوع', full_name: 'الاسم الكامل', website: 'الموقع الإلكتروني',
