@@ -46,6 +46,7 @@ void main() {
 
     await openSupportChat(
       ctx,
+      section: 'events',
       api: _api(
         () => _json({
           'success': false,
@@ -83,6 +84,7 @@ void main() {
 
     await openSupportChat(
       ctx,
+      section: 'events',
       api: _api(
         () => _json({'success': false, 'error': 'Database error'}, 500),
       ),
@@ -114,13 +116,18 @@ void main() {
     );
 
     // Fail first, so there is stale state to clear.
-    await openSupportChat(ctx, api: _api(() => _json({'success': false}, 503)));
+    await openSupportChat(
+      ctx,
+      section: 'events',
+      api: _api(() => _json({'success': false}, 503)),
+    );
     expect(supportChatUnavailable.value, isTrue);
 
     // Then a different failure. The notice from the first attempt must not
     // still be sitting on screen beside the second attempt's error.
     await openSupportChat(
       ctx,
+      section: 'events',
       api: _api(() => _json({'success': false, 'error': 'boom'}, 500)),
     );
 

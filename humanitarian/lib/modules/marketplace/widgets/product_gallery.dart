@@ -1,29 +1,40 @@
-// product_gallery.dart — a marketplace product's ADDITIONAL photos.
+// product_gallery.dart — a marketplace product's photos, cover and gallery
+// together, in the detail sheet.
 //
 // WHAT THIS IS
-// A product has always had exactly one photo: `image_path`, the cover, drawn by
-// the list tile and the detail sheet's hero. Migration 117 adds `gallery`, a
-// text array of extra photos, so a seller can show a second angle, the back of
-// a garment, or what is actually in the box. This file draws that array — a
-// horizontal strip of thumbnails under the hero, each tappable to open
-// full-screen with pinch-to-zoom.
+// A product has one required cover (`image_path`) and, since migration 117,
+// an optional `gallery` array of extra photos. [ProductPhotoStrip] draws BOTH
+// as one horizontal scrollable strip — the cover first, then the gallery
+// photos in the order staff arranged them — every one of them tappable to
+// open full-screen with pinch-to-zoom.
+//
+// THE BUG THIS FIXES (redesign, not a tweak): the detail sheet used to draw
+// the cover as a separate, non-tappable "hero" locked to a fixed 16:10 box
+// with `BoxFit.cover`, and — only when a gallery existed — a SECOND, tiny
+// 72px thumbnail strip underneath captioned "Photos". Two problems, one
+// design: (1) a portrait photo (a T-shirt on a hanger, shot taller than
+// wide) forced into that wide fixed box had most of its height cropped away
+// — cover-fit crops to fill the box, so anything the box is narrower than
+// gets cut off both edges, and for a tall photo in a WIDE box that means the
+// top and bottom go, which the shirt's design was often in; the small
+// square thumbnails cropped the same way, just less noticeably at 72px. (2)
+// the cover wasn't part of "the photos" at all — a shopper had to already
+// know the unlabelled big image up top and the labelled strip below it were
+// the same kind of thing. One strip, one tap-to-zoom behaviour, and
+// `BoxFit.contain` (never crops — letterboxes instead) for every photo
+// fixes both at once.
 //
 // WHY IT LIVES HERE AND NOT IN marketplace_section.dart
 // That screen is already over a thousand lines, well past the 500-line ceiling.
 // Adding a widget to it would have made a known problem worse to fix a
 // different one.
 //
-// WHY IT MIRRORS news_activities_screen.dart RATHER THAN INVENTING A SHAPE
-// media_posts has carried a gallery since migration 033 and the news feed has
-// drawn it the same way ever since: a strip of square thumbnails, tap to open a
-// zoomable full-screen viewer, tap anywhere (or the close button) to dismiss.
-// A user who has met one gallery in this app should not have to learn a second.
-//
-// THE EMPTY CASE IS THE COMMON CASE
-// Almost every product has no extra photos. [marketplaceGalleryUrls] returns an
-// empty list for absent, null, non-list and all-blank values alike, and the
-// detail sheet draws nothing at all when it is empty — so a product without a
-// gallery renders exactly as it did before this file existed.
+// THE EMPTY CASE IS THE COMMON CASE FOR THE GALLERY, NOT THE COVER
+// Almost every product has no extra photos, only a cover. [marketplaceGalleryUrls]
+// returns an empty list for absent, null, non-list and all-blank values alike,
+// so a product with no gallery still gets a one-photo strip (just the cover) —
+// never zero, since [ProductPhotoStrip] always includes the cover when there
+// is one.
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
@@ -77,63 +88,124 @@ List<String> marketplaceGalleryUrls(dynamic raw) {
 
 // ─── The strip ──────────────────────────────────────────────────────────
 
-/// A horizontal strip of a product's additional photos, captioned and tappable.
-///
-/// Draws nothing when [urls] is empty, so the caller does not need its own
-/// guard — but callers are still expected to skip the surrounding spacing, or
-/// the sheet would carry a gap where nothing is.
-class ProductGallery extends StatelessWidget {
-  const ProductGallery({super.key, required this.urls});
+/// A full-width, tap-to-zoom PROMOTION-BANNER-style carousel of a product's
+/// photos — the cover first, then its gallery — one photo filling the width
+/// at a time, swiped between rather than scrolled past as small tiles.
+/// `BoxFit.contain` throughout: a photo is never cropped, only letterboxed
+/// against [AppThemeConfig.softSurface] when its aspect ratio doesn't fill
+/// the frame.
+class ProductPhotoStrip extends StatefulWidget {
+  const ProductPhotoStrip({
+    super.key,
+    required this.coverUrl,
+    required this.galleryUrls,
+  });
+
+  /// The product's required cover photo, already resolved — or null for a
+  /// product with no cover at all, in which case only the gallery (if any)
+  /// shows.
+  final String? coverUrl;
 
   /// Already-resolved absolute URLs, from [marketplaceGalleryUrls].
-  final List<String> urls;
+  final List<String> galleryUrls;
 
-  /// Thumbnail edge length. Square, because product photos arrive in every
-  /// aspect ratio and a fixed square with `BoxFit.cover` is the only way the
-  /// strip stays a straight line instead of a ragged one.
-  static const double _thumbSize = 72;
+  /// Banner height. Full card width at this height reads as a promo
+  /// banner rather than a thumbnail row — the whole point of this being a
+  /// PageView instead of a ListView.
+  static const double _bannerHeight = 240;
+
+  @override
+  State<ProductPhotoStrip> createState() => _ProductPhotoStripState();
+}
+
+class _ProductPhotoStripState extends State<ProductPhotoStrip> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (urls.isEmpty) return const SizedBox.shrink();
+    final urls = [
+      if (widget.coverUrl != null) widget.coverUrl!,
+      ...widget.galleryUrls,
+    ];
+    if (urls.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: const SizedBox(
+          height: ProductPhotoStrip._bannerHeight,
+          width: double.infinity,
+          child: _ThumbnailFallback(),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'product_photos'.tr,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AppThemeConfig.text(context),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: _thumbSize,
-          child: ListView.separated(
-            // Horizontal lists follow the ambient text direction, so this
-            // starts at the right in Arabic and Kurdish without a flag.
-            scrollDirection: Axis.horizontal,
-            itemCount: urls.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, i) => AppPressable(
-              onTap: () => showProductGalleryImage(context, urls[i]),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: urls[i],
-                  width: _thumbSize,
-                  height: _thumbSize,
-                  fit: BoxFit.cover,
-                  fadeInDuration: const Duration(milliseconds: 180),
-                  placeholder: (context, _) => const _ThumbnailLoading(),
-                  errorWidget: (context, _, __) => const _ThumbnailFallback(),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            height: ProductPhotoStrip._bannerHeight,
+            width: double.infinity,
+            child: PageView.builder(
+              controller: _controller,
+              // Follows the ambient text direction, same reason the old
+              // ListView did — swiping "forward" is toward the end edge in
+              // Arabic and Kurdish, not always to the physical right.
+              scrollDirection: Axis.horizontal,
+              itemCount: urls.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (context, i) => AppPressable(
+                onTap: () => showProductGalleryImage(context, urls[i]),
+                child: Container(
+                  color: AppThemeConfig.softSurface(context),
+                  child: CachedNetworkImage(
+                    imageUrl: urls[i],
+                    fit: BoxFit.contain,
+                    fadeInDuration: const Duration(milliseconds: 180),
+                    placeholder: (context, _) => const _ThumbnailLoading(),
+                    errorWidget: (context, _, __) => const _ThumbnailFallback(),
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        // The "which photo am I on" dots a promo banner is expected to
+        // have. Only worth drawing once there is more than one photo to
+        // flip between — a single-photo product doesn't need a solitary
+        // dot telling it so.
+        if (urls.length > 1) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < urls.length; i++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _page ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _page
+                          ? AppThemeConfig.primary
+                          : AppThemeConfig.border(context),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

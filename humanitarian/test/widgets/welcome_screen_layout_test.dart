@@ -278,7 +278,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/branding/balancenex_icon.png',
+                'assets/branding/tawazzn_icon.png',
       );
       final blockTop = tester.getTopLeft(brandImage).dy;
       final blockBottom = tester.getBottomLeft(headline).dy;

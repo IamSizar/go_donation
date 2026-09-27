@@ -19,6 +19,15 @@
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+/**
+ * `list` + `highlight=<id>`, joined with `&` when `list` already carries a
+ * query — list paths can now name a tab (`/marketplace?tab=orders`, see
+ * lib/useUrlTab), and a blind `${list}?highlight=` would produce a second `?`.
+ */
+export function withHighlight(list: string, id: string): string {
+  return `${list}${list.includes('?') ? '&' : '?'}highlight=${encodeURIComponent(id)}`
+}
+
 // useHighlightedRow — wraps the URL param + scroll plumbing into a single
 // hook with a focused API surface.
 //

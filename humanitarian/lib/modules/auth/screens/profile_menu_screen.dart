@@ -59,29 +59,49 @@ class ProfileMenuScreen extends StatelessWidget {
         children: [
           AccountHeader(guest: guest),
 
-          // ─── DESTINATIONS AS A GRID, NOT TWELVE ROWS ─────────────────────
-          // Each of these is an icon and a word. A full-width row each made
-          // the screen about six screens long; three across makes it four
-          // rows. Nothing is hidden — collapsing them would have been shorter
-          // to LOOK at and longer to USE.
+          // THE BUG THIS FIXES: the language switch used to live only far
+          // down this list, inside the "Settings" card — and even THAT copy
+          // only rendered `if (guest)`, so a signed-in user had no language
+          // control on this screen at all (their only door to it was
+          // "Control Settings and Preferences", a whole extra screen away).
+          // For an app whose users are ~90% Arabic speakers, a person who
+          // opens it in the wrong language and can't read the English menu
+          // labels ("Profile", "Settings", "Control Settings and
+          // Preferences") has no way to read their way to the fix. Right
+          // after the account card — the very first thing this screen shows,
+          // for guest and signed-in alike — is the one placement that
+          // doesn't depend on being able to read anything to reach it.
+          const SizedBox(height: 12),
+          const MenuCard(children: [LanguageRow()]),
+
+          // THE BUG THIS FIXES: this used to be a MenuGrid — three-across
+          // icon tiles — for every section except Settings (already rows,
+          // for the trailing values a tile can't hold) and About & support
+          // (kept as tiles on purpose, still asked for by name). The
+          // Language row's move to the top made the inconsistency obvious
+          // side by side: one full-width bar next to a grid of squares reads
+          // as two different screens stitched together. Every section down
+          // to About & support now shares the Language row's own long-bar
+          // style — MenuCard + DrawerTile — so this screen reads as one
+          // list, not a grid that occasionally breaks into rows.
           const MenuSectionLabel('My account'),
-          MenuGrid(
-            items: [
+          MenuCard(
+            children: [
               if (!guest)
-                MenuGridItem(
+                DrawerTile(
                   icon: Icons.person_outline_rounded,
                   label: 'Profile',
                   onTap: () =>
                       Get.to(() => const RegistrationFormPage(editMode: true)),
                 ),
               if (!guest)
-                MenuGridItem(
+                DrawerTile(
                   icon: Icons.bookmark_rounded,
                   label: 'Saved',
                   color: AppThemeConfig.pending(context),
                   onTap: () => Get.to(() => const SavedPostsScreen()),
                 ),
-              MenuGridItem(
+              DrawerTile(
                 icon: Icons.receipt_long_rounded,
                 label: 'receipts_title',
                 onTap: () => Get.to(() => const AidReceiptsScreen()),
@@ -92,12 +112,11 @@ class ProfileMenuScreen extends StatelessWidget {
           // OPOS #25869 — the general news/activities feed used to be
           // embedded directly on the Marriage hub screen (removed per OPOS
           // #25858, since it mixed humanitarian posts into a section-specific
-          // screen). Here it's a single door instead, matching this screen's
-          // own icon-tile idiom rather than a bespoke embedded feed.
+          // screen). Here it's a single door instead.
           const MenuSectionLabel('News'),
-          MenuGrid(
-            items: [
-              MenuGridItem(
+          MenuCard(
+            children: [
+              DrawerTile(
                 icon: Icons.campaign_outlined,
                 label: 'News and activities',
                 onTap: () => Get.to(() => const NewsActivitiesScreen()),
@@ -106,33 +125,33 @@ class ProfileMenuScreen extends StatelessWidget {
           ),
 
           const MenuSectionLabel('Services'),
-          MenuGrid(
-            items: [
-              MenuGridItem(
+          MenuCard(
+            children: [
+              DrawerTile(
                 icon: Icons.apps_rounded,
                 label: 'Services',
                 onTap: () => Get.to(() => const ProposalServicesSection()),
               ),
-              MenuGridItem(
+              DrawerTile(
                 icon: Icons.diversity_3_rounded,
                 label: 'Community Services',
                 onTap: () => Get.to(() => const CommunityServicesSection()),
               ),
               // Role-segmented, exactly as before.
               if (sharedPreferences.getString('role_id') == '3')
-                MenuGridItem(
+                DrawerTile(
                   icon: Icons.volunteer_activism_rounded,
                   label: 'Volunteer With Us',
                   color: AppThemeConfig.pending(context),
                   onTap: () => Get.to(() => const SupportSection()),
                 ),
-              MenuGridItem(
+              DrawerTile(
                 icon: Icons.checklist_rounded,
                 label: 'Task Verification',
                 color: AppThemeConfig.pending(context),
                 onTap: () => Get.to(() => const TaskVerificationScreen()),
               ),
-              MenuGridItem(
+              DrawerTile(
                 icon: Icons.casino_rounded,
                 label: 'Game',
                 color: AppThemeConfig.pending(context),
@@ -168,10 +187,12 @@ class ProfileMenuScreen extends StatelessWidget {
                   color: AppThemeConfig.accent(context),
                   onTap: () => Get.to(() => const ControlSettingsScreen()),
                 ),
-              // A guest still needs the language switch, and Control Settings
-              // is closed to them — so for a guest ONLY, it stays here rather
-              // than becoming unreachable.
-              if (guest) const LanguageRow(),
+              // Language now has its own prominent card right below the
+              // account header (see above) for every user, guest or not —
+              // no longer needs a second copy here. Dark mode still does:
+              // a guest still needs it, and Control Settings is closed to
+              // them, so for a guest ONLY it stays here rather than
+              // becoming unreachable.
               if (guest) const DarkModeRow(),
             ],
           ),

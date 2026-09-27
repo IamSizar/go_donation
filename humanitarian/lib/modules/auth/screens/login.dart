@@ -37,7 +37,7 @@ class LoginPage extends StatelessWidget {
           Center(
             child: ClipOval(
               child: Image.asset(
-                'assets/branding/balancenex_icon.png',
+                'assets/branding/tawazzn_icon.png',
                 width: 72,
                 height: 72,
                 fit: BoxFit.cover,
@@ -850,7 +850,7 @@ class _NeedsPasswordSetupCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'This number has no password yet. Verify it to choose one.'
+                  'Verify this number to continue — you\'ll set a password next.'
                       .tr,
                   style: TextStyle(
                     color: AppThemeConfig.text(context),

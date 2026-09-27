@@ -67,7 +67,7 @@ var userProfileDetailColumns = []string{
 	"gps_lat", "gps_lng",
 
 	// ─── Location ───────────────────────────────────────────────────────
-	"governorate", "district", "city", "housing_side", "neighborhood",
+	"governorate", "district", "city", "area_district", "area_subdistrict", "housing_side", "neighborhood",
 	"address", "nearest_landmark",
 
 	// ─── Housing ────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ var userProfileDetailColumns = []string{
 	// ─── Photos & documents (stored as upload paths) ────────────────────
 	"profile_picture", "id_photo_path", "id_photo_back_path", "golden_square_photo_path",
 	"residence_card_photo_path", "residence_card_photo_back_path", "passport_photo_path",
-	"graduation_cert_photo_path", "cv_photo_path", "ration_card_photo_path",
+	"graduation_cert_photo_path", "cv_photo_path", "ration_card_photo_path", "ration_card_photo_back_path",
 	"property_proof_photo_path", "medical_report_photo_path",
 	"house_facade_photo_path", "house_inside_photo_path",
 	"house_outside_photo_path",

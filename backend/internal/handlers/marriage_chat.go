@@ -200,7 +200,7 @@ func (h *MarriageChatHandler) Accept(c *gin.Context) {
 		h.chatErr(c, marriagechat.ErrNotOwner)
 		return
 	}
-	if refuseIfInviteClosed(c, h.Pool, chatlifecycle.KindMarriage, id) {
+	if refuseIfInviteGone(c, h.Pool, chatlifecycle.KindMarriage, id) {
 		return
 	}
 	thread, err := h.Store.AcceptThread(c.Request.Context(), id, user.UserID)
@@ -398,7 +398,7 @@ func (h *MarriageChatHandler) AdminPostMessage(c *gin.Context) {
 	// Migration 117 — a PAUSED or ENDED chat refuses new messages, server-side.
 	// The pause holds for STAFF too: a pause staff could talk through would not
 	// be a pause, so they resume it first, deliberately.
-	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindMarriage, id) {
+	if refuseIfEndedForStaff(c, h.Pool, chatlifecycle.KindMarriage, id) {
 		return
 	}
 	var req marriageChatMessageReq

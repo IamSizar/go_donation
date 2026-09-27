@@ -237,7 +237,7 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-/// The BalanceNex brand mark, given real weight for a first-run screen: a
+/// The Tawazzn brand mark, given real weight for a first-run screen: a
 /// soft tonal backdrop (the accent's own wash tint — Craft: "colours that
 /// adapt to light/dark") sitting behind a larger circular logo, instead of
 /// the previous small 88px circle boxed inside a card. Materials guidance
@@ -274,7 +274,7 @@ class _BrandMark extends StatelessWidget {
             ),
             child: ClipOval(
               child: Image.asset(
-                'assets/branding/balancenex_icon.png',
+                'assets/branding/tawazzn_icon.png',
                 width: 116,
                 height: 116,
                 fit: BoxFit.cover,

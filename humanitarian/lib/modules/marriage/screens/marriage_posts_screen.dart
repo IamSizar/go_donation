@@ -193,9 +193,15 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     final code = (profile['profile_code'] ?? '').toString();
     final summary = (profile['social_summary'] ?? '').toString();
     final parts = <String>[if (code.isNotEmpty) code, if (summary.trim().isNotEmpty) summary];
-    // #49-style app link, same convention as the News & Activities share.
+    // Client report — this used to append the generic app link (empty, so
+    // no link at all); now appends a deep link straight back to this
+    // profile — see app_share.dart's withEntityLink.
     await Share.share(
-      withAppLink(parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n')),
+      withEntityLink(
+        parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n'),
+        'marriage_profiles',
+        id == 0 ? null : id,
+      ),
       sharePositionOrigin: shareAnchor(context),
     );
     if (id == 0) return;
@@ -289,7 +295,17 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
                   onLike: () async {
                     if (await requireSignIn(context)) _toggleLike(item);
                   },
-                  onComment: () => _openComments(context, item),
+                  // THE BUG THIS FIXES: onLike already gated a guest behind
+                  // requireSignIn; onComment never did, so a guest could
+                  // open the compose sheet and post — the one engagement
+                  // action here that actually writes new content, not just
+                  // a toggle — with no gate at all.
+                  onComment: () async {
+                    final signedIn = await requireSignIn(context);
+                    if (signedIn && context.mounted) {
+                      _openComments(context, item);
+                    }
+                  },
                   onShare: () => _share(context, item),
                 ),
                 const SizedBox(height: 14),

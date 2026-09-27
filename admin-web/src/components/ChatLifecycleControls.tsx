@@ -62,9 +62,17 @@ type Props = {
   thread: LifecycleThread
   /** Re-fetch the page's list once the state has actually changed. */
   onChanged: () => void | Promise<void>
+  /**
+   * OPOS 48992 — a chat between two people that only runs with the admin
+   * present (connect-request groups, marriage chats). Shown as a single
+   * فتح / إغلاق switch (resume / pause, no reason prompt) with an
+   * مفتوحة / مغلقة badge; End is not offered — closing covers it and End
+   * could never be undone.
+   */
+  supervised?: boolean
 }
 
-export default function ChatLifecycleControls({ basePath, deleteModule, thread, onChanged }: Props) {
+export default function ChatLifecycleControls({ basePath, deleteModule, thread, onChanged, supervised = false }: Props) {
   const { t } = useI18n()
   const { user } = useAuth()
   const canDelete = usePermission(deleteModule, 'delete', user)
@@ -152,23 +160,38 @@ export default function ChatLifecycleControls({ basePath, deleteModule, thread, 
         {/* Current state, always visible — the buttons alone would not say
             whether a chat is already paused. */}
         <span className={`badge tone-${ended ? 'info' : paused ? 'warning' : 'success'}`}>
-          {t(`status.${lifecycle}`)}
+          {supervised && !ended
+            ? t(paused ? 'chat_lifecycle.state_closed' : 'chat_lifecycle.state_open')
+            : t(`status.${lifecycle}`)}
         </span>
         {archived && <span className="badge tone-info">{t('status.archived')}</span>}
 
+        {/* Supervised chats: one open / close switch. */}
+        {supervised && !ended && (
+          paused ? (
+            <button disabled={busy !== null} onClick={() => run('resume')}>
+              {busy === 'resume' ? t('common.saving') : t('chat_lifecycle.open_chat')}
+            </button>
+          ) : (
+            <button className="secondary" disabled={busy !== null} onClick={() => run('pause')}>
+              {busy === 'pause' ? t('common.saving') : t('chat_lifecycle.close_chat')}
+            </button>
+          )
+        )}
+
         {/* Pause is only offered on an open chat; Resume only on a paused one.
             Neither is offered on an ended chat — ending is final. */}
-        {!ended && !paused && (
+        {!supervised && !ended && !paused && (
           <button className="secondary" disabled={busy !== null} onClick={() => askReasonThen('pause')}>
             {busy === 'pause' ? t('common.saving') : t('chat_lifecycle.pause')}
           </button>
         )}
-        {!ended && paused && (
+        {!supervised && !ended && paused && (
           <button className="secondary" disabled={busy !== null} onClick={() => run('resume')}>
             {busy === 'resume' ? t('common.saving') : t('chat_lifecycle.resume')}
           </button>
         )}
-        {!ended && (
+        {!supervised && !ended && (
           <button className="secondary" disabled={busy !== null} onClick={() => askReasonThen('end')}>
             {busy === 'end' ? t('common.saving') : t('chat_lifecycle.end')}
           </button>
@@ -195,6 +218,11 @@ export default function ChatLifecycleControls({ basePath, deleteModule, thread, 
 
       {/* The reason staff gave, echoed back so they can see what the two
           participants are currently being told. */}
+      {supervised && !ended && (
+        <p className="muted" style={{ margin: 0 }}>
+          {t(paused ? 'chat_lifecycle.closed_hint' : 'chat_lifecycle.open_hint')}
+        </p>
+      )}
       {thread.lifecycle_reason && (
         <p className="muted" style={{ margin: 0 }}>
           {t('chat_lifecycle.reason_shown', { reason: thread.lifecycle_reason })}

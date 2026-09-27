@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
@@ -33,7 +33,8 @@ import {
   type CustomProfession,
 } from '../lib/skillCatalogue'
 import { SKILL_ICON, colorForSkill } from '../lib/skillIcons'
-import PageHead from '../components/PageHead'
+import PageHead, { PageActions } from '../components/PageHead'
+import { useUrlTab } from '../lib/useUrlTab'
 import RowActionsMenu from '../components/RowActionsMenu'
 import ActionsMenu from '../components/ActionsMenu'
 // E15 — the signups tab builds its own ActionsMenu (its entries are status
@@ -111,15 +112,12 @@ const VOLUNTEER_CREATE_FIELDS: FieldSpec[] = [
 //   • Mission signups   → volunteer_mission_signups (new — admin approves
 //                         join / marks attendance / completion / no-show)
 //
-// Tab selection is local state — no URL param yet, but the `?highlight=`
-// flow from the dashboard lands on whichever tab makes sense for the
-// event type (event_type 'volunteer_application_submit' lands on
-// applications; future 'volunteer_mission_join' / 'volunteer_attendance'
-// would land on signups when that wiring is added).
+// Tab selection lives in the URL (`?tab=`, lib/useUrlTab) so the top bar's
+// تحديث — which re-mounts the page — keeps the operator on the same tab.
 type Tab = 'applications' | 'signups'
 
 export default function VolunteersPage() {
-  const [tab, setTab] = useState<Tab>('applications')
+  const [tab, setTab] = useUrlTab<Tab>(['applications', 'signups'], 'applications')
   const { t } = useI18n()
   const { counts } = usePendingCounts()
   // Show a small count badge on the tab so the admin can see at a glance
@@ -321,11 +319,6 @@ function ApplicationsTab() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`volunteers-${new Date().toISOString().slice(0, 10)}.csv`, rows, VOLUNTEER_CSV_COLUMNS)
-  }
 
   const columns: Column<AdminVolunteerApp>[] = [
     {
@@ -454,7 +447,11 @@ function ApplicationsTab() {
     <div className="stack">
       {/* No <h1> here — the parent VolunteersPage wrapper owns the page
           title and tab row. We just render the secondary controls + table. */}
-      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+      {/* Client report (Marketplace) — this used to be ordinary page-body
+          content, so it was always pushed onto its own line below the fixed
+          top bar even when there was room. PageActions portals it into the
+          top bar's own flex-wrap row instead. */}
+      <PageActions>
         <p className="muted" style={{ margin: 0 }}>
           {resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}
         </p>
@@ -537,10 +534,10 @@ function ApplicationsTab() {
               ))}
             </select>
           </label>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton rows={resp?.items ?? []} columns={VOLUNTEER_CSV_COLUMNS} filenameBase="volunteers" title={t('page.volunteers.tab_applications')} module="volunteers" />
           <button onClick={() => setCreating(true)}>{t('page.volunteers.new')}</button>
         </div>
-      </div>
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.volunteer_application')} />
       <Table<AdminVolunteerApp>
@@ -884,11 +881,6 @@ function MissionSignupsTab() {
     [toast, refreshPendingCounts],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`mission-signups-${new Date().toISOString().slice(0, 10)}.csv`, rows, SIGNUP_CSV_COLUMNS)
-  }
 
   // Persistent action panel — every application ALWAYS shows management
   // buttons, so an admin can approve, reject, or reverse a decision at any
@@ -1044,7 +1036,7 @@ function MissionSignupsTab() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+      <PageActions>
         <p className="muted" style={{ margin: 0 }}>
           {resp ? `${resp.total_items} ${t('common.total')}` : t('common.loading')}
         </p>
@@ -1069,9 +1061,9 @@ function MissionSignupsTab() {
               {SIGNUP_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
             </select>
           </label>
-          <ExportCsvButton onExport={exportCsv} />
+          <ExportCsvButton rows={resp?.items ?? []} columns={SIGNUP_CSV_COLUMNS} filenameBase="mission-signups" title={t('page.volunteers.tab_signups')} module="volunteers" />
         </div>
-      </div>
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.mission_signup')} />
       <Table<AdminMissionSignup>

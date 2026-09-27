@@ -189,10 +189,14 @@ func assertMarriageInviteUntouched(t *testing.T, pool *pgxpool.Pool, inv pending
 
 // ─── Paused, ended and retired invites are refused like a send ─────────
 
-// TestMarriageInviteAccept_ClosedThreadRefused pins that accepting a paused or
-// ended invite answers with the SAME refusal the send path and the donor
-// accept give (refuseIfNotSendable): 409, code chat_lifecycle_closed, the
-// lifecycle, and staff's reason in their own words.
+// TestMarriageInviteAccept_ClosedThreadRefused pins that accepting an ENDED
+// invite answers with the SAME refusal the send path and the donor accept give
+// (refuseIfNotSendable): 409, code chat_lifecycle_closed, the lifecycle, and
+// staff's reason in their own words.
+//
+// A PAUSED invite is no longer refused (OPOS 48992): marriage chats are now
+// created closed until the admin opens them, so closed is the normal state
+// an invite is accepted in — see TestMarriageInviteAccept_ClosedInviteAcceptsButStaysClosed.
 func TestMarriageInviteAccept_ClosedThreadRefused(t *testing.T) {
 	pool := newLifecyclePool(t)
 	r := newMarriageAcceptRouter(pool)
@@ -202,7 +206,6 @@ func TestMarriageInviteAccept_ClosedThreadRefused(t *testing.T) {
 		reason string
 	}{
 		{chatlifecycle.StateEnded, "Resolved by our team"},
-		{chatlifecycle.StatePaused, "Under review by our team"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.state, func(t *testing.T) {
@@ -274,6 +277,12 @@ func TestMarriageInviteAccept_ArchivedOpenInviteAnswersLikeMessagesRoute(t *test
 	staff := makeLifecycleUser(t, pool, "admin")
 	inv := seedPendingMarriageInvite(t, pool)
 
+	// Invites start closed (OPOS 48992); open it first so this covers the
+	// archived-but-OPEN state it is about.
+	if _, err := chatlifecycle.Apply(context.Background(), pool, chatlifecycle.KindMarriage, inv.ThreadID,
+		chatlifecycle.ActionResume, "", staff); err != nil {
+		t.Fatalf("open: %v", err)
+	}
 	st, err := chatlifecycle.Apply(context.Background(), pool, chatlifecycle.KindMarriage, inv.ThreadID,
 		chatlifecycle.ActionArchive, "", staff)
 	if err != nil || st.Lifecycle != chatlifecycle.StateOpen || !st.IsArchived {
@@ -345,5 +354,38 @@ func TestMarriageInviteAccept_NonOwnerRefusedAsBefore(t *testing.T) {
 			}
 			assertMarriageInviteUntouched(t, pool, inv)
 		})
+	}
+}
+
+// TestMarriageInviteAccept_ClosedInviteAcceptsButStaysClosed pins OPOS 48992:
+// a marriage chat is created CLOSED (the admin opens it when present), so the
+// owner can still accept the invite while it is closed — accepting only
+// records that they agreed — and the chat stays closed until the admin opens
+// it. The requester is told it was accepted.
+func TestMarriageInviteAccept_ClosedInviteAcceptsButStaysClosed(t *testing.T) {
+	pool := newLifecyclePool(t)
+	r := newMarriageAcceptRouter(pool)
+	inv := seedPendingMarriageInvite(t, pool)
+
+	var before string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT lifecycle FROM marriage_chat_threads WHERE id = $1`, inv.ThreadID).Scan(&before); err != nil {
+		t.Fatalf("read lifecycle: %v", err)
+	}
+	if before != chatlifecycle.StatePaused {
+		t.Fatalf("new invite lifecycle = %q, want paused — the admin opens the chat", before)
+	}
+
+	code, body := acceptMarriageInvite(t, r, pool, inv, inv.Owner)
+	if code != http.StatusOK {
+		t.Fatalf("accept on a closed (new) invite = %d %v, want 200", code, body)
+	}
+	var status, after string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status, lifecycle FROM marriage_chat_threads WHERE id = $1`, inv.ThreadID).Scan(&status, &after); err != nil {
+		t.Fatalf("read thread: %v", err)
+	}
+	if status != "active" || after != chatlifecycle.StatePaused {
+		t.Fatalf("after accept: status %q lifecycle %q, want active and still paused", status, after)
 	}
 }

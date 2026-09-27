@@ -422,10 +422,10 @@ class _GlassHeroMark extends StatelessWidget {
                             ),
                           ],
                         ),
-                        // BalanceNex brand mark, clipped into the splash badge.
+                        // Tawazzn brand mark, clipped into the splash badge.
                         child: ClipOval(
                           child: Image.asset(
-                            'assets/branding/balancenex_icon.png',
+                            'assets/branding/tawazzn_icon.png',
                             width: 58,
                             height: 58,
                             fit: BoxFit.cover,

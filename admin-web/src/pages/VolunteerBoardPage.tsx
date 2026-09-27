@@ -27,7 +27,7 @@ import { formatEvidenceTimestamp } from '../lib/dates'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import { type CsvColumn } from '../lib/csv'
-import PageHead from '../components/PageHead'
+import PageHead, { PageActions } from '../components/PageHead'
 
 const POLL_MS = 10_000
 
@@ -229,21 +229,30 @@ export default function VolunteerBoardPage() {
             {t('board.subtitle', { count: data.totals.missions })}
           </p>
         </div>
-        {/* Totals across all missions — chips matching lane tones below. */}
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <span className="board-total board-total-amber">⏳ {t('board.total_pending', { n: data.totals.pending })}</span>
-          <span className="board-total board-total-blue">📋 {t('board.total_approved', { n: data.totals.approved })}</span>
-          <span className="board-total board-total-info">🛠 {t('board.total_on_mission', { n: data.totals.on_mission })}</span>
-          <span className="board-total board-total-green">✓ {t('board.total_completed', { n: data.totals.completed })}</span>
-          <ExportCsvButton
-            rows={data ? boardExportRows(data) : []}
-            columns={BOARD_CSV_COLUMNS}
-            filenameBase="volunteer-board"
-            title={t('nav.volunteer_board')}
-            module="volunteers"
-          />
-        </div>
       </PageHead>
+      {/* Client report (لوحة المتطوعين) — these totals + Export used to be the
+          PageHead's own second child, so .page-head's internal flex-wrap
+          split the title away from them before the bar ever got a chance to
+          wrap the whole header as one unit: the title floated alone, and the
+          pills ended up sharing a line with Back/Refresh/Save/Next instead of
+          staying grouped with the title they belong to. PageActions is the
+          bar's OWN separate slot (same fix already applied to Marketplace/
+          Beneficiary/Volunteers) — it wraps as its own group next to Save,
+          title stays fully readable regardless of how many totals there are. */}
+      <PageActions>
+        {/* Totals across all missions — chips matching lane tones below. */}
+        <span className="board-total board-total-amber">⏳ {t('board.total_pending', { n: data.totals.pending })}</span>
+        <span className="board-total board-total-blue">📋 {t('board.total_approved', { n: data.totals.approved })}</span>
+        <span className="board-total board-total-info">🛠 {t('board.total_on_mission', { n: data.totals.on_mission })}</span>
+        <span className="board-total board-total-green">✓ {t('board.total_completed', { n: data.totals.completed })}</span>
+        <ExportCsvButton
+          rows={data ? boardExportRows(data) : []}
+          columns={BOARD_CSV_COLUMNS}
+          filenameBase="volunteer-board"
+          title={t('nav.volunteer_board')}
+          module="volunteers"
+        />
+      </PageActions>
 
       {data.missions.length === 0 ? (
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>

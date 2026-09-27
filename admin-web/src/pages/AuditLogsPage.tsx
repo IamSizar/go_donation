@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import ExportCsvButton from '../components/ExportCsvButton'
 import type { AdminAuditLog, AdminPageResp } from '../lib/api-types'
@@ -8,7 +9,7 @@ import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
-import { formatDateOnly } from '../lib/dates'
+import { formatDateOnly, formatDateTime } from '../lib/dates'
 
 const PER_PAGE = 30
 
@@ -127,6 +128,70 @@ export default function AuditLogsPage() {
   const actors = useMemo(() => Array.from(new Set(itemsAll.map(a => a.actor_source))).sort(), [itemsAll])
 
 
+  // The extra data a change was recorded with, in words. Only two writers
+  // exist (backend/internal/users/profile.go callers): the app's profile save
+  // ({entry_point, request_method}) and the test-data script ({fixture}).
+  // Known keys/values are translated; anything new still shows, as
+  // "key: value", so a future writer is never silently hidden.
+  const META_LABEL: Record<string, string> = {
+    entry_point: 'page.audit.meta_entry_point',
+    request_method: 'page.audit.meta_request_method',
+    fixture: 'page.audit.meta_fixture',
+  }
+  const META_VALUE: Record<string, string> = {
+    'api/profile/set': 'page.audit.entry_api_profile_set',
+    'seed-test-users': 'page.audit.fixture_seed_test_users',
+  }
+  const metaLines = (json: string | null): { label: string; value: string }[] => {
+    if (!json) return []
+    let parsed: unknown
+    try { parsed = JSON.parse(json) } catch { return [{ label: t('page.audit.source'), value: json }] }
+    if (!parsed || typeof parsed !== 'object') return [{ label: t('page.audit.source'), value: String(parsed) }]
+    return Object.entries(parsed as Record<string, unknown>).map(([k, v]) => {
+      const raw = typeof v === 'string' ? v : JSON.stringify(v)
+      return {
+        label: META_LABEL[k] ? t(META_LABEL[k]) : k.replace(/_/g, ' '),
+        value: META_VALUE[raw] ? t(META_VALUE[raw]) : raw,
+      }
+    })
+  }
+  const userLink = (id: number) => (
+    <Link to={`/detail/users/${id}`}>{t('common.user_ref_lc', { id })}</Link>
+  )
+  const details = (a: AdminAuditLog): ReactNode => {
+    const none = <em className="muted">{t('status.none')}</em>
+    const rows: { label: string; value: ReactNode }[] = [
+      { label: t('col.when'), value: a.created_at ? formatDateTime(a.created_at) : none },
+      { label: t('col.subject'), value: userLink(a.user_id) },
+      { label: t('col.field'), value: fieldLabel(a.changed_field) },
+      { label: t('page.audit.old_value'), value: auditValue(a.changed_field, a.old_value) ?? none },
+      { label: t('page.audit.new_value'), value: auditValue(a.changed_field, a.new_value) ?? none },
+      {
+        label: t('col.actor'),
+        value: (
+          <span>
+            {actorLabel(a.actor_source)}
+            {a.actor_user_id ? <> · {userLink(a.actor_user_id)}</> : null}
+          </span>
+        ),
+      },
+      ...metaLines(a.metadata_json),
+    ]
+    return (
+      <div className="audit-details">
+        <strong className="audit-details-title">{t('page.audit.details')} {fmtId(a.id)}</strong>
+        <dl>
+          {rows.map((r) => (
+            <div key={r.label} className="audit-details-row">
+              <dt>{r.label}</dt>
+              <dd>{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    )
+  }
+
   // Highlight the changed_field as a code chip; render old → new with a
   // visual arrow so the diff is scannable. Empty values render as `null`.
   const columns: Column<AdminAuditLog>[] = [
@@ -163,24 +228,24 @@ export default function AuditLogsPage() {
       ),
     },
     {
-      // OPOS #25294 — reported as "is this a bug, what does it do": the
-      // button was real (toggles the metadata JSON panel below) but had no
-      // header, no title, and no aria-label, and only appears on rows that
-      // actually carry metadata_json — nothing distinguished it from a
-      // rendering glitch. Left the behavior as-is (it does something
-      // useful) and only added the missing affordance.
+      // Client report — the + used to dump the row's raw metadata_json as a
+      // JSON block BELOW the whole table (easy to miss on a long page, and
+      // unreadable: `{"fixture":"seed-test-users"}`). It now opens a readable
+      // "change details" panel directly under its own row (renderExpanded
+      // below), on EVERY row — the panel carries the full change, not just
+      // the metadata, so a row without metadata has plenty to show too.
       key: 'meta', header: '', width: '36px',
-      cell: (a) =>
-        a.metadata_json ? (
-          <button
-            className="row-edit-btn"
-            title={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
-            aria-label={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
-            onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-          >
-            {expanded === a.id ? '−' : '+'}
-          </button>
-        ) : null,
+      cell: (a) => (
+        <button
+          className="row-edit-btn"
+          title={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
+          aria-label={t(expanded === a.id ? 'common.audit_hide_metadata' : 'common.audit_show_metadata')}
+          aria-expanded={expanded === a.id}
+          onClick={() => setExpanded(expanded === a.id ? null : a.id)}
+        >
+          {expanded === a.id ? '−' : '+'}
+        </button>
+      ),
     },
   ]
 
@@ -220,19 +285,14 @@ export default function AuditLogsPage() {
       {/* Hidden while a newer request is in flight, which is what clearing the
           error at the top of the fetch effect used to achieve. */}
       {!loading && err && <div className="error-box">{err}</div>}
-      <Table<AdminAuditLog> rows={items} columns={columns} rowKey={(a) => a.id} loading={loading} empty={t('empty.audit')} />
-      {expanded !== null && (() => {
-        const row = items.find((a) => a.id === expanded)
-        if (!row || !row.metadata_json) return null
-        let pretty: string
-        try { pretty = JSON.stringify(JSON.parse(row.metadata_json), null, 2) }
-        catch { pretty = row.metadata_json }
-        return (
-          <pre className="audit-meta-panel">
-            <strong>{t('common.meta_for', { id: row.id })}</strong>{'\n'}{pretty}
-          </pre>
-        )
-      })()}
+      <Table<AdminAuditLog>
+        rows={items}
+        columns={columns}
+        rowKey={(a) => a.id}
+        loading={loading}
+        empty={t('empty.audit')}
+        renderExpanded={(a) => (expanded === a.id ? details(a) : null)}
+      />
       <Pagination page={page} totalPages={resp?.total_pages ?? 1} onPageChange={setPage} disabled={loading} />
     </div>
   )

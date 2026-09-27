@@ -602,17 +602,18 @@ func (s *Store) SetVolunteerProfile(ctx context.Context, userID int64, extras Vo
 // extra documents. The formal personal photo, unified National Card/ID and
 // Ration Card reuse SetGrantorPhotos / SetRecipientAttachments' columns and
 // are not repeated here. Only non-empty paths are written.
-// residenceCardBack is the residence card's back side (127).
+// residenceCardBack is the residence card's back side (127); rationCardBack is
+// the ration card's back side (138).
 func (s *Store) SetVolunteerAttachments(
 	ctx context.Context,
 	userID int64,
-	goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv string,
+	goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv, rationCardBack string,
 ) error {
 	if userID <= 0 {
 		return errors.New("invalid userID")
 	}
 	if goldenSquare == "" && residenceCard == "" && residenceCardBack == "" &&
-		passport == "" && graduationCert == "" && cv == "" {
+		passport == "" && graduationCert == "" && cv == "" && rationCardBack == "" {
 		return nil
 	}
 	_, err := s.Pool.Exec(ctx,
@@ -622,9 +623,10 @@ func (s *Store) SetVolunteerAttachments(
 		        residence_card_photo_back_path = COALESCE(NULLIF($4, ''), residence_card_photo_back_path),
 		        passport_photo_path            = COALESCE(NULLIF($5, ''), passport_photo_path),
 		        graduation_cert_photo_path     = COALESCE(NULLIF($6, ''), graduation_cert_photo_path),
-		        cv_photo_path                  = COALESCE(NULLIF($7, ''), cv_photo_path)
+		        cv_photo_path                  = COALESCE(NULLIF($7, ''), cv_photo_path),
+		        ration_card_photo_back_path    = COALESCE(NULLIF($8, ''), ration_card_photo_back_path)
 		  WHERE user_id = $1`,
-		userID, goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv,
+		userID, goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv, rationCardBack,
 	)
 	return err
 }
@@ -820,4 +822,33 @@ func (s *Store) RejectRegistration(ctx context.Context, userID, adminID int64, r
 		return false, err
 	}
 	return ct.RowsAffected() > 0, nil
+}
+
+// SetAreaLocation stores the district (قضاء) and sub-district (ناحية) picked
+// under the city (migration 136). Both are optional, so this is its own write:
+// nil means "this client did not send the field" (an app build from before
+// the pickers) and leaves the column alone; "" means the person cleared it.
+func (s *Store) SetAreaLocation(ctx context.Context, userID int64, district, subdistrict *string) error {
+	if userID <= 0 {
+		return errors.New("invalid userID")
+	}
+	if district == nil && subdistrict == nil {
+		return nil
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE user_profiles
+		    SET area_district    = COALESCE($2, area_district),
+		        area_subdistrict = COALESCE($3, area_subdistrict)
+		  WHERE user_id = $1`,
+		userID, trimPtr(district), trimPtr(subdistrict),
+	)
+	return err
+}
+
+func trimPtr(p *string) *string {
+	if p == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*p)
+	return &v
 }

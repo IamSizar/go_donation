@@ -164,6 +164,8 @@ function RequestDetail({ request, onApprove, onDecline }: DetailProps) {
           <Link to={`/chat-groups/${request.group_id}`}>
             {t('chat_groups.inbox.detail.open_group', { id: request.group_id })}
           </Link>
+          {/* OPOS 48992 — the group is created closed; the admin opens it. */}
+          <p className="muted" style={{ margin: '4px 0 0' }}>{t('chat_lifecycle.starts_closed_hint')}</p>
         </div>
       )}
       {isPending && canEdit && (

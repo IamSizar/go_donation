@@ -2008,3 +2008,52 @@ func SponsorshipDueRecipientMsg(amount, currency, dueDate string, occurrenceID i
 		},
 	}
 }
+
+// ===== Admin-supervised chats (OPOS 48992) =====
+//
+// Connect-request groups and marriage chats are created closed and only run
+// while the admin has them open. Both people are told when that changes.
+// relatedType is "chat_group_thread" or "marriage_chat_thread" — the app
+// routes a tap by it straight into the conversation.
+
+// ChatOpenedByStaffMsg — the admin opened the conversation.
+func ChatOpenedByStaffMsg(relatedType string, threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "chat_opened_by_staff",
+		RelatedEntityType: relatedType,
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "Your conversation is open",
+			Ar:  "تم فتح المحادثة",
+			Ckb: "گفتوگۆکەت کرایەوە",
+			Kmr: "ئاخفتنا تە هاتە ڤەکرن",
+		},
+		Body: LocalText{
+			En:  "The admin has joined and opened the conversation. You can send messages now.",
+			Ar:  "انضمت الإدارة وفتحت المحادثة. يمكنك إرسال الرسائل الآن.",
+			Ckb: "بەڕێوەبەرایەتی بەشداری کرد و گفتوگۆکەی کردەوە. ئێستا دەتوانیت نامە بنێریت.",
+			Kmr: "رێڤەبەری بەشداری کر و ئاخفتن ڤەکر. نوکە دشێی نامەیان بهنێری.",
+		},
+	}
+}
+
+// ChatClosedByStaffMsg — the admin closed the conversation for now.
+func ChatClosedByStaffMsg(relatedType string, threadID int64) LocalizedMessage {
+	return LocalizedMessage{
+		Type:              "chat_closed_by_staff",
+		RelatedEntityType: relatedType,
+		RelatedEntityID:   threadID,
+		Title: LocalText{
+			En:  "Conversation closed",
+			Ar:  "تم إغلاق المحادثة",
+			Ckb: "گفتوگۆ داخرا",
+			Kmr: "ئاخفتن هاتە گرتن",
+		},
+		Body: LocalText{
+			En:  "The admin has closed the conversation for now. You can still read it; the admin will reopen it.",
+			Ar:  "أغلقت الإدارة المحادثة مؤقتاً. يمكنك قراءتها، وستعيد الإدارة فتحها.",
+			Ckb: "بەڕێوەبەرایەتی گفتوگۆکەی بۆ ئێستا داخست. دەتوانیت بیخوێنیتەوە، بەڕێوەبەرایەتی دووبارە دەیکاتەوە.",
+			Kmr: "رێڤەبەری ئاخفتن بۆ نوکە گرت. دشێی بخوینی، رێڤەبەری دێ دووبارە ڤەکەت.",
+		},
+	}
+}

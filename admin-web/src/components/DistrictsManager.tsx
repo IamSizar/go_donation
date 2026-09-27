@@ -23,8 +23,11 @@ const LANGS: Array<{ field: NameField; labelKey: string; rtl: boolean }> = [
   { field: 'name_kmr', labelKey: 'common.lang_badini', rtl: true },
 ]
 
+// The Nineveh districts group is no longer edited here: migration 136 copied
+// those ten entries in as Nineveh's cities on the Areas page (المدن والأقضية
+// والنواحي), which is where every governorate's cities / districts /
+// sub-districts are managed now. Mosul's neighborhood lists stay here.
 const GROUPS = [
-  { key: 'nineveh_district', labelKey: 'districts.group_district' },
   { key: 'nineveh_neighborhood_left', labelKey: 'districts.group_neighborhood_left' },
   { key: 'nineveh_neighborhood_right', labelKey: 'districts.group_neighborhood_right' },
 ] as const

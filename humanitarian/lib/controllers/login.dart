@@ -478,10 +478,16 @@ class LoginController extends GetxController {
   /// A16 — POST /api/auth/login: phone + password, the ordinary way in for
   /// everyone who has finished sign-up.
   ///
-  /// A `401 otp_required` means this number holds no password (a new number, or
-  /// one of the accounts that predate passwords). That is not a dead end: it
-  /// raises [needsPasswordSetup] so the screen can offer to verify the number
-  /// and set one.
+  /// A `401 otp_required` means one of two things — a brand new number, or an
+  /// existing account that predates passwords — and the server deliberately
+  /// will not say which (see auth.go's `Login`: the two cases return an
+  /// identical body on purpose, so this endpoint can't be used to probe which
+  /// numbers are registered). That is not a dead end: it raises
+  /// [needsPasswordSetup] so the screen can offer to verify the number and set
+  /// one. THE BUG THIS GUARDS AGAINST: the message shown for this must stay
+  /// as non-committal as the response it's reporting — asserting the account
+  /// already exists (the old copy did) leaks exactly what the server just
+  /// went out of its way not to say.
   Future<Map<String, dynamic>?> signInWithPassword(
     String phone,
     String password,
@@ -512,7 +518,8 @@ class LoginController extends GetxController {
         if (code == 'otp_required') {
           needsPasswordSetup.value = true;
           errorMessage.value =
-              'This number has no password yet. Verify it to choose one.'.tr;
+              'Verify this number to continue — you\'ll set a password next.'
+                  .tr;
           return null;
         }
         errorMessage.value = switch (status) {

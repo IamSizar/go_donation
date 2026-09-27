@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { useI18n } from '../lib/i18n'
 
@@ -55,6 +55,10 @@ type Props<T> = {
   /** Retry handler for the error state. Renders a button beside the message
    *  so a failed list is never a dead end (project rule 5.7). */
   onRetry?: () => void
+  /** Content for a full-width row directly UNDER a row (e.g. a "+" details
+   *  panel). Return null/undefined for rows that are collapsed. Tables that
+   *  don't pass it render exactly as before. */
+  renderExpanded?: (row: T) => ReactNode
 }
 
 // Columns whose KEY names a page never bothered to mark `align`/`numeric`
@@ -87,11 +91,36 @@ function logicalAlign<T>(c: Column<T>): 'start' | 'end' | 'center' {
   return 'start'
 }
 
-export default function Table<T>({ rows, columns, rowKey, empty, loading, selectable, rowProps, error, onRetry }: Props<T>) {
+// The row-actions column stays pinned to the table's end edge. On a screen
+// narrower than the table (a small laptop, the sidebar open, a split pane)
+// the table scrolls sideways inside its card, and the columns past the edge —
+// actions last of all — used to be simply out of sight, with only a scrollbar
+// at the very bottom of a long list to say so. Pinned, the actions are always
+// reachable, and the shadow on its inner edge shows more columns scroll under
+// it. Keyed on the column key every page already uses for its actions.
+const STICKY_END_KEY = 'actions'
+
+export default function Table<T>({ rows, columns, rowKey, empty, loading, selectable, rowProps, error, onRetry, renderExpanded }: Props<T>) {
   const { t } = useI18n()
   const totalCols = columns.length + (selectable ? 1 : 0)
+  // Whether the table is wider than its card right now — the pinned column's
+  // shadow only shows then, so a table that fits looks exactly as before.
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [overflowing, setOverflowing] = useState(false)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const check = () => setOverflowing(el.scrollWidth > el.clientWidth + 1)
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    const table = el.querySelector('table')
+    if (table) ro.observe(table)
+    check()
+    return () => ro.disconnect()
+  }, [])
+  const stickyClass = (key: string) => (key === STICKY_END_KEY ? 'col-sticky-end' : undefined)
   return (
-    <div className="table-wrap">
+    <div ref={wrapRef} className={`table-wrap${overflowing ? ' is-overflowing' : ''}`}>
       <table className="data-table">
         <thead>
           <tr>
@@ -106,7 +135,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               </th>
             )}
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: logicalAlign(c), width: c.width }}>
+              <th key={c.key} className={stickyClass(c.key)} style={{ textAlign: logicalAlign(c), width: c.width }}>
                 {c.header}
               </th>
             ))}
@@ -164,20 +193,21 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
               // unused rest sibling is a lint error under this config.
               const dataAttrs: RowAttrs = { ...extra }
               delete dataAttrs.className
+              const expandedContent = renderExpanded?.(row)
+              // Note #1 — the row below used to also animate `y` (translateY),
+              // a CSS transform. If that mount animation didn't finish
+              // cleanly (backgrounded tab, slow render, browser rAF
+              // throttling — all normal in real usage), the row stayed
+              // permanently mid-transform. Applying any transform to a
+              // <tr> can pull it out of the table's native column-tracking
+              // layout, and that's exactly what caused headers to visibly
+              // drift away from their column data — confirmed live and
+              // reproducible. Opacity alone never affects layout, so this
+              // whole bug class is now structurally impossible regardless
+              // of whether the animation ever completes.
               return (
-                // Note #1 — this used to also animate `y` (translateY), a
-                // CSS transform. If that mount animation didn't finish
-                // cleanly (backgrounded tab, slow render, browser rAF
-                // throttling — all normal in real usage), the row stayed
-                // permanently mid-transform. Applying any transform to a
-                // <tr> can pull it out of the table's native column-tracking
-                // layout, and that's exactly what caused headers to visibly
-                // drift away from their column data — confirmed live and
-                // reproducible. Opacity alone never affects layout, so this
-                // whole bug class is now structurally impossible regardless
-                // of whether the animation ever completes.
+                <Fragment key={rowKey(row)}>
                 <motion.tr
-                  key={rowKey(row)}
                   className={className}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -207,6 +237,7 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     // feel compressed, because no column could give width back.
                     <td
                       key={c.key}
+                      className={stickyClass(c.key)}
                       data-label={c.header}
                       data-align={logicalAlign(c)}
                       style={{ textAlign: logicalAlign(c) }}
@@ -215,6 +246,12 @@ export default function Table<T>({ rows, columns, rowKey, empty, loading, select
                     </td>
                   ))}
                 </motion.tr>
+                {expandedContent != null && expandedContent !== false && (
+                  <tr className="row-expanded">
+                    <td colSpan={totalCols}>{expandedContent}</td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
         </tbody>

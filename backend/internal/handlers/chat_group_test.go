@@ -24,6 +24,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatgroups"
+	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/db"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
@@ -1146,8 +1147,20 @@ func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
 		_, _ = pool.Exec(ctx, `DELETE FROM chat_group_threads WHERE id = $1`, groupID)
 	})
 
-	// Step 4: the group is immediately usable — post a message as the
-	// (now-member) requester.
+	// Step 4 (OPOS 48992): the group starts CLOSED — the chat between the two
+	// people only runs with the admin present — so the requester cannot post
+	// yet...
+	closedCode, closedBody := postAs(t, mobileR, donorToken,
+		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": "too early"})
+	if closedCode != http.StatusConflict || closedBody["code"] != chatLifecycleRefusedCode {
+		t.Fatalf("post before the admin opened it: status = %d body %v, want 409 %s", closedCode, closedBody, chatLifecycleRefusedCode)
+	}
+	// ...until the admin opens it.
+	if _, err := chatlifecycle.Apply(context.Background(), pool, chatlifecycle.KindGroup, groupID, "resume", "", staff); err != nil {
+		t.Fatalf("admin opens the group: %v", err)
+	}
+
+	// Step 5: now it is usable — post a message as the (now-member) requester.
 	const posted = "hello from the approved group"
 	postCode, postBody := postAs(t, mobileR, donorToken,
 		fmt.Sprintf("/api/chat-groups/%d/messages", groupID), map[string]string{"body": posted})
@@ -1155,7 +1168,7 @@ func TestAdminApproveConnectRequest_CreatesUsableGroup(t *testing.T) {
 		t.Fatalf("post as requester: status = %d, want 200 (body %v)", postCode, postBody)
 	}
 
-	// Step 5: read it back as the requester — the whole point of "usable".
+	// Step 6: read it back as the requester — the whole point of "usable".
 	readCode, readBody := getAs(t, mobileR, donorToken, fmt.Sprintf("/api/chat-groups/%d/messages", groupID))
 	if readCode != http.StatusOK {
 		t.Fatalf("read messages: status = %d, want 200 (body %v)", readCode, readBody)

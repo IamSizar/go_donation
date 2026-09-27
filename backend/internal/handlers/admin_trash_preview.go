@@ -124,6 +124,9 @@ var trashPreviewColumns = map[string][]string{
 	// subject, a signup carries only the volunteer's note.
 	"support_tickets":           {"subject"},
 	"post_comments":             {"body"},
+	"campaign_comments":         {"body"},
+	"marriage_profile_comments": {"body"},
+	"location_areas":            {"name_ar", "name_en"},
 	"volunteer_mission_signups": {"notes"},
 	"in_kind_donations":         {"item_name", "notes"},
 	"sponsorships":              {"sponsorship_type", "notes"},

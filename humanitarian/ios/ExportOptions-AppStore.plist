@@ -4,10 +4,15 @@
 <dict>
   <key>method</key>
   <string>app-store-connect</string>
+  <!-- Bundle ID renamed to com.tawazzn (2026-09-27). This profile name is
+       stale until a new "com.tawazzn" App ID + a matching App Store
+       provisioning profile exist in the Apple Developer account — archiving
+       for App Store with this file will fail until that profile is created
+       and its real name substituted here. -->
   <key>provisioningProfiles</key>
   <dict>
-    <key>com.easytech.humanitarianApp</key>
-    <string>BalanceNex App Store</string>
+    <key>com.tawazzn</key>
+    <string>Tawazzn App Store</string>
   </dict>
   <key>signingStyle</key>
   <string>manual</string>

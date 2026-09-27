@@ -21,6 +21,8 @@ import { stripeForStatus } from '../lib/statusColors'
 import PageHead from '../components/PageHead'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
+import { SUPPORT_SECTIONS, SUPPORT_SECTION_FILTERS, useSupportSectionLabel } from '../lib/supportSections'
+import SupportSectionBadge from '../components/SupportSectionBadge'
 
 const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'id', get: (t) => t.id },
@@ -30,6 +32,7 @@ const TICKET_CSV_COLUMNS: CsvColumn<AdminTicket>[] = [
   { header: 'subject', get: (t) => t.subject },
   { header: 'message', get: (t) => t.message },
   { header: 'status', get: (t) => t.status },
+  { header: 'section', get: (t) => t.section ?? '' },
   { header: 'created_at', get: (t) => t.created_at },
 ]
 
@@ -41,6 +44,9 @@ const EDITABLE_STATUSES = STATUSES.filter((s) => s !== 'all')
 const TICKET_FIELDS: FieldSpec[] = [
   { key: 'subject', label: 'Subject', labelKey: 'field.subject', type: 'text', required: true },
   { key: 'status',  label: 'Status', labelKey: 'field.status',  type: 'select', options: EDITABLE_STATUSES },
+  // Support split — moving a ticket to the right department if the user
+  // picked the wrong one. '' = unsectioned (visible to all support staff).
+  { key: 'section', label: 'Support section', labelKey: 'field.support_section', type: 'select', options: ['', ...SUPPORT_SECTIONS] },
   { key: 'message', label: 'Message', labelKey: 'field.message', type: 'textarea', rows: 6, required: true },
 ]
 
@@ -60,6 +66,7 @@ const REPLY_FIELDS: FieldSpec[] = [
 export default function SupportPage() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('all')
+  const [section, setSection] = useState('all')
   const [q, setQ] = useState('')
   const [resp, setResp] = useState<AdminPageResp<AdminTicket> | null>(null)
   const [loading, setLoading] = useState(false)
@@ -78,6 +85,7 @@ export default function SupportPage() {
   const toast = useToast()
   const { t: tr } = useI18n()
   const statusLabel = useStatusLabel()
+  const sectionLabel = useSupportSectionLabel()
   // Pulses + scrolls to the ticket referenced by ?highlight=<id>.
   const highlight = useHighlightedRow()
   const sel = useSelection<AdminTicket>((t) => t.id)
@@ -87,13 +95,13 @@ export default function SupportPage() {
     if (!pollSilent.current) { setLoading(true); setErr(null) }
     api
       .get<AdminPageResp<AdminTicket>>('/api/admin/support_tickets', {
-        params: { page, per_page: PER_PAGE, status, q: q || undefined },
+        params: { page, per_page: PER_PAGE, status, section, q: q || undefined },
       })
       .then(r => { if (!cancelled) setResp(r.data) })
       .catch(e => { if (!cancelled && !pollSilent.current) setErr(describeError(e)) })
       .finally(() => { if (!cancelled && !pollSilent.current) setLoading(false); pollSilent.current = false })
     return () => { cancelled = true }
-  }, [page, status, q, refreshTick])
+  }, [page, status, section, q, refreshTick])
 
   // Phase 27 — live refresh every 5s. Support tickets are time-sensitive
   // (donor / volunteer waiting for a reply), so the same fast cadence
@@ -183,6 +191,7 @@ export default function SupportPage() {
         </div>
       ),
     },
+    { key: 'section', header: tr('col.support_section'), cell: (t) => <SupportSectionBadge section={t.section} /> },
     { key: 'subject', header: tr('col.subject'), cell: (t) => <strong>{t.subject}</strong> },
     {
       key: 'message', header: tr('col.message'),
@@ -262,6 +271,16 @@ export default function SupportPage() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
             {STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
+          <select
+            value={section}
+            onChange={e => { setSection(e.target.value); setPage(1); sel.clear() }}
+            style={{ width: 'auto' }}
+            aria-label={tr('col.support_section')}
+          >
+            {SUPPORT_SECTION_FILTERS.map(s => (
+              <option key={s} value={s}>{s === 'all' ? tr('support_section.all') : sectionLabel(s === 'none' ? null : s)}</option>
+            ))}
+          </select>
           <ExportCsvButton
             rows={resp?.items ?? []}
             columns={TICKET_CSV_COLUMNS}
@@ -324,8 +343,11 @@ export default function SupportPage() {
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}
         title={creating ? tr('common.modal_new', { noun: tr('noun.support_ticket') }) : editing ? tr('common.modal_edit', { noun: tr('noun.support_ticket'), id: editing.id }) : ''}
-        initial={creating ? {} : (editing as unknown as Record<string, unknown> ?? {})}
-        fields={creating ? TICKET_CREATE_FIELDS : TICKET_FIELDS}
+        initial={creating ? {} : ({ ...(editing as unknown as Record<string, unknown> ?? {}), section: editing?.section ?? '' })}
+        fields={(creating ? TICKET_CREATE_FIELDS : TICKET_FIELDS).map((f) =>
+          f.key === 'section'
+            ? { ...f, optionLabels: Object.fromEntries(f.options!.map((o) => [o, sectionLabel(o || null)])) }
+            : f)}
         onSave={(data) => (creating ? handleCreate(data) : handleSave(editing!.id, data))}
         onClose={closeModal}
       />

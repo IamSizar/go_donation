@@ -30,7 +30,11 @@ class GuestHomeSection extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        // Same floating-nav-bar clearance as the other Home variants — see
+        // dashboard.dart's _buildDonorDashboard comment. This screen's own
+        // content is short today, but nothing stops it covering the sign-in
+        // button the moment it grows.
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 130),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

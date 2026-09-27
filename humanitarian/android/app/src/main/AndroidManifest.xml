@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
-        android:label="BalanceNex"
+        android:label="Tawazzn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -33,6 +33,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Client report — sharing a post/campaign had no working link
+                 back into the app. This custom scheme is what
+                 deep_link_router.dart listens for via app_links; see that
+                 file for the URL shape. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="balancenex" android:host="open"/>
             </intent-filter>
         </activity>
         <!-- #20 — uCrop, the Android half of image_cropper. The plugin ships

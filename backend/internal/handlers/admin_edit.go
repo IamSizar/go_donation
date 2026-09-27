@@ -1302,6 +1302,8 @@ type ticketEditReq struct {
 	Subject *string `json:"subject"`
 	Message *string `json:"message"`
 	Status  *string `json:"status"`
+	// Support split — "events" | "volunteers"; "" moves it back to unsectioned.
+	Section *string `json:"section"`
 }
 
 func (h *AdminEditHandler) SupportTicket(c *gin.Context) {
@@ -1338,6 +1340,14 @@ func (h *AdminEditHandler) SupportTicket(c *gin.Context) {
 			return
 		}
 		b.add("status", v)
+	}
+	if req.Section != nil {
+		sec, ok := parseSupportSection(req.Section)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid section. Allowed: " + strings.Join(supportSectionValues, ", ")})
+			return
+		}
+		b.add("section", sec)
 	}
 	if !b.exec(c, h.Pool, "support_tickets", id) {
 		return

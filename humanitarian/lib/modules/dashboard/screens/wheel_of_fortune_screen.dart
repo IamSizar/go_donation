@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/contrast.dart';
@@ -148,13 +149,32 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
                             : _currentAngle;
                         return Transform.rotate(angle: angle, child: child);
                       },
-                      child: CustomPaint(
-                        size: const Size(280, 280),
-                        painter: _WheelPainter(
-                          labels: motivationalTaskShortLabels
-                              .map((l) => l.tr)
-                              .toList(),
-                          colors: wheelSliceColors,
+                      // THE BUG THIS FIXES: the wheel used to sit directly in
+                      // the Stack with no shadow of its own, so against a
+                      // flat background it read as a printed sticker, not an
+                      // object. A circular drop shadow underneath — offset
+                      // down, soft, dark — is what actually sells "floating
+                      // disc" instead of "flat art".
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              blurRadius: 24,
+                              spreadRadius: -4,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
+                        ),
+                        child: CustomPaint(
+                          size: const Size(280, 280),
+                          painter: _WheelPainter(
+                            labels: motivationalTaskShortLabels
+                                .map((l) => l.tr)
+                                .toList(),
+                            colors: wheelSliceColors,
+                          ),
                         ),
                       ),
                     ),
@@ -172,12 +192,21 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
               ),
             ),
             const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _spinning ? null : _spin,
-                icon: const Icon(Icons.casino_rounded),
-                label: Text(_spinning ? 'Spinning…'.tr : 'Spin the wheel'.tr),
+            // THE BUG THIS FIXES: this button was full-bleed edge-to-edge
+            // (SectionScaffold's child has no side padding of its own here),
+            // unlike every other action button in the app. 20px matches the
+            // page gutter used everywhere else.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _spinning ? null : _spin,
+                  icon: const Icon(Icons.casino_rounded),
+                  label: Text(
+                    _spinning ? 'Spinning…'.tr : 'Spin the wheel'.tr,
+                  ),
+                ),
               ),
             ),
           ],
@@ -235,24 +264,61 @@ class _WheelPainter extends CustomPainter {
     final sliceAngle = 2 * pi / slices;
     // Pointer is fixed at the top (12 o'clock / -90°); start slices there too.
     var startAngle = -pi / 2 - sliceAngle / 2;
+    // THE BUG THIS FIXES: flat Paint()..color per slice is exactly what made
+    // this read as a printed sticker — a real physical wheel catches light
+    // unevenly across its face. A radial gradient from a lightened center to
+    // the base hue at the rim gives each slice a subtle dome/bulge instead
+    // of a flat fill, without changing the hue that makes the slice
+    // identifiable.
     for (var i = 0; i < slices; i++) {
-      final paint = Paint()..color = colors[i % colors.length];
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sliceAngle,
-        true,
-        paint,
-      );
+      final base = colors[i % colors.length];
+      final hsl = HSLColor.fromColor(base);
+      final highlight = hsl
+          .withLightness((hsl.lightness + 0.22).clamp(0.0, 1.0))
+          .toColor();
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final paint = Paint()
+        ..shader = ui.Gradient.radial(center, radius, [highlight, base], [
+          0.0,
+          1.0,
+        ]);
+      canvas.drawArc(rect, startAngle, sliceAngle, true, paint);
       startAngle += sliceAngle;
     }
+
+    // Glassy highlight sweeping the upper-left quadrant — the same trick a
+    // physical glossy disc shows under a single light source. Purely
+    // additive over the slice gradients above, so it never fights their hue
+    // or the label contrast math below (which reads `colors`, not the
+    // painted pixels).
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
+    canvas.drawRect(
+      Rect.fromCircle(center: center, radius: radius),
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(center.dx - radius * 0.35, center.dy - radius * 0.4),
+          radius * 1.1,
+          [Colors.white.withValues(alpha: 0.22), Colors.white.withValues(alpha: 0.0)],
+          [0.0, 0.6],
+        ),
+    );
+    canvas.restore();
+
+    // Metallic-looking bezel: a wider soft ring rather than the old 3px flat
+    // stroke, so the rim itself reads as a raised edge, not a page divider.
     canvas.drawCircle(
       center,
-      radius,
+      radius - 2,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.25)
+        ..shader = ui.Gradient.sweep(center, [
+          Colors.white.withValues(alpha: 0.85),
+          Colors.white.withValues(alpha: 0.25),
+          Colors.white.withValues(alpha: 0.85),
+          Colors.white.withValues(alpha: 0.25),
+        ], const [0.0, 0.25, 0.5, 1.0])
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+        ..strokeWidth = 4,
     );
 
     // Slice labels, drawn radially (from ~30% to ~85% of the radius) so each

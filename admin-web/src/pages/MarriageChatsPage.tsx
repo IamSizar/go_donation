@@ -6,6 +6,7 @@
  * Admin replies are tagged sender_role="staff".
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
@@ -98,6 +99,15 @@ export default function MarriageChatsPage() {
   const [err, setErr] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<AdminThread | null>(null)
+  // ?thread=<id> — the meeting-requests inbox links an approved request here
+  // so the admin lands on that chat's open / close switch (OPOS 48992).
+  const [params] = useSearchParams()
+  const wantedThread = Number(params.get('thread') ?? '') || null
+  const [autoSelected, setAutoSelected] = useState(false)
+  if (!autoSelected && wantedThread && threads.length > 0 && !selected) {
+    const hit = threads.find((th) => th.id === wantedThread)
+    if (hit) { setAutoSelected(true); setSelected(hit) }
+  }
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
@@ -270,6 +280,7 @@ export default function MarriageChatsPage() {
                     basePath={`/api/admin/marriage/chats/${selected.id}`}
                     deleteModule="marriage"
                     thread={selected}
+                    supervised
                     onChanged={async () => {
                       const items = await loadThreads()
                       // Re-point at the SAME thread's fresh row — the strip

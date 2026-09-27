@@ -173,8 +173,26 @@ class _Header extends StatelessWidget {
         AppSpace.lg,
         AppSpace.md,
       ),
+      // THE BUG THIS FIXES: this Row cross-aligned the back chevron and the
+      // title block to `start` (their shared TOP edge) unconditionally. That
+      // is right when the title block has multiple lines (eyebrow above
+      // title, or a subtitle below it) — the chevron should sit level with
+      // the FIRST line, not float in the middle of the stack. But
+      // `AppPressable` (wrapping the chevron) enforces a 44pt minimum touch
+      // target, so the icon itself is centered inside a box roughly twice
+      // as tall as one line of title text. Top-aligning a 44pt box against
+      // a ~24pt text line leaves the chevron's actual glyph sitting
+      // noticeably below the title's own vertical center — reported live,
+      // correctly, as "the title doesn't look aligned with the back
+      // button." Only the single-line case (the overwhelming majority of
+      // this app's 46 screens using this header — just a title, no eyebrow
+      // or subtitle) can safely center instead: with nothing else in the
+      // stack, there is no "first line" for the chevron to lose alignment
+      // with by centering against the whole block.
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: (eyebrow.isEmpty && subtitle.isEmpty)
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           if (canPop) ...[
             AppPressable(
@@ -336,6 +354,34 @@ class AppSectionHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The Tawazzn mark shown beside the bottom-navigation title (client note,
+/// 2026-09-27: "add the app logo inside the app right next to the title of
+/// the tab" — corrected the same day: only the 4 bottom-nav tab titles in
+/// `DashboardTopBar` — لوحة التحكم / Marketplace / Events / City Guide — not
+/// every screen's header. An earlier version of this change had wired it into
+/// [AppScreen] and `PageTopBar` (glass_ui.dart) as well; that was reverted.
+///
+/// Lives here rather than beside `_TopBarTitle` in dashboard_screen.dart so it
+/// stays with the app's other shared chrome pieces.
+class HeaderLogo extends StatelessWidget {
+  const HeaderLogo({super.key, this.size = 22});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/branding/tawazzn_icon_foreground.png',
+      width: size,
+      height: size,
+      // The title text beside it already carries the semantic label;
+      // marking this decorative avoids a screen reader reading an
+      // unlocalized "tawazzn icon foreground" filename.
+      excludeFromSemantics: true,
     );
   }
 }

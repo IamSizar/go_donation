@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth'
 import { useGlobalAlerts } from '../lib/globalAlertsContext'
 import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
+import { withHighlight } from '../lib/useHighlightedRow'
 
 // Firestore `events` document shape — matches what the old PHP admin writes
 // from the mobile app. Key field is `event_type` (NOT `type`); actor info is
@@ -281,24 +282,30 @@ const CAT_KEY: Record<string, string> = {
 //
 // `useUserId: true` is for identity events (login/register/role_select/
 // profile_update) where the meaningful record is the user, not an entity.
-type EventRoute = { resource: string; list: string; useUserId?: boolean }
+// `entityOnly`: see lib/globalAlerts.tsx — never highlight by target_id
+// when it names a different record than the list shows.
+type EventRoute = { resource: string; list: string; useUserId?: boolean; entityOnly?: boolean }
 const EVENT_ROUTES: Record<string, EventRoute> = {
   // Money — admin approves / acknowledges
   donation_submit:          { resource: 'donations',                    list: '/donations' },
   sponsorship_submit:       { resource: 'sponsorships',                 list: '/sponsorships' },
   sponsorship_cancel:       { resource: 'sponsorships',                 list: '/sponsorships' },
   in_kind_donation_submit:  { resource: 'in_kind_donations',            list: '/in-kind' },
-  marketplace_order_submit: { resource: 'orders',                       list: '/marketplace' },
+  // Tabbed pages name the tab — the row being highlighted is not on the first one.
+  marketplace_order_submit: { resource: 'orders',                       list: '/marketplace?tab=orders' },
   // Review — admin reads and decides
   beneficiary_case_submit:  { resource: 'beneficiary_cases',            list: '/beneficiary' },
-  project_request_submit:   { resource: 'beneficiary_project_requests', list: '/beneficiary' },
+  project_request_submit:   { resource: 'beneficiary_project_requests', list: '/beneficiary?tab=requests' },
   support_ticket_submit:    { resource: 'support_tickets',              list: '/support' },
   // People — admin reviews submissions
   volunteer_application_submit: { resource: 'volunteer_applications',   list: '/volunteers' },
-  volunteer_mission_join:       { resource: 'volunteer_applications',   list: '/volunteers' },
+  // target_id is the MISSION, not the signup row — so no target fallback.
+  volunteer_mission_join:       { resource: 'volunteer_applications',   list: '/volunteers?tab=signups', entityOnly: true },
   marriage_profile_submit:      { resource: 'marriage',                 list: '/marriage' },
   // #24 — a new comment; deep-link to the Comments moderation page.
-  comment_submit:               { resource: '',                        list: '/comments' },
+  comment_submit:               { resource: '',                        list: '/comments?source=media' },
+  campaign_comment_submit:      { resource: '',                        list: '/comments?source=campaign' },
+  marriage_comment_submit:      { resource: '',                        list: '/comments?source=marriage' },
   // Identity events — the user themselves is the target
   profile_update: { resource: 'users', list: '/users', useUserId: true },
   login:          { resource: 'users', list: '/users', useUserId: true },
@@ -350,9 +357,9 @@ function routeForEvent(r: EventRow): { href: string; label: string } | null {
   }
 
   // Standard records — prefer entity_id, fall back to target_id.
-  const id = toId(r.entity_id) || toId(r.target_id)
+  const id = toId(r.entity_id) || (m.entityOnly ? '' : toId(r.target_id))
   if (id && m.list) {
-    return { href: `${m.list}?highlight=${encodeURIComponent(id)}`, label: 'common.open_review' }
+    return { href: withHighlight(m.list, id), label: 'common.open_review' }
   }
   return { href: m.list, label: 'common.open_page' }
 }

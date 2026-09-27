@@ -179,6 +179,11 @@ Future<RegistrationSubmitResult> submitRegistration({
   String languages = '',
   String district = '',
   String socialOther = '',
+  // Migration 136 — optional district (قضاء) / sub-district (ناحية) under
+  // the city. Always sent, so clearing one in the form clears it on the
+  // server (older app builds simply never send the keys).
+  String areaDistrict = '',
+  String areaSubdistrict = '',
 }) async {
   try {
     final resp = await http.post(
@@ -273,6 +278,8 @@ Future<RegistrationSubmitResult> submitRegistration({
           'languages': languages,
           'district': district,
           'social_other': socialOther,
+          'area_district': areaDistrict,
+          'area_subdistrict': areaSubdistrict,
         }),
       ),
     );
@@ -341,6 +348,8 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
   String? idPhotoBackPath,
   // Eligible Recipient spec — "Attachments" section. All optional.
   String? rationCardPhotoPath,
+  // 138 — the ration card's back side.
+  String? rationCardPhotoBackPath,
   String? propertyProofPhotoPath,
   String? medicalReportPhotoPath,
   String? houseFacadePhotoPath,
@@ -362,6 +371,7 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
       'id_photo': idPhotoPath,
       'id_photo_back': idPhotoBackPath,
       'ration_card_photo': rationCardPhotoPath,
+      'ration_card_photo_back': rationCardPhotoBackPath,
       'property_proof_photo': propertyProofPhotoPath,
       'medical_report_photo': medicalReportPhotoPath,
       'house_facade_photo': houseFacadePhotoPath,

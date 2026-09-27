@@ -1698,13 +1698,20 @@ class _PlaceCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Client report — the card has no fixed height (it grows
+                  // to its content), so clipping the name to 1 line was
+                  // never necessary; most names here run longer than the
+                  // card's 210px width. 2 lines at a slightly smaller size
+                  // shows the full name for the common case instead of
+                  // ellipsis-ing it away.
                   Text(
                     name,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
+                      fontSize: 12.5,
+                      height: 1.2,
                       color: AppThemeConfig.text(context),
                     ),
                   ),

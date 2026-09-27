@@ -8,6 +8,11 @@ class ChatGroupSummary {
   final String lastMessage;
   final DateTime? lastAt;
 
+  /// OPOS 48992 — open | paused | ended. These chats only run while the
+  /// admin has them open; the list says so. Defaults to open for an older
+  /// server that does not send it.
+  final String lifecycle;
+
   const ChatGroupSummary({
     required this.id,
     required this.kind,
@@ -15,9 +20,13 @@ class ChatGroupSummary {
     required this.unreadCount,
     required this.lastMessage,
     required this.lastAt,
+    this.lifecycle = 'open',
   });
 
   bool get isMasked => kind == 'masked';
+
+  /// Closed by the admin (or not opened yet) — members can read, not write.
+  bool get isClosed => lifecycle == 'paused' || lifecycle == 'ended';
 
   factory ChatGroupSummary.fromMap(Map<String, dynamic> m) {
     return ChatGroupSummary(
@@ -27,6 +36,7 @@ class ChatGroupSummary {
       unreadCount: int.tryParse('${m['unread_count'] ?? 0}') ?? 0,
       lastMessage: (m['last_message'] ?? '').toString(),
       lastAt: DateTime.tryParse((m['last_at'] ?? '').toString()),
+      lifecycle: (m['lifecycle'] ?? 'open').toString(),
     );
   }
 }

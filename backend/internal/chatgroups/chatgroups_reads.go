@@ -227,6 +227,9 @@ type GroupSummary struct {
 	UnreadCount int       `json:"unread_count"`
 	LastMessage string    `json:"last_message"`
 	LastAt      time.Time `json:"last_at"`
+	// OPOS 48992 — open | paused | ended, so the app's list can show whether
+	// the admin has opened the conversation.
+	Lifecycle string `json:"lifecycle"`
 }
 
 // ListGroupsForUser returns the groups userID is an ACTIVE (non-removed)
@@ -241,10 +244,13 @@ func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSum
 		       COALESCE((SELECT body FROM chat_group_messages gm
 		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
 		       COALESCE((SELECT created_at FROM chat_group_messages gm
-		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at)
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at),
+		       g.lifecycle
 		  FROM chat_group_threads g
 		  JOIN chat_group_members mem ON mem.group_id = g.id
 		 WHERE mem.user_id = $1 AND mem.removed_at IS NULL
+		   -- Archived hides a group from its members (opening one already 404s).
+		   AND g.archived_at IS NULL
 		 ORDER BY g.updated_at DESC`,
 		userID,
 	)
@@ -256,7 +262,7 @@ func (s *Store) ListGroupsForUser(ctx context.Context, userID int64) ([]GroupSum
 	out := []GroupSummary{}
 	for rows.Next() {
 		var gs GroupSummary
-		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
+		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt, &gs.Lifecycle); err != nil {
 			return nil, fmt.Errorf("chatgroups: scanning group row for user %d: %w", userID, err)
 		}
 		out = append(out, gs)
@@ -277,7 +283,8 @@ func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) 
 		       COALESCE((SELECT body FROM chat_group_messages gm
 		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), ''),
 		       COALESCE((SELECT created_at FROM chat_group_messages gm
-		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at)
+		                  WHERE gm.group_id = g.id ORDER BY gm.id DESC LIMIT 1), g.created_at),
+		       g.lifecycle
 		  FROM chat_group_threads g
 		 ORDER BY g.updated_at DESC`,
 	)
@@ -289,7 +296,7 @@ func (s *Store) ListGroupsForStaff(ctx context.Context) ([]GroupSummary, error) 
 	out := []GroupSummary{}
 	for rows.Next() {
 		var gs GroupSummary
-		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt); err != nil {
+		if err := rows.Scan(&gs.ID, &gs.Kind, &gs.Title, &gs.UnreadCount, &gs.LastMessage, &gs.LastAt, &gs.Lifecycle); err != nil {
 			return nil, fmt.Errorf("chatgroups: scanning group row for staff: %w", err)
 		}
 		out = append(out, gs)

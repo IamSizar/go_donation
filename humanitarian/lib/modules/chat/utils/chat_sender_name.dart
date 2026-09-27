@@ -22,6 +22,7 @@
 //
 // A key missing from the current language resolves through the app's English
 // fallbackLocale (main.dart), so a key name is never drawn.
+import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
 
 import '../models/chat_models.dart';
@@ -57,6 +58,10 @@ const _userWithIdKey = 'chat_thread_other_user_id';
 /// returns "User #id" translated, or a bare translated "User" when the
 /// server sent no usable id.
 String chatThreadOtherName(ChatThread thread) {
+  // Support split — a user can hold an events and a volunteers support chat
+  // with the same staff account, so the department is the useful name.
+  final section = supportSectionLabel(thread.supportSection);
+  if (section != null) return section;
   if (thread.otherName.isNotEmpty) return thread.otherName;
   if (thread.otherUserId <= 0) return _userKey.tr;
   return _userWithIdKey.trParams({'id': '${thread.otherUserId}'});

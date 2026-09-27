@@ -95,6 +95,8 @@ class _ThreadTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = thread['id'] as int;
     final status = (thread['status'] ?? '').toString();
+    // OPOS 48992 — an accepted chat still waits for the admin to open it.
+    final lifecycle = (thread['lifecycle'] ?? 'open').toString();
     final myRole = (thread['my_role'] ?? '').toString();
     final otherLabelRaw = (thread['other_label'] ?? '').toString();
     final otherLabel = otherLabelRaw == 'interested_member'
@@ -126,7 +128,11 @@ class _ThreadTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                _StatusChip(status: status),
+                _StatusChip(
+                  status: status == 'active' && lifecycle == 'paused'
+                      ? 'closed'
+                      : status,
+                ),
               ],
             ),
             if (lastMessage.isNotEmpty) ...[
@@ -150,6 +156,8 @@ class _StatusChip extends StatelessWidget {
         ? Colors.green
         : status == 'pending'
         ? Colors.orange
+        : status == 'closed'
+        ? const Color(0xFFB26A00)
         : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -158,7 +166,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        'marriage_chat_status_$status'.tr,
+        status == 'closed' ? 'chat_state_closed'.tr : 'marriage_chat_status_$status'.tr,
         style: TextStyle(
           color: color,
           fontSize: 11,

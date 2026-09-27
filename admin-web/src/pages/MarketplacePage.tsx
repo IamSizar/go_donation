@@ -18,11 +18,12 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
 import { useSelection } from '../lib/useSelection'
-import { downloadCsv, type CsvColumn } from '../lib/csv'
+import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
 import { useHighlightedRow } from '../lib/useHighlightedRow'
 import { stripeForStatus } from '../lib/statusColors'
-import PageHead from '../components/PageHead'
+import PageHead, { PageActions } from '../components/PageHead'
+import { useUrlTab } from '../lib/useUrlTab'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
 import IdWithNeedsAction from '../components/IdWithNeedsAction'
@@ -147,7 +148,7 @@ function formatAmount(s: string | number): string {
 }
 
 export default function MarketplacePage() {
-  const [tab, setTab] = useState<Tab>('products')
+  const [tab, setTab] = useUrlTab<Tab>(['products', 'orders'], 'products')
   const { t } = useI18n()
   return (
     <div className="stack">
@@ -300,11 +301,6 @@ function ProductsTab() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`products-${new Date().toISOString().slice(0, 10)}.csv`, rows, PRODUCT_CSV_COLUMNS)
-  }
 
   const columns: Column<Product>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
@@ -386,23 +382,26 @@ function ProductsTab() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? t('page.marketplace.total_products', { n: resp.total_items }) : t('common.loading')}</p>
-        <div className="row">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
-            placeholder={t('page.marketplace.products_search_placeholder')}
-            style={{ width: '200px' }}
-          />
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
-            {PRODUCT_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
-          <ExportCsvButton onExport={exportCsv} />
-          <button onClick={() => setCreating(true)}>{t('page.marketplace.new_product')}</button>
-        </div>
-      </div>
+      {/* Client report — this whole row used to be ordinary page-body content,
+          so it was ALWAYS pushed onto its own line below the fixed top bar,
+          even when the bar had room to fit it. PageActions portals it INTO
+          the top bar (next to Save), which already flex-wraps — same row
+          when there's space, its own line only when there truly isn't. */}
+      <PageActions>
+        <p className="muted" style={{ margin: 0 }}>{resp ? t('page.marketplace.total_products', { n: resp.total_items }) : t('common.loading')}</p>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
+          placeholder={t('page.marketplace.products_search_placeholder')}
+          style={{ width: '200px' }}
+        />
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
+          {PRODUCT_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+        </select>
+        <ExportCsvButton rows={resp?.items ?? []} columns={PRODUCT_CSV_COLUMNS} filenameBase="products" title={t('page.marketplace.tab_products')} module="marketplace" />
+        <button onClick={() => setCreating(true)}>{t('page.marketplace.new_product')}</button>
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.product')} />
       <Table<Product>
@@ -549,11 +548,6 @@ function OrdersTab() {
     [toast],
   )
 
-  const exportCsv = () => {
-    const rows = resp?.items ?? []
-    if (rows.length === 0) { toast.info(t('common.nothing_to_export')); return }
-    downloadCsv(`orders-${new Date().toISOString().slice(0, 10)}.csv`, rows, ORDER_CSV_COLUMNS)
-  }
 
   const columns: Column<MarketOrder>[] = [
     { key: 'id', header: t('col.id'), width: '110px',
@@ -620,22 +614,20 @@ function OrdersTab() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <p className="muted">{resp ? t('page.marketplace.total_orders', { n: resp.total_items }) : t('common.loading')}</p>
-        <div className="row">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
-            placeholder={t('page.marketplace.orders_search_placeholder')}
-            style={{ width: '200px' }}
-          />
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
-            {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
-          <ExportCsvButton onExport={exportCsv} />
-        </div>
-      </div>
+      <PageActions>
+        <p className="muted" style={{ margin: 0 }}>{resp ? t('page.marketplace.total_orders', { n: resp.total_items }) : t('common.loading')}</p>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
+          placeholder={t('page.marketplace.orders_search_placeholder')}
+          style={{ width: '200px' }}
+        />
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); sel.clear() }} style={{ width: 'auto' }}>
+          {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+        </select>
+        <ExportCsvButton rows={resp?.items ?? []} columns={ORDER_CSV_COLUMNS} filenameBase="orders" title={t('page.marketplace.tab_orders')} module="marketplace" />
+      </PageActions>
       {err && <div className="error-box">{err}</div>}
       <HighlightBanner kind={t('noun.order')} />
       <Table<MarketOrder>

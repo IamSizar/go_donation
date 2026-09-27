@@ -10,6 +10,7 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/campaigns"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/postengagement"
 )
@@ -26,10 +27,11 @@ type CampaignEngagementHandler struct {
 	Store  *campaigns.EngagementStore
 	Saved  *postengagement.Store
 	Banned *moderation.Store
+	Events *events.Store // new comments reach the admin alerts (nil = off)
 }
 
-func NewCampaignEngagementHandler(s *campaigns.EngagementStore, saved *postengagement.Store, b *moderation.Store) *CampaignEngagementHandler {
-	return &CampaignEngagementHandler{Store: s, Saved: saved, Banned: b}
+func NewCampaignEngagementHandler(s *campaigns.EngagementStore, saved *postengagement.Store, b *moderation.Store, ev *events.Store) *CampaignEngagementHandler {
+	return &CampaignEngagementHandler{Store: s, Saved: saved, Banned: b, Events: ev}
 }
 
 // Save — POST /api/campaigns/:id/save — toggles "save for later".
@@ -146,6 +148,28 @@ func (h *CampaignEngagementHandler) Comment(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
+	}
+
+	// Surface the comment on the admin alerts / activity feed, like media
+	// comments (#24). Its own event type so the link opens the Comments page
+	// on the right source — comment ids are per-table and would collide.
+	if h.Events != nil {
+		uid := user.UserID
+		cid := cmt.ID
+		tid := campaignID
+		_, _ = h.Events.Insert(c.Request.Context(), events.Event{
+			EventType:  "campaign_comment_submit",
+			EventLabel: "New comment",
+			Module:     "campaigns",
+			Action:     "submit",
+			Status:     status,
+			Source:     "app",
+			UserID:     &uid,
+			EntityID:   &cid,
+			TargetID:   &tid,
+			Note:       snippet(body, 80),
+			Metadata:   map[string]interface{}{"campaign_id": tid, "flagged": flagged},
+		})
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "comment": cmt, "held": flagged})
 }

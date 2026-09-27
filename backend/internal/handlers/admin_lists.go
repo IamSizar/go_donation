@@ -284,6 +284,7 @@ type adminTicket struct {
 	Subject      string    `json:"subject"`
 	Message      string    `json:"message"`
 	Status       string    `json:"status"`
+	Section      *string   `json:"section"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	// The staff answer, so the dashboard can show whether a ticket has already
@@ -313,6 +314,18 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 		idx := strconv.Itoa(len(args))
 		where = append(where, "(t.subject ILIKE $"+idx+" OR t.message ILIKE $"+idx+")")
 	}
+	// Support split — the explicit filter, then the caller's own sections.
+	if f := supportSectionFilterSQL("t.section", c.Query("section"), &args); f != "" {
+		where = append(where, f)
+	}
+	scope, err := supportScope(c.Request.Context(), h.Pool, c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+		return
+	}
+	if f := supportScopeSQL("t.section", scope, &args); f != "" {
+		where = append(where, f)
+	}
 	whereSQL := strings.Join(where, " AND ")
 
 	var total int
@@ -328,7 +341,7 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 	args = append(args, pp, off)
 	rows, err := h.Pool.Query(c.Request.Context(), `
 		SELECT t.id, t.user_id, u.phone, up.full_name,
-		       t.subject, t.message, t.status, t.created_at, t.updated_at,
+		       t.subject, t.message, t.status, t.section, t.created_at, t.updated_at,
 		       t.admin_reply, t.replied_at
 		  FROM support_tickets t
 		  LEFT JOIN users u ON u.id = t.user_id
@@ -352,7 +365,7 @@ func (h *AdminListsHandler) SupportTickets(c *gin.Context) {
 	for rows.Next() {
 		var t adminTicket
 		if err := rows.Scan(&t.ID, &t.UserID, &t.UserPhone, &t.UserFullName,
-			&t.Subject, &t.Message, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+			&t.Subject, &t.Message, &t.Status, &t.Section, &t.CreatedAt, &t.UpdatedAt,
 			&t.AdminReply, &t.RepliedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return

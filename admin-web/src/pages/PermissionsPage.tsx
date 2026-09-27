@@ -7,12 +7,12 @@
 // backend enforces RequireSuperAdmin).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, describeError, isSuperAdmin, withSectionUnlock } from '../lib/api'
+import { fetchAllUsers } from '../lib/fetchAllUsers'
 import { askForText } from '../lib/dialogs'
 import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import IdleLock from '../components/IdleLock'
-import type { UsersListResp } from '../lib/api-types'
 import PageHead from '../components/PageHead'
 
 type Matrix = {
@@ -191,10 +191,10 @@ function PerEmployeeCard({
   const [saving, setSaving] = useState<string | null>(null)
 
   useEffect(() => {
-    api
-      .get<UsersListResp>('/api/admin/users', { params: { page: 1, per_page: 200 } })
-      .then((res) => {
-        const opts = (res.data.data ?? [])
+    // Every staff account, not one oversized page — see lib/fetchAllUsers.ts.
+    fetchAllUsers({ staff: 1 })
+      .then((all) => {
+        const opts = all
           .filter((u) => u.staff_tier && u.staff_tier !== 'user' && u.staff_tier !== 'super_admin')
           .map((u) => ({
             id: u.user_id,

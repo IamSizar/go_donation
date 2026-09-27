@@ -146,6 +146,10 @@ export const USER_PROFILE_GROUPS: ProfileGroup[] = [
       f('governorate', ALL),
       f('district', VOL),
       f('city', ALL),
+      // Migration 136 — optional district (قضاء) / sub-district (ناحية)
+      // under the city, picked from the Areas list in the app.
+      f('area_district', ALL),
+      f('area_subdistrict', ALL),
       f('housing_side', BENE_VOL),
       f('neighborhood', BENE_VOL),
       f('address', ALL, 'long'),
@@ -246,8 +250,20 @@ export const USER_PROFILE_GROUPS: ProfileGroup[] = [
     fields: [
       f('profile_picture', ALL, 'photo'),
       f('id_photo_path', ALL, 'photo'),
+      // Client report ("صورة هوية وجه وظهر") — the dashboard only ever asked
+      // for the front. The app's own registration form (registration_form.dart)
+      // has always collected both sides for every role (grantor/recipient/
+      // volunteer), and the backend has stored + allow-listed the back photo
+      // since it landed (users.registration.go's SetGrantorPhotos, migration
+      // 127) — this column was simply never added to the dashboard's field
+      // declarations, so staff could never see or edit it here.
+      f('id_photo_back_path', ALL, 'photo'),
       f('ration_card_photo_path', BENE_VOL, 'photo'),
+      // Volunteer registration asks each card front AND back (migrations 127,
+      // 138); these back columns were stored but never declared here.
+      f('ration_card_photo_back_path', VOL, 'photo'),
       f('residence_card_photo_path', VOL, 'photo'),
+      f('residence_card_photo_back_path', VOL, 'photo'),
       f('passport_photo_path', VOL, 'photo'),
       f('golden_square_photo_path', VOL, 'photo'),
       f('graduation_cert_photo_path', VOL, 'photo'),

@@ -123,6 +123,34 @@ export const USER_FIELDS: FieldSpec[] = [
 ]
 
 /**
+ * The profile columns migration 057 seeded their OWN `user_` rule for —
+ * independent of, and NOT a subset of, the per-role grantor_/recipient_/
+ * volunteer_ rules the app's own registration forms use.
+ *
+ * WHY THIS SET MATTERS OUTSIDE buildNewUserFields: two of these — full_name
+ * and address — are declared `roles: ALL` in userProfileFields.ts but
+ * DELIBERATELY have no grantor_/recipient_/volunteer_ (or even unprefixed)
+ * row of their own; migration 045's seed comment says why: "Core fields
+ * (full_name, address) stay required in code and are not listed here" — the
+ * app hardcodes them as always-asked, so they were never made configurable
+ * per role. A per-role visibility check that only consults the
+ * grantor_/recipient_/volunteer_ rules (isCollectedForRole with
+ * editFieldRules.rulesFor) reads that absence as "this role's form never
+ * asks for it" and hides the box — dropping the operator's ability to type
+ * a name or address for ANY role in the New User modal.
+ *
+ * The fix (UsersPage.tsx's isNewUserFieldVisible) is to treat every key
+ * in this set as exempt from the per-role gate: its own `user_` rule
+ * (required/optional/hidden, already applied below) is the sole authority
+ * on whether it shows, exactly as migration 057 intended.
+ */
+export const NEW_USER_CORE_KEYS = new Set([
+  'full_name', 'gender', 'date_of_birth', 'address', 'city', 'occupation',
+  'housing_status', 'family_size', 'monthly_income', 'availability',
+  'experience', 'skills', 'profile_picture',
+])
+
+/**
  * New User.
  *
  * Same profile fields, plus the sign-in pair, gated per-field by Field Rules
@@ -140,10 +168,17 @@ export function buildNewUserFields(state: Record<string, FieldRuleState>): Field
 
   const fields: FieldSpec[] = [
     { key: 'phone', label: 'Phone', labelKey: 'field.phone', type: 'text', required: true, phone: 'login', section: ACCOUNT_SECTION },
-    { key: 'role', label: 'Role', labelKey: 'col.role', type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'], section: ACCOUNT_SECTION },
+    // required — client report: the placeholder ("— اختر نوع المستخدم —")
+    // must never itself be a savable choice. Without this, an operator who
+    // never touches the select could create an account with role_id 0 (no
+    // role at all — an internal/guest state, not something staff should be
+    // able to hand out from this form).
+    { key: 'role', label: 'Role', labelKey: 'col.role', type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'], required: true, section: ACCOUNT_SECTION },
     { key: 'username', label: 'Username', labelKey: 'auth.username', type: 'text', placeholder: 'supervisor', section: ACCOUNT_SECTION },
     { key: 'password', label: 'Password', labelKey: 'auth.password', type: 'password', section: ACCOUNT_SECTION },
-    { key: 'email', label: 'Email', labelKey: 'field.email', type: 'text', section: ACCOUNT_SECTION },
+    // 'email' is NOT declared again here — it is already in PROFILE_EDIT_FIELDS
+    // (userProfileFields.ts's 'profile.group.contact' group), and duplicating
+    // it produced two email boxes in this exact modal (client report).
     ...PROFILE_EDIT_FIELDS.map((f) => ({ ...f, required: isRequired(f.key) })),
   ]
   return fields.filter((f) => always.has(f.key) || !isHidden(f.key))

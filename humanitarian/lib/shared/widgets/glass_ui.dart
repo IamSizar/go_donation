@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
@@ -61,28 +59,6 @@ class GradientScreen extends StatelessWidget {
   }
 }
 
-class BlurOrb extends StatelessWidget {
-  const BlurOrb({super.key, required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-          child: const SizedBox.expand(),
-        ),
-      ),
-    );
-  }
-}
-
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
@@ -95,26 +71,35 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // THE BUG THIS FIXES: this used to wrap the Container in a BackdropFilter
+    // blurring whatever sat behind the panel — real, per-frame GPU cost,
+    // paid by every card on screen at once (this widget backs product tiles,
+    // filter panels, sheets — dozens of simultaneous instances on a single
+    // screen). But `AppThemeConfig.surface`/`card` (core/design/tokens.dart)
+    // is fully opaque (alpha FF in both themes) — the blurred pixels were
+    // ALWAYS painted over completely by the solid fill below, so the blur
+    // was pure wasted work with zero visible effect. Reported live: opening
+    // Store dropped frames with only a handful of products on screen. Same
+    // fix removes the same dead BackdropFilter that used to live in
+    // `BlurOrb` — that widget had no remaining callers anywhere in the app
+    // and is deleted rather than fixed.
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: AppThemeConfig.surface(context),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AppThemeConfig.border(context)),
-            boxShadow: [
-              BoxShadow(
-                color: AppThemeConfig.shadow(context),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: child,
+      child: Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: AppThemeConfig.surface(context),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppThemeConfig.border(context)),
+          boxShadow: [
+            BoxShadow(
+              color: AppThemeConfig.shadow(context),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
+        child: child,
       ),
     );
   }

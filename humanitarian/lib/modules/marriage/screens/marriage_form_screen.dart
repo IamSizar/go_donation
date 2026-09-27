@@ -8,6 +8,7 @@ import 'package:flutter_application_1/api/registration_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
+import 'package:flutter_application_1/modules/auth/widgets/area_picker.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_my_profile_screen.dart';
 import 'package:geolocator/geolocator.dart';
@@ -94,6 +95,31 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
 
   // "My Engagement" spec — "Housing Information" / "Housing Type".
   String? _governorate;
+  // Migration 136 — optional district (قضاء) / sub-district (ناحية) under the
+  // city, from the dashboard-managed Areas list. Same rules as registration.
+  String _areaDistrict = '';
+  String _areaSubdistrict = '';
+
+  bool get _governorateHasCities =>
+      AreaDirectory.instance.peek(_governorate)?.hasCities ?? false;
+
+  bool get _cityFilled {
+    final lists = AreaDirectory.instance.peek(_governorate);
+    if (lists != null && lists.hasCities) {
+      return lists.cityFor(_cityController.text) != null;
+    }
+    return _cityController.text.trim().isNotEmpty;
+  }
+
+  void _resetAreasFor(String? previousGovernorate) {
+    final prev = AreaDirectory.instance.peek(previousGovernorate);
+    if (prev != null && prev.cityFor(_cityController.text) != null) {
+      _cityController.clear();
+    }
+    _areaDistrict = '';
+    _areaSubdistrict = '';
+  }
+
   String? _housingSide; // right | left | other — Nineveh only
   String? _neighborhoodDropdown; // Nineveh: from the side's list
   final _neighborhoodController = TextEditingController(); // other governorates
@@ -139,7 +165,14 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
   final _otherAssetsController = TextEditingController();
   final _partnerRequirementsController = TextEditingController();
   // Attachments — uploaded via the same /api/uploads flow as the photo.
-  String? _goldenSquareUrl;
+  // Each identity document is its own front + back pair (migration 137); the
+  // old single "Golden Square" photo of all three cards is no longer asked.
+  String? _idPhotoUrl;
+  String? _idPhotoBackUrl;
+  String? _residenceCardUrl;
+  String? _residenceCardBackUrl;
+  String? _rationCardUrl;
+  String? _rationCardBackUrl;
   String? _graduationCertUrl;
   String? _cvUrl;
   String? _uploadingAttachment; // rule key currently uploading
@@ -367,6 +400,27 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
         '${day.toString().padLeft(2, '0')}';
   }
 
+  /// Whole years between the chosen date of birth and today, or null while the
+  /// dropdowns are incomplete. The events form used to ask for the date of
+  /// birth AND a typed age; the age is now derived from the date, so the same
+  /// question is asked once.
+  int? _ageFromDob() {
+    final iso = _dobIso();
+    final dob = DateTime.tryParse(iso);
+    if (dob == null) return null;
+    final now = DateTime.now();
+    var years = now.year - dob.year;
+    if (now.month < dob.month ||
+        (now.month == dob.month && now.day < dob.day)) {
+      years--;
+    }
+    return years < 0 ? 0 : years;
+  }
+
+  /// The typed age field is only shown when the admin has hidden the date of
+  /// birth — otherwise the date already answers it.
+  bool get _asksAgeDirectly => _hidden.contains('date_of_birth');
+
   // Note #33 — returns the label key of the first admin-required-but-empty
   // field, or null. Hidden fields are skipped (a hidden field can't be
   // required — the admin isn't shown the checkbox for it either).
@@ -374,8 +428,10 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     bool blank(String v) => v.trim().isEmpty;
     final checks = <String, bool>{
       'gender': _gender != null,
-      'age': !blank(_ageController.text),
-      'city': !blank(_cityController.text),
+      'age': _asksAgeDirectly
+          ? !blank(_ageController.text)
+          : _ageFromDob() != null,
+      'city': _cityFilled,
       'social_summary': !blank(_summaryController.text),
       'private_notes': !blank(_notesController.text),
       'marital_status': _maritalStatus != null,
@@ -444,7 +500,12 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       'other_assets': !blank(_otherAssetsController.text),
       'partner_requirements': !blank(_partnerRequirementsController.text),
       'personal_photo': _photoUrl != null && _photoUrl!.isNotEmpty,
-      'golden_square': _goldenSquareUrl != null,
+      // "Filled" means BOTH sides are attached.
+      'id_photo': _idPhotoUrl != null && _idPhotoBackUrl != null,
+      'residence_card_photo':
+          _residenceCardUrl != null && _residenceCardBackUrl != null,
+      // Front only: unsure the ration card has a back (it may be a booklet).
+      'ration_card_photo': _rationCardUrl != null,
       'graduation_cert': _graduationCertUrl != null,
       'cv': _cvUrl != null,
       'social_facebook': !blank(_socialFacebookController.text),
@@ -513,7 +574,9 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       'other_assets': 'marriage_other_assets',
       'partner_requirements': 'marriage_partner_requirements',
       'personal_photo': 'marriage_photo',
-      'golden_square': 'marriage_golden_square',
+      'id_photo': 'reg_grantor_id_photo',
+      'residence_card_photo': 'reg_volunteer_residence_card_photo',
+      'ration_card_photo': 'reg_volunteer_ration_card_photo',
       'graduation_cert': 'marriage_graduation_cert',
       'cv': 'marriage_cv',
       'social_facebook': 'reg_recipient_social_facebook',
@@ -524,7 +587,13 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     for (final key in _required) {
       if (_hidden.contains(key)) continue;
       final filled = checks[key];
-      if (filled == false) return labelKeys[key];
+      // With the date of birth on screen the typed age is not, so name the
+      // field the person can actually see.
+      if (filled == false) {
+        return key == 'age' && !_asksAgeDirectly
+            ? 'marriage_date_of_birth'
+            : labelKeys[key];
+      }
     }
     return null;
   }
@@ -562,7 +631,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     void Function(String url) assign,
   ) async {
     // E3 — every tile this serves is a document (golden square, graduation
-    // certificate, CV), so the fidelity is fixed rather than looked up: the
+    // certificate, CV, ID / residence / ration cards), so the fidelity is fixed rather than looked up: the
     // personal photo has its own picker above and never arrives here.
     final picked = await pickCroppedImage(
       context,
@@ -591,15 +660,32 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     String ruleKey,
     String labelKey,
     String? url,
-    void Function(String) assign,
-  ) {
+    void Function(String) assign, {
+    String? requiredRule,
+  }) {
     final busy = _uploadingAttachment == ruleKey;
+    final isRequired = requiredRule != null && _required.contains(requiredRule);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _label(labelKey),
+          if (isRequired)
+            Row(
+              children: [
+                _label(labelKey),
+                // Same red marker the registration form draws; kept out of the
+                // semantics tree so the label still reads as plain text.
+                const ExcludeSemantics(
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(start: 4, bottom: 6),
+                    child: Text('*', style: TextStyle(color: Colors.red)),
+                  ),
+                ),
+              ],
+            )
+          else
+            _label(labelKey),
           OutlinedButton.icon(
             onPressed: busy ? null : () => _pickAttachment(ruleKey, assign),
             icon: busy
@@ -641,8 +727,12 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
         'gender': _hidden.contains('gender') ? '' : (_gender ?? ''),
         'age': _hidden.contains('age')
             ? 0
-            : (int.tryParse(_ageController.text.trim()) ?? 0),
+            : (_asksAgeDirectly
+                  ? (int.tryParse(_ageController.text.trim()) ?? 0)
+                  : (_ageFromDob() ?? 0)),
         'city': _hidden.contains('city') ? '' : _cityController.text.trim(),
+        'area_district': _hidden.contains('city') ? '' : _areaDistrict,
+        'area_subdistrict': _hidden.contains('city') ? '' : _areaSubdistrict,
         'social_summary': _hidden.contains('social_summary')
             ? ''
             : _summaryController.text.trim(),
@@ -820,9 +910,22 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
         'partner_requirements': _hidden.contains('partner_requirements')
             ? ''
             : _partnerRequirementsController.text.trim(),
-        'golden_square_url': _hidden.contains('golden_square')
+        'id_photo_url': _hidden.contains('id_photo') ? '' : (_idPhotoUrl ?? ''),
+        'id_photo_back_url': _hidden.contains('id_photo')
             ? ''
-            : (_goldenSquareUrl ?? ''),
+            : (_idPhotoBackUrl ?? ''),
+        'residence_card_url': _hidden.contains('residence_card_photo')
+            ? ''
+            : (_residenceCardUrl ?? ''),
+        'residence_card_back_url': _hidden.contains('residence_card_photo')
+            ? ''
+            : (_residenceCardBackUrl ?? ''),
+        'ration_card_url': _hidden.contains('ration_card_photo')
+            ? ''
+            : (_rationCardUrl ?? ''),
+        'ration_card_back_url': _hidden.contains('ration_card_photo')
+            ? ''
+            : (_rationCardBackUrl ?? ''),
         'graduation_cert_url': _hidden.contains('graduation_cert')
             ? ''
             : (_graduationCertUrl ?? ''),
@@ -1106,11 +1209,25 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
                   DropdownMenuItem(value: g, child: Text(g.tr)),
               ],
               onChanged: (v) => setState(() {
+                _resetAreasFor(_governorate);
                 _governorate = v;
                 // Switching governorate invalidates the Nineveh-only
                 // side/neighborhood selection.
                 _housingSide = null;
                 _neighborhoodDropdown = null;
+              }),
+            ),
+            AreaPicker(
+              governorate: _governorate,
+              city: _cityController.text,
+              district: _areaDistrict,
+              subdistrict: _areaSubdistrict,
+              showCity: !_hidden.contains('city'),
+              cityLabel: _label('marriage_city'),
+              onChanged: (city, district, subdistrict) => setState(() {
+                _cityController.text = city;
+                _areaDistrict = district;
+                _areaSubdistrict = subdistrict;
               }),
             ),
             const SizedBox(height: 14),
@@ -1148,7 +1265,9 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
                 ),
                 hint: Text('reg_recipient_neighborhood_hint'.tr),
                 items: _neighborhoodDropdownItems(
-                  _housingSide == 'left' ? _ninevehLeftItems : _ninevehRightItems,
+                  _housingSide == 'left'
+                      ? _ninevehLeftItems
+                      : _ninevehRightItems,
                 ),
                 onChanged: (v) => setState(() => _neighborhoodDropdown = v),
               ),
@@ -1341,8 +1460,9 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
               'reg_income',
               Icons.payments_outlined,
             ),
-          // "Personal and Health Information". Height, weight and religion
-          // already exist further down and are not repeated here.
+          // "Personal and Health Information". Weight and height sit with skin
+          // tone (client note: physical description together); religion sits
+          // directly under ethnicity (القومية).
           _label('marriage_health_section'),
           if (!_hidden.contains('skin_tone')) ...[
             _label('marriage_skin_tone'),
@@ -1366,6 +1486,20 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             ),
             const SizedBox(height: 14),
           ],
+          if (!_hidden.contains('weight'))
+            _text(
+              _weightController,
+              'marriage_weight',
+              Icons.monitor_weight_outlined,
+              keyboard: TextInputType.number,
+            ),
+          if (!_hidden.contains('height'))
+            _text(
+              _heightController,
+              'marriage_height',
+              Icons.height_rounded,
+              keyboard: TextInputType.number,
+            ),
           if (!_hidden.contains('family_members'))
             _text(
               _familyMembersController,
@@ -1446,6 +1580,12 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
               _ethnicityController,
               'marriage_ethnicity',
               Icons.public_outlined,
+            ),
+          if (!_hidden.contains('religion'))
+            _text(
+              _religionController,
+              'marriage_religion',
+              Icons.church_outlined,
             ),
           if (!_hidden.contains('skills'))
             _text(
@@ -1555,13 +1695,53 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
           // "Attachments". The personal photo is the picker at the top of
           // this form and is not repeated here.
           _label('marriage_attachments_section'),
-          if (!_hidden.contains('golden_square'))
+          if (!_hidden.contains('id_photo')) ...[
             _attachmentTile(
-              'golden_square',
-              'marriage_golden_square',
-              _goldenSquareUrl,
-              (u) => _goldenSquareUrl = u,
+              'id_photo',
+              'reg_grantor_id_photo',
+              _idPhotoUrl,
+              (u) => _idPhotoUrl = u,
+              requiredRule: 'id_photo',
             ),
+            _attachmentTile(
+              'id_photo_back',
+              'reg_id_photo_back',
+              _idPhotoBackUrl,
+              (u) => _idPhotoBackUrl = u,
+              requiredRule: 'id_photo',
+            ),
+          ],
+          if (!_hidden.contains('residence_card_photo')) ...[
+            _attachmentTile(
+              'residence_card_photo',
+              'reg_volunteer_residence_card_photo',
+              _residenceCardUrl,
+              (u) => _residenceCardUrl = u,
+              requiredRule: 'residence_card_photo',
+            ),
+            _attachmentTile(
+              'residence_card_photo_back',
+              'reg_residence_card_photo_back',
+              _residenceCardBackUrl,
+              (u) => _residenceCardBackUrl = u,
+              requiredRule: 'residence_card_photo',
+            ),
+          ],
+          if (!_hidden.contains('ration_card_photo')) ...[
+            _attachmentTile(
+              'ration_card_photo',
+              'reg_volunteer_ration_card_photo',
+              _rationCardUrl,
+              (u) => _rationCardUrl = u,
+              requiredRule: 'ration_card_photo',
+            ),
+            _attachmentTile(
+              'ration_card_photo_back',
+              'reg_ration_card_photo_back',
+              _rationCardBackUrl,
+              (u) => _rationCardBackUrl = u,
+            ),
+          ],
           if (!_hidden.contains('graduation_cert'))
             _attachmentTile(
               'graduation_cert',
@@ -1618,18 +1798,25 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             ),
             const SizedBox(height: 14),
           ],
-          if (!_hidden.contains('age'))
+          if (!_hidden.contains('age') && _asksAgeDirectly)
             _text(
               _ageController,
               'marriage_age',
               Icons.cake_outlined,
               keyboard: TextInputType.number,
             ),
+          // Free-text city only while the governorate has no city list;
+          // otherwise it is picked under the governorate (AreaPicker below).
           if (!_hidden.contains('city'))
-            _text(
-              _cityController,
-              'marriage_city',
-              Icons.location_city_outlined,
+            ValueListenableBuilder<int>(
+              valueListenable: AreaDirectory.instance.changes,
+              builder: (context, _, _) => _governorateHasCities
+                  ? const SizedBox.shrink()
+                  : _text(
+                      _cityController,
+                      'marriage_city',
+                      Icons.location_city_outlined,
+                    ),
             ),
           if (!_hidden.contains('social_summary'))
             _text(
@@ -1674,12 +1861,6 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             ),
             const SizedBox(height: 14),
           ],
-          if (!_hidden.contains('religion'))
-            _text(
-              _religionController,
-              'marriage_religion',
-              Icons.church_outlined,
-            ),
           if (!_hidden.contains('employment_status')) ...[
             _label('marriage_employment_status'),
             DropdownButtonFormField<String>(
@@ -1704,20 +1885,6 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
             ),
             const SizedBox(height: 14),
           ],
-          if (!_hidden.contains('weight'))
-            _text(
-              _weightController,
-              'marriage_weight',
-              Icons.monitor_weight_outlined,
-              keyboard: TextInputType.number,
-            ),
-          if (!_hidden.contains('height'))
-            _text(
-              _heightController,
-              'marriage_height',
-              Icons.height_rounded,
-              keyboard: TextInputType.number,
-            ),
           _label('marriage_privacy'),
           DropdownButtonFormField<String>(
             initialValue: _visibility,

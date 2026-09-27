@@ -11,7 +11,7 @@
  * read when the export runs, after the PIN, not when the button rendered.
  * StaffConversationExport below has the details.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { chatExportColumns, chatExportFilenameBase, chatExportTitle, staffExportRows } from '../lib/chatExport'
@@ -19,6 +19,7 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import ExportCsvButton from '../components/ExportCsvButton'
 import PageHead from '../components/PageHead'
 import ChatLifecycleControls from '../components/ChatLifecycleControls'
+import StaffPickerModal from '../components/StaffPickerModal'
 
 /** Columns of the one-conversation export (OPOS #26397). */
 const CONVERSATION_EXPORT_COLUMNS = chatExportColumns()
@@ -98,13 +99,6 @@ type StaffMessage = {
   created_at: string
 }
 
-type DirectoryEntry = {
-  user_id: number
-  full_name: string | null
-  phone: string
-  staff_tier: string
-}
-
 function name(n: string | null, id: number): string {
   return n && n.trim() ? n : `#${id}`
 }
@@ -124,11 +118,13 @@ export default function StaffChatPage() {
   const [messages, setMessages] = useState<StaffMessage[]>([])
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
-  const [directory, setDirectory] = useState<DirectoryEntry[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const msgEnd = useRef<HTMLDivElement | null>(null)
 
   const selected = threads.find((th) => th.id === selectedId) ?? null
+  // Who the operator already talks to — the picker marks them, since picking
+  // one re-opens that chat instead of starting another.
+  const existingUserIds = useMemo(() => new Set(threads.map((th) => th.other_user_id)), [threads])
 
   const loadThreads = useCallback(async () => {
     try {
@@ -177,25 +173,14 @@ export default function StaffChatPage() {
     msgEnd.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function openPicker() {
-    setPickerOpen(true)
-    try {
-      const res = await api.get<{ items: DirectoryEntry[] }>('/api/admin/staff-directory')
-      setDirectory(res.data.items ?? [])
-    } catch (e) {
-      setErr(describeError(e))
-    }
-  }
-
+  // Errors surface inside the picker (it catches), so a failed start doesn't
+  // close the dialog and leave the message behind it on the page.
   async function startChat(userId: number) {
-    try {
-      const res = await api.post<{ thread_id: number }>('/api/admin/staff-chats/start', { user_id: userId })
-      setPickerOpen(false)
-      await loadThreads()
-      setSelectedId(res.data.thread_id)
-    } catch (e) {
-      setErr(describeError(e))
-    }
+    const res = await api.post<{ thread_id: number }>('/api/admin/staff-chats/start', { user_id: userId })
+    await loadThreads()
+    setSelectedId(res.data.thread_id)
+    setMessages([])
+    setPickerOpen(false)
   }
 
   async function sendReply() {
@@ -224,43 +209,18 @@ export default function StaffChatPage() {
           <p className="muted">{t('page.staff_chat.subtitle')}</p>
         </div>
         <div className="row">
-          <button onClick={openPicker}>{t('page.staff_chat.new')}</button>
+          <button onClick={() => setPickerOpen(true)}>{t('page.staff_chat.new')}</button>
         </div>
       </PageHead>
 
       {err && <div className="error-box">{err}</div>}
 
-      {pickerOpen && (
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <strong>{t('page.staff_chat.pick_someone')}</strong>
-            <button className="secondary" onClick={() => setPickerOpen(false)}>{t('common.cancel')}</button>
-          </div>
-          {directory.length === 0 ? (
-            <p className="muted">{t('common.loading')}</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {directory.map((d) => (
-                <button
-                  key={d.user_id}
-                  onClick={() => startChat(d.user_id)}
-                  style={{ textAlign: 'start', border: 'none', cursor: 'pointer', padding: '8px 10px', borderRadius: 8 }}
-                >
-                  <strong>{name(d.full_name, d.user_id)}</strong>{' '}
-                  {/* staff_tier is a backend enum (super_admin / supervisor /
-                      employee), and it was printed verbatim — so the staff
-                      picker offered "· super_admin ·" on a screen that is
-                      otherwise fully Arabic. status.super_admin,
-                      status.supervisor and status.employee already existed in
-                      all four locales; this line simply never asked for
-                      them. */}
-                  <span className="muted" style={{ fontSize: 12 }}>· {statusLabel(d.staff_tier)} · {d.phone}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <StaffPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={startChat}
+        existingUserIds={existingUserIds}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
         <div className="card" style={{ padding: 8, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -275,10 +235,14 @@ export default function StaffChatPage() {
                 key={th.id}
                 onClick={() => { setSelectedId(th.id); setMessages([]) }}
                 style={{
-                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
-                  padding: '11px 12px', borderRadius: 12, marginBottom: 4,
+                  // height:auto + stretch — the global `button` rule is a
+                  // fixed-height centred pill, which clipped these two-line
+                  // rows and hid the preview line.
+                  width: '100%', height: 'auto', textAlign: 'start', border: 'none', cursor: 'pointer',
+                  padding: '11px 12px', borderRadius: 12, marginBottom: 4, boxShadow: 'none',
+                  color: 'var(--text-h)',
                   background: active ? 'color-mix(in srgb, var(--color-primary, #1B37C9) 12%, transparent)' : 'transparent',
-                  display: 'flex', flexDirection: 'column', gap: 4,
+                  display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
@@ -286,7 +250,7 @@ export default function StaffChatPage() {
                   {th.unread_count > 0 && <span className="badge tone-warning">{th.unread_count}</span>}
                 </div>
                 <span className="muted" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {th.last_message ?? th.other_staff_tier ?? ''}
+                  {th.last_message ?? (th.other_staff_tier ? statusLabel(th.other_staff_tier) : '')}
                 </span>
               </button>
             )
@@ -304,7 +268,9 @@ export default function StaffChatPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div>
                     <strong>{name(selected.other_name, selected.other_user_id)}</strong>{' '}
-                    <span className="muted" style={{ fontSize: 12.5 }}>· {selected.other_staff_tier}</span>
+                    {selected.other_staff_tier && (
+                      <span className="muted" style={{ fontSize: 12.5 }}>· {statusLabel(selected.other_staff_tier)}</span>
+                    )}
                   </div>
                   <StaffConversationExport thread={selected} messages={messages} />
                 </div>

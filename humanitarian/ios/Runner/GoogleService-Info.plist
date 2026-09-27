@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!-- STALE (2026-09-27): the Xcode bundle ID is now com.tawazzn; this file
+     still registers com.easytech.humanitarianApp. Replace this whole file
+     with the one Firebase generates once com.tawazzn is added as a new iOS
+     app in the console — see the note in lib/firebase_options.dart. -->
 <dict>
 	<key>CLIENT_ID</key>
 	<string>463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k.apps.googleusercontent.com</string>

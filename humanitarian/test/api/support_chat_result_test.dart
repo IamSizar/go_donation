@@ -174,4 +174,25 @@ void main() {
           'sends them to fix something that is not broken',
     );
   });
+  // Support split — the department the user picked must reach the server,
+  // which keeps one support chat per user per department and routes it to
+  // that department's staff. An absent section (older call sites) must stay
+  // absent, so the server files it in the unsectioned queue.
+  test('the chosen support section is sent, and nothing when none', () async {
+    final bodies = <Map<String, dynamic>>[];
+    final api = _api((request) {
+      bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+      return http.Response(
+        jsonEncode({'success': true, 'thread_id': 9, 'status': 'active'}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    await api.openSupportThread(section: 'volunteers');
+    await api.openSupportThread();
+
+    expect(bodies[0]['section'], 'volunteers');
+    expect(bodies[1].containsKey('section'), isFalse);
+  });
 }

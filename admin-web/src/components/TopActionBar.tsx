@@ -10,9 +10,15 @@ import { useSaveAction } from '../lib/saveAction'
 // "a no-op on pages without a save action". It was a no-op on EVERY page: no
 // listener for that event existed anywhere in admin-web/src, so the primary
 // button in the fixed bar did nothing in the whole product. It now runs the
-// save the page on screen registered (lib/saveAction.tsx), and is disabled
+// save the page on screen registered (lib/saveAction.tsx), and is HIDDEN
 // where no page-level save exists — a list page's edits are saved from inside
 // its row modal, so there is genuinely nothing here for this button to do.
+//
+// Client report — a disabled-but-still-green Save button on a page with
+// nothing to save (Users, every other list page) read as broken, not
+// inactive: dimmed 50% opacity was not a clear enough signal. Hiding it
+// entirely, rather than showing it disabled, was the client's explicit
+// choice once shown both options.
 //
 // The page's own header renders into the slot between Refresh and Save.
 //
@@ -30,16 +36,19 @@ export default function TopActionBar({
   slotRef,
   actionsRef,
   secondaryRef,
+  onRefresh,
 }: {
   slotRef: (el: HTMLDivElement | null) => void
   actionsRef: (el: HTMLDivElement | null) => void
   secondaryRef: (el: HTMLDivElement | null) => void
+  /** Re-mounts only the routed page so it re-fetches (see AppShell). */
+  onRefresh: () => void
 }) {
   const navigate = useNavigate()
   const { t, dir } = useI18n()
   const { save, canSave, busy } = useSaveAction()
 
-  const refresh = () => window.location.reload()
+  const refresh = onRefresh
 
   return (
     <div className="top-action-bar" role="toolbar" aria-label={t('common.actions')}>
@@ -68,14 +77,24 @@ export default function TopActionBar({
       <div className="page-head-slot" ref={slotRef} />
       {/* The page's primary action lands here, right next to Save. */}
       <div className="page-actions-slot" ref={actionsRef} />
-      {/* Disabled rather than hidden: the client asked for the SAME four
-          controls in every section, so the button keeps its place and its
-          state says whether this page has anything to save. */}
+      {/* Invisible rather than disabled — see the F3 note above. `visibility`
+          (NOT a conditional unmount) on purpose: the narrow-width rules below
+          — `.nav-next-btn`'s auto start-margin among them — were tuned
+          assuming Save is always one of the bar's flex children. Removing the
+          button from the DOM changes that child count/order and threw Back/
+          Next out of alignment (client report) on every page with nothing to
+          save, which is most of them. `visibility: hidden` keeps its slot and
+          every sibling's position exactly as tuned, while making it unseen
+          and unclickable — the actual ask. `busy` stays in the condition so a
+          save already in flight can't vanish out from under the operator
+          mid-click (the handler unregisters on unmount, which a save's own
+          success toast triggers via navigation on some pages). */}
       <button
         className="primary"
         onClick={save}
         disabled={!canSave || busy}
         title={t('toolbar.save')}
+        style={canSave || busy ? undefined : { visibility: 'hidden' }}
       >
         <Save size={15} strokeWidth={2.2} />
         <span>{busy ? t('common.saving') : t('toolbar.save')}</span>

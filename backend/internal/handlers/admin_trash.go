@@ -84,6 +84,14 @@ var restorableTables = map[string]bool{
 	"marriage_subscription_packages": true,
 	"tasks":                          true,
 	"post_comments":                  true,
+	// Campaign and marriage/event comments are deleted through trashRow too
+	// (campaign_engagement.go / marriage_engagement.go AdminDeleteComment),
+	// and are now moderated from the Comments page — restore must take them
+	// back, or "moved to Trash" would be a promise Restore refuses.
+	"campaign_comments":         true,
+	"marriage_profile_comments": true,
+	// Migration 136 — cities / districts / sub-districts (admin_areas.go).
+	"location_areas": true,
 
 	// E15 — the signup delete added for تسجيلات المهام. Same reason as the
 	// block above: without this entry the row would reach the Trash and then be

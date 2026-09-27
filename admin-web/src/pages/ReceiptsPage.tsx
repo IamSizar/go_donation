@@ -3,6 +3,7 @@
 // GET/POST /api/admin/aid-receipts.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, describeError } from '../lib/api'
+import { fetchAllUsers } from '../lib/fetchAllUsers'
 import Table, { type Column } from '../components/Table'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import { useToast } from '../lib/toast'
@@ -53,9 +54,10 @@ export default function ReceiptsPage() {
 
   // Load users once for the recipient / delivered-by pickers.
   useEffect(() => {
-    api
-      .get<{ data: AdminUser[] }>('/api/admin/users?page=1&per_page=200')
-      .then((res) => setUsers(res.data.data ?? []))
+    // Every account, page by page — a per_page of 200 is not honoured and
+    // used to offer only the newest 20 (lib/fetchAllUsers.ts).
+    fetchAllUsers()
+      .then((all) => setUsers(all as unknown as AdminUser[]))
       .catch(() => {})
   }, [])
 

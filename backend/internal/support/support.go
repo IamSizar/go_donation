@@ -14,10 +14,13 @@ import (
 // Ticket is one support request as the user sees it: their message, its
 // current status, and the reply if staff have answered.
 type Ticket struct {
-	ID         int64      `json:"id"`
-	Subject    string     `json:"subject"`
-	Message    string     `json:"message"`
-	Status     string     `json:"status"`
+	ID      int64  `json:"id"`
+	Subject string `json:"subject"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+	// Support split — "events" | "volunteers", nil for tickets opened before
+	// the split or by an app build that does not send one.
+	Section    *string    `json:"section"`
 	AdminReply string     `json:"admin_reply,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 	RepliedAt  *time.Time `json:"replied_at,omitempty"`
@@ -40,7 +43,7 @@ type Store struct {
 func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
 
 // Insert writes a new ticket. Returns its id.
-func (s *Store) Insert(ctx context.Context, userID int64, subject, message string) (int64, error) {
+func (s *Store) Insert(ctx context.Context, userID int64, subject, message string, section *string) (int64, error) {
 	if userID <= 0 {
 		return 0, errors.New("invalid userID")
 	}
@@ -51,8 +54,8 @@ func (s *Store) Insert(ctx context.Context, userID int64, subject, message strin
 	}
 	var id int64
 	err := s.Pool.QueryRow(ctx,
-		`INSERT INTO support_tickets (user_id, subject, message) VALUES ($1, $2, $3) RETURNING id`,
-		userID, subject, message,
+		`INSERT INTO support_tickets (user_id, subject, message, section) VALUES ($1, $2, $3, $4) RETURNING id`,
+		userID, subject, message, section,
 	).Scan(&id)
 	return id, err
 }
@@ -82,7 +85,7 @@ func (s *Store) ListForUser(ctx context.Context, userID int64, limit int) ([]Tic
 		limit = 50
 	}
 	rows, err := s.Pool.Query(ctx,
-		`SELECT id, subject, message, status,
+		`SELECT id, subject, message, status, section,
 		        COALESCE(admin_reply, ''), created_at, replied_at
 		   FROM support_tickets
 		  WHERE user_id = $1
@@ -95,7 +98,7 @@ func (s *Store) ListForUser(ctx context.Context, userID int64, limit int) ([]Tic
 	out := []Ticket{}
 	for rows.Next() {
 		var t Ticket
-		if err := rows.Scan(&t.ID, &t.Subject, &t.Message, &t.Status,
+		if err := rows.Scan(&t.ID, &t.Subject, &t.Message, &t.Status, &t.Section,
 			&t.AdminReply, &t.CreatedAt, &t.RepliedAt); err != nil {
 			return nil, false, err
 		}

@@ -14,5 +14,5 @@
 <resources>
     <string name="default_notification_channel_id" translatable="false">balancenex_high_importance</string>
     <string name="default_notification_channel_name">Messages and updates</string>
-    <string name="default_notification_channel_description">Chat messages, request updates and announcements from BalanceNex.</string>
+    <string name="default_notification_channel_description">Chat messages, request updates and announcements from Tawazzn.</string>
 </resources>

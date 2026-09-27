@@ -60,15 +60,24 @@ class _LuckyCouponScreenState extends State<LuckyCouponScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: revealed ? _reset : _scratch,
-                icon: Icon(
-                  revealed ? Icons.refresh_rounded : Icons.touch_app_rounded,
-                ),
-                label: Text(
-                  revealed ? 'Try another coupon'.tr : 'Scratch the coupon'.tr,
+            // THE BUG THIS FIXES: same edge-to-edge button as the Wheel of
+            // Fortune screen had — no side padding of its own here, so it
+            // hugged the screen edges instead of matching the page gutter
+            // every other action button in the app uses.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: revealed ? _reset : _scratch,
+                  icon: Icon(
+                    revealed ? Icons.refresh_rounded : Icons.touch_app_rounded,
+                  ),
+                  label: Text(
+                    revealed
+                        ? 'Try another coupon'.tr
+                        : 'Scratch the coupon'.tr,
+                  ),
                 ),
               ),
             ),

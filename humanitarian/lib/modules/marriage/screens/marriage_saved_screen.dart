@@ -136,8 +136,13 @@ class _MarriageSavedScreenState extends State<MarriageSavedScreen> {
       if (code.isNotEmpty) code,
       if (summary.trim().isNotEmpty) summary,
     ];
+    // Client report — deep link back to this profile, not just plain text.
     await Share.share(
-      withAppLink(parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n')),
+      withEntityLink(
+        parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n'),
+        'marriage_profiles',
+        id == 0 ? null : id,
+      ),
       sharePositionOrigin: shareAnchor(context),
     );
     if (id == 0) return;
@@ -209,7 +214,14 @@ class _MarriageSavedScreenState extends State<MarriageSavedScreen> {
               onLike: () async {
                 if (await requireSignIn(context)) _toggleLike(list[i]);
               },
-              onComment: () => _openComments(context, list[i]),
+              // Same gate as onLike — see the matching note on
+              // marriage_posts_screen.dart.
+              onComment: () async {
+                final signedIn = await requireSignIn(context);
+                if (signedIn && context.mounted) {
+                  _openComments(context, list[i]);
+                }
+              },
               onShare: () => _share(context, list[i]),
             ),
           ),

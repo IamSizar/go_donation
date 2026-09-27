@@ -91,6 +91,12 @@ var chatNotificationTypes = []string{
 	"marriage_chat_message",
 	"marriage_meeting_declined",
 	"staff_chat_message",
+	// OPOS 48992 — the admin opening / closing a supervised chat. Each one is
+	// a real state change (the lifecycle action only succeeds on a change),
+	// so a close → open → close inside the dedupe window must all arrive;
+	// they are also chat notifications for the guest filter.
+	"chat_opened_by_staff",
+	"chat_closed_by_staff",
 }
 
 // isConversationType reports whether a notification_type describes a message in

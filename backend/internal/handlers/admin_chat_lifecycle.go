@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
@@ -38,6 +41,10 @@ import (
 // chatlifecycle.Systems().
 type ChatLifecycleHandler struct {
 	Pool *pgxpool.Pool
+	// Notifier — OPOS 48992: both people in a supervised chat (connect-request
+	// group, marriage chat) are told when the admin opens or closes it.
+	// Set from main.go; nil sends nothing.
+	Notifier *notify.Notifier
 }
 
 func NewChatLifecycleHandler(pool *pgxpool.Pool) *ChatLifecycleHandler {
@@ -78,6 +85,7 @@ func (h *ChatLifecycleHandler) Apply(kind chatlifecycle.Kind) gin.HandlerFunc {
 			h.lifecycleErr(c, err)
 			return
 		}
+		h.notifyOpenClose(kind, id, req.Action, user.UserID)
 		c.JSON(http.StatusOK, gin.H{
 			"success":     true,
 			"id":          id,
@@ -406,4 +414,56 @@ func allowedChatChildTables(sourceTable string) []string {
 		}
 	}
 	return nil
+}
+
+// notifyOpenClose pushes "opened" / "closed" to the people in a supervised
+// chat (OPOS 48992). Only group and marriage chats, only resume (open) and
+// pause (close); the admin who acted is never notified. Best effort, off the
+// request path: a failed push must not fail the admin's action.
+func (h *ChatLifecycleHandler) notifyOpenClose(kind chatlifecycle.Kind, threadID int64, action string, actorID int64) {
+	if h.Notifier == nil || (action != "pause" && action != "resume") {
+		return
+	}
+	var relatedType, query string
+	switch kind {
+	case chatlifecycle.KindGroup:
+		relatedType = "chat_group_thread"
+		query = `SELECT user_id FROM chat_group_members
+		          WHERE group_id = $1 AND removed_at IS NULL AND role_in_group <> 'staff'`
+	case chatlifecycle.KindMarriage:
+		relatedType = "marriage_chat_thread"
+		query = `SELECT unnest(ARRAY[requester_user_id, owner_user_id])
+		           FROM marriage_chat_threads WHERE id = $1`
+	default:
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		rows, err := h.Pool.Query(ctx, query, threadID)
+		if err != nil {
+			log.Printf("[chat-lifecycle] open/close recipients for %s/%d: %v", kind, threadID, err)
+			return
+		}
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if rows.Scan(&id) == nil && id != actorID {
+				ids = append(ids, id)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			log.Printf("[chat-lifecycle] open/close recipients for %s/%d: %v", kind, threadID, err)
+		}
+		rows.Close()
+		msg := notify.ChatClosedByStaffMsg(relatedType, threadID)
+		if action == "resume" {
+			msg = notify.ChatOpenedByStaffMsg(relatedType, threadID)
+		}
+		for _, id := range ids {
+			if _, err := h.Notifier.Send(ctx, id, msg); err != nil {
+				log.Printf("[chat-lifecycle] open/close push to %d for %s/%d: %v", id, kind, threadID, err)
+			}
+		}
+	}()
 }

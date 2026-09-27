@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, describeError, assetUrl, getStoredUser, isAdminLevel } from '../lib/api'
+import { fetchAllUsers } from '../lib/fetchAllUsers'
 import { formatDateOnly, formatDateTime } from '../lib/dates'
 import { useI18n, useFieldLabel, useStatusLabel } from '../lib/i18n'
 import { skillLabelFor, scheduleSummary, localizeAvailabilityText } from '../lib/skillCatalogue'
@@ -280,13 +281,14 @@ export default function DetailPage() {
   const [userMap, setUserMap] = useState<Record<number, string>>({})
   useEffect(() => {
     let cancelled = false
-    api
-      .get<{ data?: Array<{ user_id: number; phone?: string | null; profile?: { full_name?: string | null } | null }> }>(
-        '/api/admin/users', { params: { per_page: 1000 } })
-      .then((r) => {
+    // Every account, page by page — per_page:1000 was not honoured and only
+    // the newest 20 resolved, so older ids (most staff) showed as bare
+    // numbers (lib/fetchAllUsers.ts).
+    fetchAllUsers()
+      .then((all) => {
         if (cancelled) return
         const m: Record<number, string> = {}
-        for (const u of r.data?.data ?? []) {
+        for (const u of all) {
           m[u.user_id] = (u.profile?.full_name?.trim() || u.phone || '') as string
         }
         setUserMap(m)
@@ -311,6 +313,9 @@ export default function DetailPage() {
   const USER_REF = /(_user_id|_by)$/
 
   const meta = RESOURCE_LABELS[resource]
+  // Back to the tab this record lives on (an order → Marketplace's orders
+  // tab), not the list page's first tab.
+  const listHref = meta?.tab ? `${meta.list}?tab=${meta.tab}` : meta?.list ?? '/'
 
   // The fetch effect's dependencies. With no resource/id nothing is fetched,
   // so the page is not loading either — the same thing the effect's guard and
@@ -350,7 +355,7 @@ export default function DetailPage() {
               the same centre line as every other section's. */}
           <div className="page-head-meta">
             <nav className="breadcrumb" aria-label={t('common.breadcrumb')}>
-              <Link to={meta.list}>{t(meta.sectionKey)}</Link>
+              <Link to={listHref}>{t(meta.sectionKey)}</Link>
               <span aria-hidden="true"> &gt; </span>
               <span>{t(meta.labelKey)} {fmtId(id)}</span>
             </nav>
@@ -359,7 +364,7 @@ export default function DetailPage() {
           <h1>{t(meta.labelKey)} {fmtId(id)}</h1>
         </div>
         <div className="row">
-          <button className="secondary" onClick={() => nav(meta.list)}>{t('common.back_to_list')}</button>
+          <button className="secondary" onClick={() => nav(listHref)}>{t('common.back_to_list')}</button>
         </div>
       </PageHead>
       {/* Hidden while a newer request is in flight, which is what clearing the

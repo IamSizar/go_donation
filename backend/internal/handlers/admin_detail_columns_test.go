@@ -189,7 +189,7 @@ var wantUserDetailKeys = map[string]bool{
 	"national_id": true, "nationality": true, "nearest_landmark": true, "needs_description": true,
 	"neighborhood": true, "occupation": true, "orphans_count": true, "other_certificate": true,
 	"owns_car": true, "passport_photo_path": true, "phone1": true, "phone2": true,
-	"previous_occupation": true, "profile_picture": true, "property_proof_photo_path": true, "ration_card_photo_path": true,
+	"previous_occupation": true, "profile_picture": true, "property_proof_photo_path": true, "ration_card_photo_path": true, "ration_card_photo_back_path": true,
 	"recipient_code": true, "registered_social_welfare": true, "registered_unemployed": true, "rental_amount": true,
 	"residence_card_photo_path": true, "residency_status": true, "rooms_count": true, "skills": true,
 	"smoking_status": true, "social_facebook": true, "social_instagram": true, "social_other": true,

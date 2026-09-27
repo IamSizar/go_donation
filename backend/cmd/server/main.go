@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/appsettings"
+	"github.com/karam-flutter/humanitarian-backend/internal/areas"
 	"github.com/karam-flutter/humanitarian-backend/internal/assistant"
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/beneficiary"
@@ -307,6 +308,7 @@ func main() {
 	// Chat lifecycle (migration 118) — one handler serving end/pause/resume/
 	// archive/unarchive/delete for ALL FOUR chat systems.
 	chatLifecycleH := handlers.NewChatLifecycleHandler(pool)
+	chatLifecycleH.Notifier = notifier // OPOS 48992 — tell both people when the admin opens / closes a supervised chat
 	volunteerCheckinH := handlers.NewVolunteerCheckinHandler(pool, notifier)
 	eventsH := handlers.NewEventsHandler(eventsStore, pool)
 	assistantH := handlers.NewAssistantHandler(assistantSvc, pool)
@@ -390,9 +392,10 @@ func main() {
 	// SMS closure above still makes, and the reason nobody noticed the SMS leg
 	// of these reminders has never worked in any environment.
 	sponsorshipScheduleH.StartReminderLoop(6 * time.Hour)
-	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                                              // #29
-	cityCategoriesH := handlers.NewCityCategoriesHandler(citycategories.New(pool))                               // sub-categories
-	districtsH := handlers.NewDistrictsHandler(districts.New(pool))                                              // OPOS #25271 — Nineveh district/neighborhood pickers
+	citySectorsH := handlers.NewCitySectorsHandler(citySectorStore)                // #29
+	cityCategoriesH := handlers.NewCityCategoriesHandler(citycategories.New(pool)) // sub-categories
+	districtsH := handlers.NewDistrictsHandler(districts.New(pool))
+	areasH := handlers.NewAreasHandler(areas.New(pool))                                                          // migration 136 — cities / districts / sub-districts per governorate                                              // OPOS #25271 — Nineveh district/neighborhood pickers
 	searchH := handlers.NewSearchHandler(searchStore)                                                            // #33
 	fieldRulesH := handlers.NewFieldRulesHandler(pool)                                                           // #43
 	aidReceiptsH := handlers.NewAidReceiptsHandler(pool)                                                         // #50
@@ -400,9 +403,9 @@ func main() {
 	caseCategoriesH := handlers.NewCaseCategoriesHandler(caseCatStore)                                           // Quick Filter Capsules
 	mediaEngageH := handlers.NewMediaEngagementHandler(postEngageStore, bannedWordsStore, notifier, eventsStore) // #24/#25
 	marriageEngageStore := marriage.NewEngagementStore(pool)                                                     // client note 2026-09-22 — like/comment/share on profile cards
-	marriageEngageH := handlers.NewMarriageEngagementHandler(marriageEngageStore, bannedWordsStore)
+	marriageEngageH := handlers.NewMarriageEngagementHandler(marriageEngageStore, bannedWordsStore, eventsStore)
 	campaignEngageStore := campaigns.NewEngagementStore(pool) // client report 2026-09-22 — campaign detail showed like/comment counts with no way to generate one
-	campaignEngageH := handlers.NewCampaignEngagementHandler(campaignEngageStore, postEngageStore, bannedWordsStore)
+	campaignEngageH := handlers.NewCampaignEngagementHandler(campaignEngageStore, postEngageStore, bannedWordsStore, eventsStore)
 	bannedWordsH := handlers.NewBannedWordsHandler(bannedWordsStore, pool)                  // #25
 	partnerEngageH := handlers.NewPartnerEngagementHandler(partnerRatingStore)              // #27
 	marketplaceCategoriesH := handlers.NewMarketplaceCategoriesHandler(marketplaceCatStore) // #28
@@ -546,6 +549,7 @@ func main() {
 		api.GET("/donation-types", donationTypesH.PublicList)
 		api.GET("/city-sectors", citySectorsH.PublicList)            // #29 — City Guide filter chips
 		api.GET("/city-categories", cityCategoriesH.PublicList)      // sub-categories per sector
+		api.GET("/areas", areasH.PublicList)                         // ?governorate=Nineveh — the app's city → district → sub-district pickers
 		api.GET("/districts", districtsH.PublicList)                 // OPOS #25271 — ?group=nineveh_district|nineveh_neighborhood_left|nineveh_neighborhood_right
 		api.GET("/search", searchH.Search)                           // #33 — global search
 		api.GET("/registration/field-rules", fieldRulesH.PublicList) // #43 — required-field rules
@@ -1043,18 +1047,24 @@ func main() {
 			admin.POST("/admin/notifications/broadcast", perm("notifications", "add"), pushH.BroadcastInApp)
 			admin.POST("/admin/notifications/broadcast/", perm("notifications", "add"), pushH.BroadcastInApp)
 
+			// Support split — a staff member limited to one support section
+			// cannot reach the other section's tickets/chats by id either.
+			ticketSectionGuard := handlers.RequireSupportSection(pool, "support_tickets", "section")
+			chatSectionGuard := handlers.RequireSupportSection(pool, "chat_threads", "support_section")
+			admin.POST("/admin/users/:id/support_sections", auth.RequireAdminTier(), handlers.SetStaffSupportSections(pool))
+
 			// Donor ↔ owner chat — admin (support) oversight.
 			admin.GET("/admin/chats", perm("messages", "view"), chatH.AdminList)
 			admin.GET("/admin/chats/", perm("messages", "view"), chatH.AdminList)
-			admin.GET("/admin/chats/:id/messages", perm("messages", "view"), chatH.AdminMessages)
-			admin.POST("/admin/chats/:id/messages", perm("messages", "add"), chatH.AdminPostMessage)
+			admin.GET("/admin/chats/:id/messages", perm("messages", "view"), chatSectionGuard, chatH.AdminMessages)
+			admin.POST("/admin/chats/:id/messages", perm("messages", "add"), chatSectionGuard, chatH.AdminPostMessage)
 			// Note #36 — claim/release the "Responsible Staff Member" on a thread.
 			// K19 — the attempts this thread refused to carry (phone numbers /
 			// email addresses). Same permission as reading the thread itself:
 			// it is the same conversation, minus the part that was blocked.
-			admin.GET("/admin/chats/:id/contact-blocks", perm("messages", "view"), chatH.AdminContactBlocks)
-			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatH.AdminClaim)
-			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatH.AdminRelease)
+			admin.GET("/admin/chats/:id/contact-blocks", perm("messages", "view"), chatSectionGuard, chatH.AdminContactBlocks)
+			admin.POST("/admin/chats/:id/claim", perm("messages", "edit"), chatSectionGuard, chatH.AdminClaim)
+			admin.POST("/admin/chats/:id/release", perm("messages", "edit"), chatSectionGuard, chatH.AdminRelease)
 
 			// OPOS #25284 Phase 2 — staff-created group chats.
 			admin.GET("/admin/chat-groups", perm("messages", "view"), chatGroupH.AdminList)
@@ -1095,8 +1105,8 @@ func main() {
 			//
 			// The chat kind is passed as a compile-time constant, never parsed
 			// from the URL, so no request value can ever choose a table.
-			admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindDonor))
-			admin.DELETE("/admin/chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindDonor))
+			admin.POST("/admin/chats/:id/lifecycle", perm("messages", "edit"), chatSectionGuard, chatLifecycleH.Apply(chatlifecycle.KindDonor))
+			admin.DELETE("/admin/chats/:id", perm("messages", "delete"), chatSectionGuard, chatLifecycleH.Delete(chatlifecycle.KindDonor))
 			admin.POST("/admin/staff-chats/:id/lifecycle", perm("messages", "edit"), chatLifecycleH.Apply(chatlifecycle.KindStaff))
 			admin.DELETE("/admin/staff-chats/:id", perm("messages", "delete"), chatLifecycleH.Delete(chatlifecycle.KindStaff))
 			admin.POST("/admin/marriage/chats/:id/lifecycle", perm("marriage", "edit"), chatLifecycleH.Apply(chatlifecycle.KindMarriage))
@@ -1152,8 +1162,8 @@ func main() {
 			admin.POST("/admin/volunteer_applications/:id/status", perm("volunteers", "edit"), adminStatusH.VolunteerApplication)
 			admin.POST("/admin/sponsorships/:id/status", perm("sponsorships", "edit"), adminStatusH.Sponsorship)
 			admin.POST("/admin/in_kind_donations/:id/status", perm("in_kind", "edit"), adminStatusH.InKindDonation)
-			admin.POST("/admin/support_tickets/:id/status", perm("support", "edit"), adminStatusH.SupportTicket)
-			admin.POST("/admin/support_tickets/:id/reply", perm("support", "edit"), supportH.AdminReply)
+			admin.POST("/admin/support_tickets/:id/status", perm("support", "edit"), ticketSectionGuard, adminStatusH.SupportTicket)
+			admin.POST("/admin/support_tickets/:id/reply", perm("support", "edit"), ticketSectionGuard, supportH.AdminReply)
 			admin.POST("/admin/donations/:id/status", perm("donations", "edit"), adminStatusH.Donation)
 			admin.POST("/admin/users/:id/role", perm("users", "edit"), adminStatusH.UserRole)
 			admin.POST("/admin/users/:id/active", perm("users", "edit"), adminStatusH.UserActive)
@@ -1223,7 +1233,7 @@ func main() {
 			admin.PATCH("/admin/beneficiary_project_requests/:id", perm("beneficiary", "edit"), adminEditH.ProjectRequest)
 			admin.PATCH("/admin/sponsorships/:id", perm("sponsorships", "edit"), adminEditH.Sponsorship)
 			admin.PATCH("/admin/in_kind_donations/:id", perm("in_kind", "edit"), adminEditH.InKindDonation)
-			admin.PATCH("/admin/support_tickets/:id", perm("support", "edit"), adminEditH.SupportTicket)
+			admin.PATCH("/admin/support_tickets/:id", perm("support", "edit"), ticketSectionGuard, adminEditH.SupportTicket)
 			admin.PATCH("/admin/donations/:id", perm("donations", "edit"), adminEditH.Donation)
 			admin.PATCH("/admin/volunteer_applications/:id", perm("volunteers", "edit"), adminEditH.VolunteerApplication)
 			admin.PATCH("/admin/users/:id", perm("users", "edit"), adminEditH.User)
@@ -1255,7 +1265,7 @@ func main() {
 			admin.DELETE("/admin/beneficiary_project_requests/:id", perm("beneficiary", "delete"), adminDeleteH.ProjectRequest)
 			admin.DELETE("/admin/sponsorships/:id", perm("sponsorships", "delete"), adminDeleteH.Sponsorship)
 			admin.DELETE("/admin/in_kind_donations/:id", perm("in_kind", "delete"), adminDeleteH.InKindDonation)
-			admin.DELETE("/admin/support_tickets/:id", perm("support", "delete"), adminDeleteH.SupportTicket)
+			admin.DELETE("/admin/support_tickets/:id", perm("support", "delete"), ticketSectionGuard, adminDeleteH.SupportTicket)
 			admin.DELETE("/admin/donations/:id", perm("donations", "delete"), adminDeleteH.Donation)
 			admin.DELETE("/admin/volunteer_applications/:id", perm("volunteers", "delete"), adminDeleteH.VolunteerApplication)
 			// Note #4 — deleting a user account is hard-restricted to the
@@ -1373,6 +1383,11 @@ func main() {
 			admin.PATCH("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Update)
 			admin.POST("/admin/city-categories/reorder", auth.RequireAdminTier(), cityCategoriesH.Reorder)
 			admin.DELETE("/admin/city-categories/:id", auth.RequireAdminTier(), cityCategoriesH.Delete)
+			admin.GET("/admin/areas", areasH.AdminList)
+			admin.POST("/admin/areas", auth.RequireAdminTier(), areasH.Add)
+			admin.PATCH("/admin/areas/:id", auth.RequireAdminTier(), areasH.Update)
+			admin.POST("/admin/areas/reorder", auth.RequireAdminTier(), areasH.Reorder)
+			admin.DELETE("/admin/areas/:id", auth.RequireAdminTier(), areasH.Delete)
 			admin.GET("/admin/districts", districtsH.AdminList)
 			admin.POST("/admin/districts", auth.RequireAdminTier(), districtsH.Add)
 			admin.PATCH("/admin/districts/:id", auth.RequireAdminTier(), districtsH.Update)

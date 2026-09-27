@@ -48,7 +48,11 @@ Future<void> _tapTheTile(WidgetTester tester, ModuleApi api) async {
         body: Builder(
           builder: (context) => Center(
             child: ElevatedButton(
-              onPressed: () => ChatActions.startSupportChat(context, api: api),
+              onPressed: () => ChatActions.startSupportChat(
+                context,
+                section: 'events',
+                api: api,
+              ),
               child: const Text('tap me'),
             ),
           ),

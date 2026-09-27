@@ -144,6 +144,34 @@ type Props = {
    * Return null for a field that should carry nothing.
    */
   renderFieldExtra?: (field: FieldSpec, values: Record<string, string>) => ReactNode
+  /**
+   * Whether a field should be shown at all, given the form's CURRENT values.
+   *
+   * Exists for the New User modal: which profile boxes apply depends on the
+   * نوع المستخدم (role) the operator picks inside the form, the same way
+   * renderFieldExtra's rule scope does — so this gets the identical (field,
+   * values) shape. Returning false drops the field from render, from the
+   * required-field check, and from the saved patch, exactly like a field the
+   * caller never declared. Omit it and every declared field always shows,
+   * which is every other caller's existing behavior.
+   */
+  isFieldVisible?: (field: FieldSpec, values: Record<string, string>) => boolean
+  /**
+   * Whether a field is required, given the form's CURRENT values — overrides
+   * `field.required` when supplied.
+   *
+   * Exists for the same reason as `isFieldVisible`: in the New User modal a
+   * field's required/optional/hidden state is governed per ROLE, and the role
+   * is picked inside this form, so a required flag baked into the field list
+   * before the operator has touched anything can never reflect it. Without
+   * this, the red "required" dot only ever reflected the New-User-form's OWN
+   * `user_`-prefixed rules (13 fields) and silently omitted it — with no
+   * validation to match — on every other profile field, however the actual
+   * per-role rule read (client report: the dot must track "إجباري" exactly,
+   * dashboard or app). Omit this prop and `field.required` is used as-is,
+   * which is every other caller's existing behavior.
+   */
+  isFieldRequired?: (field: FieldSpec, values: Record<string, string>) => boolean
 }
 
 function toInputValue(v: unknown): string {
@@ -160,7 +188,7 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
   return canonicalPhone(raw) || stripped
 }
 
-export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry, renderFieldExtra }: Props) {
+export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry, renderFieldExtra, isFieldVisible, isFieldRequired }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const fieldLabel = useFieldLabel()
@@ -212,6 +240,15 @@ export default function EditModal({ open, title, initial, fields: declaredFields
   }, [initial, fields])
 
   const [values, setValues] = useState<Record<string, string>>(initialStrings)
+
+  // Re-filtered on every render, off the LIVE values — not memoized on a
+  // dependency list, because it must react to the very keystroke that changes
+  // `values.role` (the New User modal's use case). `fields` (unfiltered) still
+  // backs `initialStrings` above, so a field hidden by the current role keeps
+  // whatever the operator already typed into it if they switch role and back.
+  const visibleFields = isFieldVisible ? fields.filter((f) => isFieldVisible(f, values)) : fields
+  const requiredOf = (f: FieldSpec) => (isFieldRequired ? isFieldRequired(f, values) : !!f.required)
+
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const firstRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>(null)
@@ -258,7 +295,10 @@ export default function EditModal({ open, title, initial, fields: declaredFields
   // edit mode so the column gets set to NULL).
   function buildPatch(): Record<string, unknown> {
     const patch: Record<string, unknown> = {}
-    for (const f of fields) {
+    // Only currently-visible fields are ever saved — a box hidden by the
+    // picked role (or by a field rule) must not silently write over a column
+    // that role's form never asked about.
+    for (const f of visibleFields) {
       // H10 — a read-only field is never part of the patch. The control is
       // disabled, so this is belt-and-braces: it also covers a caller that
       // seeds `initial` with a redacted value and a field list that changes
@@ -273,7 +313,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
         if (next === before) continue
       } else {
         // create mode — skip blanks for non-required fields entirely
-        if (next === '' && !f.required) continue
+        if (next === '' && !requiredOf(f)) continue
       }
       if (f.type === 'gallery' || f.type === 'multiselect') {
         let arr: string[]
@@ -304,13 +344,15 @@ export default function EditModal({ open, title, initial, fields: declaredFields
 
   async function handleSave() {
     setErr(null)
-    // Required-field check (only when the field changed to empty).
-    for (const f of fields) {
+    // Required-field check (only when the field changed to empty). Same
+    // visibleFields scope as buildPatch — a hidden field can never be
+    // "required" for a role that was never asked to fill it in.
+    for (const f of visibleFields) {
       // H10 — a required field that is also read-only must not block the save.
       // The phone box is `required`, so without this skip an operator who
       // cannot see the number could not save ANY other change on the row.
       if (f.readOnly) continue
-      if (f.required) {
+      if (requiredOf(f)) {
         const v = (values[f.key] ?? '').trim()
         if (v === '') {
           const lbl = labelOf(f)
@@ -387,18 +429,39 @@ export default function EditModal({ open, title, initial, fields: declaredFields
             </div>
           ) : (
           <div className="form-grid">
-            {fields.map((f, i) => {
+            {visibleFields.map((f, i) => {
               // A heading is emitted whenever this field's section differs from
               // the previous field's, so a caller declares its sections by the
               // ORDER of its field list and never has to nest it.
               const heading =
-                f.section && f.section !== fields[i - 1]?.section ? (
+                f.section && f.section !== visibleFields[i - 1]?.section ? (
                   <div className="form-row full">
                     <h3 className="form-label" style={{ margin: 0, fontSize: '0.95rem' }}>
                       {t(f.section)}
                     </h3>
                   </div>
                 ) : null
+              // Anything the PAGE wants to hang off this field — today the
+              // registration-rule control (required / optional / off).
+              //
+              // A render prop rather than the control itself, so EditModal
+              // keeps knowing nothing about field rules: it is the generic
+              // edit form for a dozen resources, and most of them have no
+              // rules at all. `values` is passed because the rule's SCOPE can
+              // depend on the form's own state — in the New User modal the
+              // role is chosen inside the form, so which role a rule applies
+              // to changes as the operator picks one.
+              //
+              // Rendered INSIDE the same grid cell as the field it belongs to
+              // (below), not as a separate grid item. A separate item relied
+              // on every field contributing exactly one, so the four
+              // account-level boxes (phone/role/username/password), which
+              // never carry one, threw the whole two-column grid's pairing off
+              // by one cell for every field after them — the toggle strip
+              // drifted further from its own box the further down the form you
+              // went (client report, New User modal).
+              const extra = renderFieldExtra?.(f, values)
+              const extraRow = extra ? <div className="field-rule-row">{extra}</div> : null
               const body = (() => {
               const v = values[f.key] ?? ''
               const setV = (next: string) => setValues((m) => ({ ...m, [f.key]: next }))
@@ -406,11 +469,17 @@ export default function EditModal({ open, title, initial, fields: declaredFields
               const placeholder = f.placeholderKey ? t(f.placeholderKey) : f.placeholder
               const dir = f.dir ?? 'auto'
               const ref = i === 0 ? firstRef : undefined
+              // Live per-role/rule override, not the static declaration — see
+              // isFieldRequired's doc comment for why this can't just be
+              // `f.required` (client report: the red "required" dot must
+              // track إجباري exactly, for every field, not just the 13 the
+              // New User form's own rule track happens to cover).
+              const req = requiredOf(f)
 
               if (f.type === 'file') {
                 return (
                   <div key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
-                    <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
+                    <span className="form-label">{label}{req && <span className="req">*</span>}</span>
                     <FileInput
                       value={v}
                       onChange={setV}
@@ -419,14 +488,16 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                       hidePreview={f.hidePreview}
                       crop={f.crop ?? true}
                     />
+                    {extraRow}
                   </div>
                 )
               }
               if (f.type === 'gallery') {
                 return (
                   <div key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
-                    <span className="form-label">{label}</span>
+                    <span className="form-label">{label}{req && <span className="req">*</span>}</span>
                     <GalleryInput value={v} onChange={setV} disabled={busy} />
+                    {extraRow}
                   </div>
                 )
               }
@@ -439,7 +510,7 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                 }
                 return (
                   <div key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
-                    <span className="form-label">{label}</span>
+                    <span className="form-label">{label}{req && <span className="req">*</span>}</span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                       {(f.options ?? []).map((opt) => (
                         <label key={opt} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -448,13 +519,14 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                         </label>
                       ))}
                     </div>
+                    {extraRow}
                   </div>
                 )
               }
               if (f.type === 'textarea') {
                 return (
                   <label key={f.key} className={`form-row${f.full ? ' full' : ''}`}>
-                    <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
+                    <span className="form-label">{label}{req && <span className="req">*</span>}</span>
                     <textarea
                       ref={ref as React.RefObject<HTMLTextAreaElement>}
                       rows={f.rows ?? 3}
@@ -464,13 +536,14 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                       dir={dir}
                       onChange={(e) => setV(e.target.value)}
                     />
+                    {extraRow}
                   </label>
                 )
               }
               if (f.type === 'select') {
                 return (
                   <label key={f.key} className="form-row">
-                    <span className="form-label">{label}{f.required && <span className="req">*</span>}</span>
+                    <span className="form-label">{label}{req && <span className="req">*</span>}</span>
                     <select
                       ref={ref as React.RefObject<HTMLSelectElement>}
                       value={v}
@@ -481,12 +554,13 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                         <option key={opt} value={opt}>{f.optionLabels?.[opt] ?? statusLabel(opt)}</option>
                       ))}
                     </select>
+                    {extraRow}
                   </label>
                 )
               }
               return (
                 <label key={f.key} className="form-row">
-                  <span className="form-label">{label}{f.required && !f.readOnly && <span className="req">*</span>}</span>
+                  <span className="form-label">{label}{req && !f.readOnly && <span className="req">*</span>}</span>
                   <input
                     ref={ref as React.RefObject<HTMLInputElement>}
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
@@ -514,25 +588,14 @@ export default function EditModal({ open, title, initial, fields: declaredFields
                       explanation reads as a broken screen, and the operator
                       has an action available to them: ask for the permission. */}
                   {f.readOnly && <span className="form-hint">{t('hint.contact_hidden')}</span>}
+                  {extraRow}
                 </label>
               )
               })()
-              // Anything the PAGE wants to hang off this field — today the
-              // registration-rule control (required / optional / off).
-              //
-              // A render prop rather than the control itself, so EditModal
-              // keeps knowing nothing about field rules: it is the generic
-              // edit form for a dozen resources, and most of them have no
-              // rules at all. `values` is passed because the rule's SCOPE can
-              // depend on the form's own state — in the New User modal the
-              // role is chosen inside the form, so which role a rule applies
-              // to changes as the operator picks one.
-              const extra = renderFieldExtra?.(f, values)
               return (
                 <Fragment key={f.key}>
                   {heading}
                   {body}
-                  {extra && <div className="form-row field-rule-row">{extra}</div>}
                 </Fragment>
               )
             })}

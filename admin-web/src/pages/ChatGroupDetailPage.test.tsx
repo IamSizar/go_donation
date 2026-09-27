@@ -129,8 +129,11 @@ describe('ChatGroupDetailPage — lifecycle', () => {
 
     renderPage(MASKED_GROUP_ID)
 
-    expect(await screen.findByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    // OPOS 48992 — a group is an admin-supervised chat: one open / close
+    // switch, and no End (closing covers it, End could never be undone).
+    expect(await screen.findByRole('button', { name: 'Close conversation' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'End' })).not.toBeInTheDocument()
   })
 
   it('shows the state, reason and archived flag read-only without messages:edit', async () => {

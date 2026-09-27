@@ -28,14 +28,16 @@ import (
 
 // Comment is one user comment on a campaign.
 type Comment struct {
-	ID         int64     `json:"id"`
-	CampaignID int64     `json:"campaign_id"`
-	UserID     int64     `json:"user_id"`
-	UserName   string    `json:"user_name"`
-	Body       string    `json:"body"`
-	Status     string    `json:"status"`
-	Flagged    bool      `json:"flagged"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         int64 `json:"id"`
+	CampaignID int64 `json:"campaign_id"`
+	// Only filled by AdminListComments, for the dashboard's Comments page.
+	CampaignTitle string    `json:"campaign_title,omitempty"`
+	UserID        int64     `json:"user_id"`
+	UserName      string    `json:"user_name"`
+	Body          string    `json:"body"`
+	Status        string    `json:"status"`
+	Flagged       bool      `json:"flagged"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type EngagementStore struct{ Pool *pgxpool.Pool }
@@ -180,9 +182,10 @@ func (s *EngagementStore) AdminListComments(ctx context.Context, statusFilter st
 		where = "c.status = $1"
 	}
 	rows, err := s.Pool.Query(ctx,
-		`SELECT c.id, c.campaign_id, c.user_id, COALESCE(u.full_name, 'User'),
+		`SELECT c.id, c.campaign_id, COALESCE(cp.title, ''), c.user_id, COALESCE(u.full_name, 'User'),
 		        c.body, c.status, (c.flagged = 1), c.created_at
 		   FROM campaign_comments c
+		   LEFT JOIN campaigns cp ON cp.id = c.campaign_id
 		   LEFT JOIN LATERAL (
 		          SELECT pf.full_name FROM user_profiles pf
 		           WHERE pf.user_id = c.user_id ORDER BY pf.id LIMIT 1
@@ -198,7 +201,7 @@ func (s *EngagementStore) AdminListComments(ctx context.Context, statusFilter st
 	out := []Comment{}
 	for rows.Next() {
 		var x Comment
-		if err := rows.Scan(&x.ID, &x.CampaignID, &x.UserID, &x.UserName,
+		if err := rows.Scan(&x.ID, &x.CampaignID, &x.CampaignTitle, &x.UserID, &x.UserName,
 			&x.Body, &x.Status, &x.Flagged, &x.CreatedAt); err != nil {
 			return nil, err
 		}

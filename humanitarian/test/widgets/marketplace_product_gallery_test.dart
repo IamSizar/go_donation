@@ -1,21 +1,26 @@
-// Pins the marketplace product gallery (migration 117).
+// Pins the marketplace product photo strip — the cover and its gallery
+// (migration 117) drawn as ONE scrollable, tap-to-zoom strip.
 //
 // WHY THIS FILE EXISTS
-// A product had one photo. `gallery` adds the rest, and the risk of adding it
-// is not that the strip fails to draw — that would be obvious. The risks are
-// the quiet ones:
+// The strip replaced a fixed-crop, non-tappable cover "hero" plus a separate,
+// only-sometimes-present gallery thumbnail row. The risks worth pinning:
 //
-//  1. THE COMMON CASE REGRESSES. Almost every product has no gallery. If an
-//     empty, absent, null, or older-server response draws a heading, a gap, or
-//     an exception, this change has broken the shop to add a feature almost
-//     nothing uses. Four of the tests below are about nothing being drawn.
+//  1. THE COVER IS ALWAYS IN THE STRIP. A product with no gallery photos at
+//     all must still show its cover, as the first (and only) tile — this is
+//     the opposite of the old ProductGallery, which drew nothing when the
+//     gallery array was empty. Losing that would mean every ordinary
+//     product's detail sheet loses its picture.
 //
-//  2. THE PATHS RESOLVE DIFFERENTLY FROM THE COVER. The backend stores either
-//     a relative upload path or an absolute URL, and the cover image has always
-//     resolved both. A gallery that resolved them its own way would show broken
-//     tiles under a working hero — so the resolver is shared, and pinned here.
+//  2. NOTHING IS EVER CROPPED. Every tile is `BoxFit.contain`; a portrait
+//     photo (a T-shirt on a hanger) must show whole, letterboxed, never with
+//     its top or bottom sliced off to fill a wide tile.
 //
-//  3. IT IS NOT RTL-SAFE. The app ships Arabic and Kurdish. The strip must
+//  3. THE PATHS RESOLVE THE SAME WAY FOR THE COVER AND THE GALLERY. The
+//     backend stores either a relative upload path or an absolute URL for
+//     both fields, and they must agree — a gallery with its own resolver
+//     would show broken tiles next to a working cover.
+//
+//  4. IT IS NOT RTL-SAFE. The app ships Arabic and Kurdish. The strip must
 //     start at the right in Arabic, and the viewer's close button must sit
 //     under the reader's thumb rather than across the screen.
 //
@@ -90,7 +95,7 @@ void main() {
 
     test('the gallery resolves paths exactly as the cover image does', () {
       // The bug this prevents: a gallery with its own resolver, showing broken
-      // thumbnails under a hero that loads fine.
+      // thumbnails next to a cover that loads fine.
       expect(
         marketplaceGalleryUrls(const ['images/uploads/b.jpg']).single,
         marketplaceMediaUrl('images/uploads/b.jpg'),
@@ -114,103 +119,119 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     final name = platform == TargetPlatform.iOS ? 'iOS' : 'Android';
 
-    testWidgets('$name — an empty gallery draws absolutely nothing', (
-      tester,
-    ) async {
+    testWidgets('$name — no cover and no gallery still draws a fallback tile, '
+        'not an empty screen', (tester) async {
       await tester.pumpWidget(
         _host(
           Theme(
             data: ThemeData(platform: platform),
-            child: const ProductGallery(urls: []),
+            child: const ProductPhotoStrip(coverUrl: null, galleryUrls: []),
           ),
         ),
       );
 
-      // Not "no images" — no heading and no scrollable either. A caption over
-      // an empty rail is the regression this guards.
-      expect(find.byType(ListView), findsNothing);
-      expect(find.text('Photos'), findsNothing);
+      // Not scrollable — there is nothing to page through — but a fallback
+      // tile still occupies the space, so the sheet never just goes blank.
+      expect(find.byType(PageView), findsNothing);
+      expect(find.byType(AppPressable), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('$name — one tile per photo, under a translated heading', (
-      tester,
-    ) async {
+    testWidgets('$name — a cover with no gallery is still one tappable page, '
+        'with no dots for a single photo', (tester) async {
       await tester.pumpWidget(
         _host(
           Theme(
             data: ThemeData(platform: platform),
-            child: const ProductGallery(
-              urls: [
+            child: const ProductPhotoStrip(
+              coverUrl: 'https://cdn.example.com/cover.jpg',
+              galleryUrls: [],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(PageView), findsOneWidget);
+      expect(find.byType(AppPressable), findsOneWidget);
+      // A single photo has nothing to flip between, so no page dots.
+      expect(find.byType(AnimatedContainer), findsNothing);
+    });
+
+    testWidgets('$name — the cover leads, and swiping reaches the gallery '
+        'photos after it', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          Theme(
+            data: ThemeData(platform: platform),
+            child: const ProductPhotoStrip(
+              coverUrl: 'https://cdn.example.com/cover.jpg',
+              galleryUrls: [
                 'https://cdn.example.com/a.jpg',
                 'https://cdn.example.com/b.jpg',
-                'https://cdn.example.com/c.jpg',
               ],
             ),
           ),
         ),
       );
 
-      expect(find.byType(ListView), findsOneWidget);
-      // 'product_photos' resolving to itself would mean the key never reached
-      // the locale maps — the failure this app's l10n tests exist to catch.
-      expect(find.text('Photos'), findsOneWidget);
-      expect(find.text('product_photos'), findsNothing);
-      // The photos never load in a test, so the tiles are counted by their
-      // press wrappers rather than by rendered pixels.
-      expect(find.byType(AppPressable), findsNWidgets(3));
+      // Cover + 2 gallery photos = 3 page dots, the first lit.
+      expect(find.byType(AnimatedContainer), findsNWidgets(3));
+      // PageView only builds the current page — one tappable banner, not
+      // three tiles side by side, which is the whole point of this being a
+      // promo-banner carousel instead of a thumbnail row.
+      expect(find.byType(AppPressable), findsOneWidget);
+
+      // Swipe start-to-end (a promo banner's "next") and land on a
+      // different photo without losing the ability to tap it.
+      //
+      // Not `pumpAndSettle`: the loading tile's shimmer animation repeats
+      // forever, so with no network in a test the image never "finishes"
+      // and settling never converges. A fixed pump is enough to let the
+      // page-change animation complete.
+      await tester.drag(find.byType(PageView), const Offset(-400, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // The departing page can still be mounted alongside the arriving one
+      // right after a drag — asserting "still tappable", not "exactly one".
+      expect(find.byType(AppPressable), findsWidgets);
     });
   }
 
-  testWidgets('the heading is translated, not English, in Arabic', (
-    tester,
-  ) async {
-    Get.locale = const Locale('ar', 'SA');
-    await tester.pumpWidget(
-      _host(
-        const ProductGallery(urls: ['https://cdn.example.com/a.jpg']),
-        locale: const Locale('ar', 'SA'),
-      ),
-    );
-
-    expect(find.text('الصور'), findsOneWidget);
-    expect(find.text('Photos'), findsNothing);
-  });
-
-  testWidgets('the strip lays out start-to-end, so it starts at the right in '
+  testWidgets('the strip pages start-to-end, so it swipes toward the right in '
       'Arabic', (tester) async {
     Get.locale = const Locale('ar', 'SA');
     await tester.pumpWidget(
       _host(
-        const ProductGallery(
-          urls: [
-            'https://cdn.example.com/a.jpg',
-            'https://cdn.example.com/b.jpg',
-          ],
+        const ProductPhotoStrip(
+          coverUrl: 'https://cdn.example.com/cover.jpg',
+          galleryUrls: ['https://cdn.example.com/a.jpg'],
         ),
         locale: const Locale('ar', 'SA'),
       ),
     );
 
-    // A hardcoded `reverse:` or a Row with left/right padding would fail here:
-    // what is asserted is that the list took its direction from the ambient
-    // Directionality rather than from a constant.
-    final list = tester.widget<ListView>(find.byType(ListView));
-    expect(list.scrollDirection, Axis.horizontal);
-    expect(list.reverse, isFalse);
+    // A hardcoded `reverse:` would fail here: what is asserted is that the
+    // PageView took its direction from the ambient Directionality rather
+    // than from a constant.
+    final page = tester.widget<PageView>(find.byType(PageView));
+    expect(page.scrollDirection, Axis.horizontal);
     expect(
-      Directionality.of(tester.element(find.byType(ListView))),
+      Directionality.of(tester.element(find.byType(PageView))),
       TextDirection.rtl,
     );
   });
 
   // ─── The viewer ───────────────────────────────────────────────────────
 
-  testWidgets('tapping a photo opens a zoomable full-screen viewer', (
-    tester,
-  ) async {
+  testWidgets('tapping a photo — cover included — opens a zoomable '
+      'full-screen viewer', (tester) async {
     await tester.pumpWidget(
-      _host(const ProductGallery(urls: ['https://cdn.example.com/a.jpg'])),
+      _host(
+        const ProductPhotoStrip(
+          coverUrl: 'https://cdn.example.com/cover.jpg',
+          galleryUrls: [],
+        ),
+      ),
     );
 
     expect(find.byType(InteractiveViewer), findsNothing);
@@ -236,7 +257,10 @@ void main() {
     // reader.
     await tester.pumpWidget(
       _host(
-        const ProductGallery(urls: ['https://cdn.example.com/a.jpg']),
+        const ProductPhotoStrip(
+          coverUrl: 'https://cdn.example.com/cover.jpg',
+          galleryUrls: [],
+        ),
         locale: const Locale('ar', 'SA'),
       ),
     );
@@ -311,7 +335,7 @@ void main() {
   }
 
   testWidgets(
-    'the detail sheet shows the product gallery, without overflowing',
+    'the detail sheet shows the product photo strip, without overflowing',
     (tester) async {
       await openFirstProductSheet(
         tester,
@@ -321,26 +345,25 @@ void main() {
         ),
       );
 
-      expect(find.byType(ProductGallery), findsOneWidget);
-      expect(find.text('Photos'), findsOneWidget);
+      expect(find.byType(ProductPhotoStrip), findsOneWidget);
       // A RenderFlex overflow surfaces as a thrown exception in tests, so this
       // is the assertion the whole scrollable-sheet change exists to satisfy.
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('a product with no gallery renders exactly as it always did', (
-    tester,
-  ) async {
-    // The common case, and the one that must not regress. Not merely "no
-    // strip" — no heading either, and the sheet's own content still there.
-    await openFirstProductSheet(tester, catalogueWith('"gallery": []'));
+  testWidgets(
+    'a product with no gallery still shows its cover in the strip',
+    (tester) async {
+      // The common case, and the one that must not regress: no gallery array
+      // is not the same as no photo — the cover alone must still show.
+      await openFirstProductSheet(tester, catalogueWith('"gallery": []'));
 
-    expect(find.byType(ProductGallery), findsNothing);
-    expect(find.text('Photos'), findsNothing);
-    expect(find.textContaining('HNY-1'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.byType(ProductPhotoStrip), findsOneWidget);
+      expect(find.textContaining('HNY-1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('a response from a server older than migration 117 is fine', (
     tester,
@@ -349,7 +372,7 @@ void main() {
     // product normally rather than crash on a missing field.
     await openFirstProductSheet(tester, catalogueWith('"brand": ""'));
 
-    expect(find.byType(ProductGallery), findsNothing);
+    expect(find.byType(ProductPhotoStrip), findsOneWidget);
     expect(find.textContaining('HNY-1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

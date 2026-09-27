@@ -204,6 +204,18 @@ class _CapsuleChip extends StatelessWidget {
           child: Center(
             child: Text(
               label,
+              // THE BUG THIS FIXES: with no explicit width, this chip's
+              // horizontal-scroll ListView item is supposed to size itself
+              // to the Text's own natural width. But that measurement can
+              // land a pixel or two short of what the glyphs actually paint
+              // (a final "ل"'s ascender loop in particular), which then gets
+              // silently clipped — the same way "الكل" showed as "الكا" plus
+              // a sliver of the last letter. softWrap: false + overflow:
+              // visible means the glyph always paints in full even if the
+              // measured box is a hair narrow, instead of guessing more
+              // padding that may not cover every word.
+              softWrap: false,
+              overflow: TextOverflow.visible,
               style: TextStyle(
                 color: active ? Colors.white : AppThemeConfig.text(context),
                 fontWeight: FontWeight.w800,

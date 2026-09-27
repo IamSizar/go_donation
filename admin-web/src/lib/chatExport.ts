@@ -238,7 +238,7 @@ export function chatExportFilenameBase(kind: ChatExportKind, threadId: number): 
   return `${kind}_chat_${String(threadId).replace(/[^0-9]/g, '')}`
 }
 
-/** The document title for Word and PDF, e.g. "Marriage chat #51", translated. */
+/** The document title for Word and PDF, e.g. "Event chat #51", translated. */
 export function chatExportTitle(kind: ChatExportKind, threadId: number): string {
   return translate('export.chat_title', { chat: translate(`export.chat_${kind}`), id: threadId })
 }
