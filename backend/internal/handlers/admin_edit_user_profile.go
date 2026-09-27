@@ -65,6 +65,7 @@ var userProfileWritableColumns = map[string]bool{
 
 	// Location
 	"governorate": true, "district": true, "housing_side": true,
+	"area_district": true, "area_subdistrict": true,
 	"neighborhood": true, "nearest_landmark": true,
 
 	// Housing
@@ -104,7 +105,7 @@ var userProfileWritableColumns = map[string]bool{
 	"id_photo_path": true, "id_photo_back_path": true, "golden_square_photo_path": true,
 	"residence_card_photo_path": true, "residence_card_photo_back_path": true, "passport_photo_path": true,
 	"graduation_cert_photo_path": true, "cv_photo_path": true,
-	"ration_card_photo_path": true, "property_proof_photo_path": true,
+	"ration_card_photo_path": true, "ration_card_photo_back_path": true, "property_proof_photo_path": true,
 	"medical_report_photo_path": true, "house_facade_photo_path": true,
 	"house_inside_photo_path": true, "house_outside_photo_path": true,
 }

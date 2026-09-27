@@ -1,15 +1,10 @@
-// Package chat implements the donor ↔ campaign-owner consent-based chat.
-//
-// A thread is opened by either party and starts 'pending'; the OTHER party
-// accepts it from their Alerts tab, flipping it to 'active'. Once active, the
-// donor, the owner (beneficiary), and any admin (as "support") can post
-// messages. There is exactly one thread per (donor, owner) pair.
 package chat
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,11 +94,14 @@ type ThreadView struct {
 	OtherName       *string `json:"other_name"`
 	OtherPhone      *string `json:"other_phone"`
 	// Note #36 — the claimed staff member's name, if any (nil = unclaimed).
-	AssignedStaffName *string    `json:"assigned_staff_name"`
-	LastMessage       *string    `json:"last_message"`
-	LastMessageAt     *time.Time `json:"last_message_at"`
-	UnreadCount       int        `json:"unread_count"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	AssignedStaffName *string `json:"assigned_staff_name"`
+	// Support split — which support department a support chat belongs to
+	// ("events" | "volunteers"), nil for other chats and legacy ones.
+	SupportSection *string    `json:"support_section"`
+	LastMessage    *string    `json:"last_message"`
+	LastMessageAt  *time.Time `json:"last_message_at"`
+	UnreadCount    int        `json:"unread_count"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // Message is one chat message with the sender's display name.
@@ -147,7 +145,7 @@ func (s *Store) RequestThread(ctx context.Context, donorID, ownerID int64, campa
 //
 // Returns the thread and whether it was created by this call, so the caller
 // can notify staff once rather than on every reopen.
-func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int64) (Thread, bool, error) {
+func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int64, section *string) (Thread, bool, error) {
 	var t Thread
 
 	tx, err := s.Pool.Begin(ctx)
@@ -158,19 +156,26 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 
 	const cols = `id, donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, assigned_staff_user_id, created_at, updated_at`
 
+	// Support split — one support chat per user PER SECTION. The exact
+	// section wins; failing that an unsectioned thread (opened before the
+	// split) is adopted so its history is not stranded. A request with no
+	// section (older app builds) only ever matches the unsectioned thread.
 	err = tx.QueryRow(ctx,
 		`SELECT `+cols+` FROM chat_threads
 		  WHERE donor_user_id = $1 AND owner_user_id = $2
-		  FOR UPDATE`, userID, supportID,
+		    AND (support_section = $3 OR support_section IS NULL)
+		  ORDER BY (support_section IS NULL), id
+		  LIMIT 1
+		  FOR UPDATE`, userID, supportID, section,
 	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		if err := tx.QueryRow(ctx,
-			`INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind)
-			 VALUES ($1, $2, NULL, 'active', $1, 'support')
+			`INSERT INTO chat_threads (donor_user_id, owner_user_id, campaign_id, status, initiated_by, kind, support_section)
+			 VALUES ($1, $2, NULL, 'active', $1, 'support', $3)
 			 RETURNING `+cols,
-			userID, supportID,
+			userID, supportID, section,
 		).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return t, false, err
 		}
@@ -187,9 +192,11 @@ func (s *Store) RequestSupportThread(ctx context.Context, userID, supportID int6
 	// otherwise stay unusable and invisible to the support view forever.
 	if err := tx.QueryRow(ctx,
 		`UPDATE chat_threads
-		    SET status = 'active', kind = 'support', updated_at = CURRENT_TIMESTAMP
+		    SET status = 'active', kind = 'support',
+		        support_section = COALESCE(support_section, $2),
+		        updated_at = CURRENT_TIMESTAMP
 		  WHERE id = $1
-		 RETURNING `+cols, t.ID,
+		 RETURNING `+cols, t.ID, section,
 	).Scan(&t.ID, &t.DonorUserID, &t.OwnerUserID, &t.CampaignID, &t.Status, &t.InitiatedBy, &t.Kind, &t.AssignedStaffUserID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, false, err
 	}
@@ -379,6 +386,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		       -- N+1 across the whole list.
 		       ou.staff_tier,
 		       sp.full_name AS assigned_staff_name,
+		       t.support_section,
 		       lm.body, lm.created_at,
 		       COALESCE((
 		         SELECT COUNT(*) FROM chat_messages m
@@ -436,7 +444,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 		var otherTier *string
 		if err := rows.Scan(&v.ID, &v.Status, &v.CampaignID, &v.CampaignTitle, &v.InitiatedBy, &v.UpdatedAt,
 			&v.MyRole, &v.OtherUserID, &v.OtherName, &v.OtherPhone, &otherTier, &v.AssignedStaffName,
-			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
+			&v.SupportSection, &v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
 			return nil, err
 		}
 		// K19 — withhold the counterpart's NUMBER on a supervised peer thread.
@@ -638,6 +646,8 @@ type AdminThreadView struct {
 	// Note #36 — the claimed "Responsible Staff Member," if any.
 	AssignedStaffUserID *int64  `json:"assigned_staff_user_id"`
 	AssignedStaffName   *string `json:"assigned_staff_name"`
+	// Support split — "events" | "volunteers", nil when unsectioned.
+	SupportSection *string `json:"support_section"`
 	// Migration 117 — the staff-controlled lifecycle. open | paused | ended,
 	// plus whether staff have archived it away from the participants.
 	Lifecycle       string     `json:"lifecycle"`
@@ -658,7 +668,7 @@ type AdminThreadView struct {
 // watches donor↔owner conversations, the events section's support view answers
 // requests addressed to staff. Defaulting to "everything" is what put support
 // requests in the middle of the donor list with nothing marking them.
-func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThreadView, error) {
+func (s *Store) ListAllThreads(ctx context.Context, q, kind, section string, scope []string) ([]AdminThreadView, error) {
 	if kind != "support" {
 		kind = "direct"
 	}
@@ -668,11 +678,26 @@ func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThre
 		args = append(args, "%"+t+"%")
 		where += ` AND (dp.full_name ILIKE $2 OR opf.full_name ILIKE $2 OR c.title ILIKE $2)`
 	}
+	// Support split. `section` is the dashboard filter ("" / "all" = any,
+	// "none" = unsectioned); `scope` is the caller's own sections (nil =
+	// unrestricted). Unsectioned threads stay visible to every scope.
+	switch sec := strings.ToLower(strings.TrimSpace(section)); sec {
+	case "", "all":
+	case "none":
+		where += ` AND t.support_section IS NULL`
+	default:
+		args = append(args, sec)
+		where += ` AND t.support_section = $` + strconv.Itoa(len(args))
+	}
+	if scope != nil {
+		args = append(args, scope)
+		where += ` AND (t.support_section IS NULL OR t.support_section = ANY($` + strconv.Itoa(len(args)) + `))`
+	}
 	rows, err := s.Pool.Query(ctx, `
 		SELECT t.id, t.status, t.campaign_id, c.title,
 		       t.donor_user_id, dp.full_name, du.phone,
 		       t.owner_user_id, opf.full_name, ou.phone,
-		       t.assigned_staff_user_id, sp.full_name,
+		       t.assigned_staff_user_id, sp.full_name, t.support_section,
 		       t.lifecycle, t.lifecycle_reason, (t.archived_at IS NOT NULL),
 		       COALESCE((SELECT COUNT(*) FROM chat_messages m WHERE m.thread_id = t.id), 0),
 		       lm.body, lm.created_at,
@@ -718,7 +743,7 @@ func (s *Store) ListAllThreads(ctx context.Context, q, kind string) ([]AdminThre
 		if err := rows.Scan(&v.ID, &v.Status, &v.CampaignID, &v.CampaignTitle,
 			&v.DonorUserID, &v.DonorName, &v.DonorPhone,
 			&v.OwnerUserID, &v.OwnerName, &v.OwnerPhone,
-			&v.AssignedStaffUserID, &v.AssignedStaffName,
+			&v.AssignedStaffUserID, &v.AssignedStaffName, &v.SupportSection,
 			&v.Lifecycle, &v.LifecycleReason, &v.IsArchived,
 			&v.MessageCount, &v.LastMessage, &v.LastMessageAt,
 			&v.CreatedAt, &v.UpdatedAt); err != nil {

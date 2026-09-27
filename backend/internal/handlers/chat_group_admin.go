@@ -262,7 +262,7 @@ func (h *ChatGroupHandler) AdminPostMessage(c *gin.Context) {
 	}
 	// The pause holds for STAFF too — a pause staff could talk through would
 	// not be a pause (see AdminPostMessage's equivalent comment in chat.go).
-	if refuseIfNotSendable(c, h.Pool, chatlifecycle.KindGroup, id) {
+	if refuseIfEndedForStaff(c, h.Pool, chatlifecycle.KindGroup, id) {
 		return
 	}
 	var req chatGroupMessageReq

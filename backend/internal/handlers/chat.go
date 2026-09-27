@@ -227,11 +227,22 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "You cannot start a support chat with yourself."})
 		return
 	}
+	// Support split — optional in the body so older app builds (which POST
+	// nothing) keep working; they land in the unsectioned queue.
+	var body struct {
+		Section *string `json:"section"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	section, ok := parseSupportSection(body.Section)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid section. Allowed: " + strings.Join(supportSectionValues, ", ")})
+		return
+	}
 	// Opened ACTIVE and marked as support — see RequestSupportThread. The old
 	// call went through RequestThread, which left it 'pending' awaiting an
 	// accept that only happens inside the app, so the user's message could not
 	// be sent and no staff screen listed the request.
-	thread, isNew, err := h.Store.RequestSupportThread(c.Request.Context(), user.UserID, supportID)
+	thread, isNew, err := h.Store.RequestSupportThread(c.Request.Context(), user.UserID, supportID, section)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
@@ -242,7 +253,19 @@ func (h *ChatHandler) SupportThread(c *gin.Context) {
 		go func() {
 			ctx, cancel := h.bg()
 			defer cancel()
-			_, _ = h.Notifier.Send(ctx, supportID, notify.ChatRequestMsg(name, "", tid))
+			// The nominated support account, plus every staff member assigned
+			// to this section — the first to claim it takes the chat.
+			recipients := []int64{supportID}
+			if section != nil {
+				for _, id := range supportSectionStaff(ctx, h.Pool, *section) {
+					if id != supportID && id != user.UserID {
+						recipients = append(recipients, id)
+					}
+				}
+			}
+			for _, id := range recipients {
+				_, _ = h.Notifier.Send(ctx, id, notify.ChatRequestMsg(name, "", tid))
+			}
 		}()
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "thread_id": thread.ID, "status": thread.Status, "already": !isNew})
@@ -496,7 +519,18 @@ func (h *ChatHandler) AdminList(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Unauthorized."})
 		return
 	}
-	items, err := h.Store.ListAllThreads(c.Request.Context(), c.Query("q"), c.Query("kind"))
+	// Support split — staff limited to some sections only see those (plus
+	// the unsectioned legacy queue). Direct chats carry no section, so the
+	// scope is only applied to the support view.
+	var scope []string
+	if c.Query("kind") == "support" {
+		var err error
+		if scope, err = supportScope(c.Request.Context(), h.Pool, c); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+	}
+	items, err := h.Store.ListAllThreads(c.Request.Context(), c.Query("q"), c.Query("kind"), c.Query("section"), scope)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return

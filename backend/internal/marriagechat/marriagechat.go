@@ -150,14 +150,24 @@ func (s *Store) ApproveMeetingRequest(ctx context.Context, requestID, staffUserI
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO marriage_chat_threads (meeting_request_id, profile_id, requester_user_id, owner_user_id, status)
-		VALUES ($1, $2, $3, $4, 'pending')
+		-- OPOS 48992: the chat only happens with the admin present, so it is
+		-- created CLOSED (paused) and the admin opens it from the dashboard.
+		-- A re-approval starts that over: closed again, un-archived, and no
+		-- longer stuck in a past End.
+		INSERT INTO marriage_chat_threads (meeting_request_id, profile_id, requester_user_id, owner_user_id, status,
+		                                   lifecycle, lifecycle_changed_by, lifecycle_changed_at)
+		VALUES ($1, $2, $3, $4, 'pending', 'paused', $5, CURRENT_TIMESTAMP)
 		ON CONFLICT (requester_user_id, profile_id) DO UPDATE
 		  SET meeting_request_id = EXCLUDED.meeting_request_id,
 		      status = CASE WHEN marriage_chat_threads.status = 'declined'
-		                    THEN 'pending' ELSE marriage_chat_threads.status END
+		                    THEN 'pending' ELSE marriage_chat_threads.status END,
+		      lifecycle = 'paused',
+		      lifecycle_reason = NULL,
+		      lifecycle_changed_by = EXCLUDED.lifecycle_changed_by,
+		      lifecycle_changed_at = CURRENT_TIMESTAMP,
+		      archived_at = NULL
 		RETURNING id, meeting_request_id, profile_id, requester_user_id, owner_user_id, status, created_at, updated_at`,
-		requestID, profileID, fromUserID, ownerUserID,
+		requestID, profileID, fromUserID, ownerUserID, staffUserID,
 	).Scan(&t.ID, &t.MeetingRequestID, &t.ProfileID, &t.RequesterUserID, &t.OwnerUserID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return t, 0, err
@@ -343,12 +353,15 @@ type ThreadView struct {
 	LastMessageAt *time.Time `json:"last_message_at"`
 	UnreadCount   int        `json:"unread_count"`
 	UpdatedAt     time.Time  `json:"updated_at"`
+	// OPOS 48992 — open | paused | ended, so the app's list can say whether
+	// the admin has opened the conversation.
+	Lifecycle string `json:"lifecycle"`
 }
 
 // ListThreadsForUser returns every thread the user belongs to, newest-activity first.
 func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadView, error) {
 	rows, err := s.Pool.Query(ctx, `
-		SELECT t.id, t.status, t.updated_at,
+		SELECT t.id, t.status, t.updated_at, t.lifecycle,
 		       CASE WHEN t.requester_user_id = $1 THEN 'requester' ELSE 'owner' END AS my_role,
 		       mp.profile_code,
 		       lm.body, lm.created_at,
@@ -381,7 +394,7 @@ func (s *Store) ListThreadsForUser(ctx context.Context, userID int64) ([]ThreadV
 	for rows.Next() {
 		var v ThreadView
 		var profileCode string
-		if err := rows.Scan(&v.ID, &v.Status, &v.UpdatedAt, &v.MyRole, &profileCode,
+		if err := rows.Scan(&v.ID, &v.Status, &v.UpdatedAt, &v.Lifecycle, &v.MyRole, &profileCode,
 			&v.LastMessage, &v.LastMessageAt, &v.UnreadCount); err != nil {
 			return nil, err
 		}

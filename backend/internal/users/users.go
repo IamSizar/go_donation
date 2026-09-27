@@ -54,6 +54,9 @@ type Account struct {
 	// StaffTier is the dashboard access tier (Phase 6): super_admin | admin |
 	// supervisor | employee | user.
 	StaffTier string `json:"staff_tier"`
+	// Support split — the support sections this staff member answers for
+	// ("events" / "volunteers"); empty = all. Only filled by PaginatedList.
+	SupportSections []string `json:"support_sections,omitempty"`
 	// AccountStatus is the lifecycle status (Section 25): active | suspended |
 	// banned.
 	AccountStatus string `json:"account_status"`
@@ -989,6 +992,27 @@ type Pagination struct {
 // looking at eight rows on a "page" of twenty under a header still claiming
 // sixty-three. The predicate has to be in the same WHERE as the COUNT.
 func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status string, hideGuests bool) (*PageUsers, error) {
+	return s.PaginatedListFiltered(ctx, page, perPage, q, status, hideGuests, "")
+}
+
+// PaginatedListFiltered is PaginatedList plus a staff filter: "1" returns
+// only staff accounts (staff_tier other than 'user'), "0" only non-staff,
+// anything else both. The dashboard's Staff and Users pages used to fetch one
+// page of everyone and split it in the browser — with the list capped at 100
+// per page (and an oversized request falling back to 20), the Staff page saw
+// only the newest 20 accounts and showed no staff at all once 20 app users had
+// registered after the last staff account.
+func (s *Store) PaginatedListFiltered(ctx context.Context, page, perPage int, q, status string, hideGuests bool, staff string) (*PageUsers, error) {
+	return s.PaginatedListByRole(ctx, page, perPage, q, status, hideGuests, staff, "")
+}
+
+// PaginatedListByRole is PaginatedListFiltered plus a role filter: a role id
+// ("1".."5") returns only accounts with that users.role_id, anything else
+// (including empty and non-numeric) applies no role predicate. It exists for
+// the dashboard's Donors page — donors are role 1 and had no list of their own,
+// only the general Users page. The value is parsed to an integer here, so it
+// can never reach the SQL as text.
+func (s *Store) PaginatedListByRole(ctx context.Context, page, perPage int, q, status string, hideGuests bool, staff, role string) (*PageUsers, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -1031,6 +1055,17 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 	if hideGuests {
 		conds = append(conds, "COALESCE(u.is_guest, FALSE) = FALSE")
 	}
+	// Same definition of "staff" as the dashboard's isStaffAccount (A15).
+	switch strings.TrimSpace(staff) {
+	case "1":
+		conds = append(conds, "COALESCE(NULLIF(u.staff_tier, ''), 'user') <> 'user'")
+	case "0":
+		conds = append(conds, "COALESCE(NULLIF(u.staff_tier, ''), 'user') = 'user'")
+	}
+	if roleID, err := strconv.Atoi(strings.TrimSpace(role)); err == nil && roleID > 0 {
+		args = append(args, roleID)
+		conds = append(conds, "u.role_id = $"+strconv.Itoa(len(args)))
+	}
 	where := ""
 	if len(conds) > 0 {
 		where = " WHERE " + strings.Join(conds, " AND ")
@@ -1057,7 +1092,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.phone, '') AS phone, u.role_id, u.active, u.is_admin, u.created_at, u.registration_status, u.staff_tier, u.account_status, u.is_guest, u.username, u.wallet_balance_iqd,
-		       (u.password_hash IS NOT NULL AND u.password_hash <> ''),
+		       (u.password_hash IS NOT NULL AND u.password_hash <> ''), u.support_sections,
 		       up.id, up.full_name, up.gender, up.address, up.profile_picture,
 		       to_char(up.date_of_birth, 'YYYY-MM-DD'),
 		       up.city, up.occupation, up.family_size, up.housing_status,
@@ -1112,7 +1147,7 @@ func (s *Store) PaginatedList(ctx context.Context, page, perPage int, q, status 
 			volunteerCode string
 			grantorCode   string
 		)
-		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword,
+		err := rows.Scan(&acc.UserID, &acc.Phone, &roleID, &active, &isAdmin, &acc.CreatedAt, &regStatus, &staffTier, &acctStatus, &acc.IsGuest, &username, &acc.WalletBalanceIQD, &acc.HasPassword, &acc.SupportSections,
 			&profileID, &fullName, &gender, &address, &picture, &dob,
 			&city, &occupation, &familySize, &housingStatus, &monthlyIncome, &skills, &availability, &experience,
 			&recipientCode, &volunteerCode, &grantorCode)

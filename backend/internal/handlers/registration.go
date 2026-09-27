@@ -162,6 +162,10 @@ type registrationSubmitReq struct {
 	Languages   string `json:"languages" form:"languages"`
 	District    string `json:"district" form:"district"`
 	SocialOther string `json:"social_other" form:"social_other"`
+	// Migration 136 — optional district (قضاء) / sub-district (ناحية) under
+	// the picked city. Pointers: absent (older app builds) leaves them alone.
+	AreaDistrict    *string `json:"area_district" form:"area_district"`
+	AreaSubdistrict *string `json:"area_subdistrict" form:"area_subdistrict"`
 }
 
 // POST /api/registration/submit
@@ -244,6 +248,13 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to submit registration."})
+		return
+	}
+
+	// Migration 136 — every role picks a city, so every role may carry a
+	// district / sub-district under it.
+	if err := h.Users.SetAreaLocation(c.Request.Context(), tokenUser.UserID, req.AreaDistrict, req.AreaSubdistrict); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save location details."})
 		return
 	}
 
@@ -481,9 +492,11 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 	passport := saveField("passport_photo", "passport")
 	graduationCert := saveField("graduation_cert_photo", "graduationcert")
 	cv := saveField("cv_photo", "cv")
-	if goldenSquare != "" || residenceCard != "" || residenceCardBack != "" || passport != "" || graduationCert != "" || cv != "" {
+	// 138 — the ration card's back side.
+	rationCardBack := saveField("ration_card_photo_back", "rationcardback")
+	if rationCardBack != "" || goldenSquare != "" || residenceCard != "" || residenceCardBack != "" || passport != "" || graduationCert != "" || cv != "" {
 		if err := h.Users.SetVolunteerAttachments(c.Request.Context(), tokenUser.UserID,
-			goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv); err != nil {
+			goldenSquare, residenceCard, residenceCardBack, passport, graduationCert, cv, rationCardBack); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "error": "Failed to save attachments."})
 			return
 		}
@@ -499,6 +512,7 @@ func (h *RegistrationHandler) UploadPhotos(c *gin.Context) {
 		"id_photo_set":                  idPath != "",
 		"id_photo_back_set":             idBackPath != "",
 		"ration_card_photo_set":         rationCard != "",
+		"ration_card_photo_back_set":    rationCardBack != "",
 		"property_proof_photo_set":      propertyProof != "",
 		"medical_report_photo_set":      medicalReport != "",
 		"house_facade_photo_set":        houseFacade != "",

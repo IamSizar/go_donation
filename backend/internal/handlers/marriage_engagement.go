@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
+	"github.com/karam-flutter/humanitarian-backend/internal/events"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
 	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 )
@@ -21,10 +22,11 @@ import (
 type MarriageEngagementHandler struct {
 	Store  *marriage.EngagementStore
 	Banned *moderation.Store
+	Events *events.Store // new comments reach the admin alerts (nil = off)
 }
 
-func NewMarriageEngagementHandler(s *marriage.EngagementStore, b *moderation.Store) *MarriageEngagementHandler {
-	return &MarriageEngagementHandler{Store: s, Banned: b}
+func NewMarriageEngagementHandler(s *marriage.EngagementStore, b *moderation.Store, ev *events.Store) *MarriageEngagementHandler {
+	return &MarriageEngagementHandler{Store: s, Banned: b, Events: ev}
 }
 
 func marriageProfileID(c *gin.Context) (int64, bool) {
@@ -118,6 +120,28 @@ func (h *MarriageEngagementHandler) Comment(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": clientMessage(err)})
 		return
+	}
+
+	// Surface the comment on the admin alerts / activity feed, like media
+	// comments (#24). Its own event type so the link opens the Comments page
+	// on the right source — comment ids are per-table and would collide.
+	if h.Events != nil {
+		uid := user.UserID
+		cid := cmt.ID
+		tid := profileID
+		_, _ = h.Events.Insert(c.Request.Context(), events.Event{
+			EventType:  "marriage_comment_submit",
+			EventLabel: "New comment",
+			Module:     "marriage",
+			Action:     "submit",
+			Status:     status,
+			Source:     "app",
+			UserID:     &uid,
+			EntityID:   &cid,
+			TargetID:   &tid,
+			Note:       snippet(body, 80),
+			Metadata:   map[string]interface{}{"profile_id": tid, "flagged": flagged},
+		})
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "comment": cmt, "held": flagged})
 }

@@ -110,14 +110,18 @@ type partyMember struct {
 	label  string
 }
 
-// readPartyMembers lists a group's active members, oldest row first, so a test
-// can assert exactly who ended up in the group and under which label.
+// readPartyMembers lists the PARTIES of an approved request — the people the
+// request is about. The approving admin's own member row (OPOS 48992: the
+// admin sits in every approved group as a visible "Support" member) is left
+// out here and pinned separately by TestApproveConnectRequest_AdminPresentAndClosed.
+// Oldest row first, so a test can assert who ended up in the group and under
+// which label.
 func readPartyMembers(t *testing.T, pool *pgxpool.Pool, groupID int64) []partyMember {
 	t.Helper()
 	rows, err := pool.Query(context.Background(), `
 		SELECT user_id, role_in_group, COALESCE(masked_label, '')
 		  FROM chat_group_members
-		 WHERE group_id = $1 AND removed_at IS NULL
+		 WHERE group_id = $1 AND removed_at IS NULL AND role_in_group <> 'staff'
 		 ORDER BY id`, groupID)
 	if err != nil {
 		t.Fatalf("read members of group %d: %v", groupID, err)
@@ -327,5 +331,43 @@ func TestApproveConnectRequest_TeamGroupRefusesAnIneligibleOwner(t *testing.T) {
 	}
 	if req.Status != RequestPending || req.GroupID != nil {
 		t.Fatalf("request = status %q group %v, want it still pending with no group", req.Status, req.GroupID)
+	}
+}
+
+// TestApproveConnectRequest_AdminPresentAndClosed pins OPOS 48992: a chat
+// between two people after a request is accepted happens only with the admin
+// present. The group is created CLOSED (paused) — the admin opens it — and
+// the approving admin is a member, shown to the others as "Support".
+func TestApproveConnectRequest_AdminPresentAndClosed(t *testing.T) {
+	pool := newTestPool(t)
+	s := New(pool)
+	staff := makeTestUser(t, pool, "staff")
+	donor := makeTestUser(t, pool, "donor")
+	owner := makeTestUser(t, pool, "beneficiary")
+	reqID := submitPartyRequest(t, s, donor, "case", makePartyCase(t, pool, owner))
+
+	groupID, err := s.ApproveConnectRequest(context.Background(), reqID, KindMasked, "", staff, nil)
+	if err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	var lifecycle string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT lifecycle FROM chat_group_threads WHERE id = $1`, groupID).Scan(&lifecycle); err != nil {
+		t.Fatalf("read lifecycle: %v", err)
+	}
+	if lifecycle != "paused" {
+		t.Fatalf("lifecycle = %q, want paused — the admin opens the chat", lifecycle)
+	}
+
+	var role, label string
+	err = pool.QueryRow(context.Background(), `
+		SELECT role_in_group, COALESCE(masked_label, '') FROM chat_group_members
+		 WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`, groupID, staff).Scan(&role, &label)
+	if err != nil {
+		t.Fatalf("the approving admin is not a member: %v", err)
+	}
+	if role != "staff" || label != "Support" {
+		t.Fatalf("admin member = role %q label %q, want staff / Support", role, label)
 	}
 }

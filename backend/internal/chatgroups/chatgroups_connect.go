@@ -172,14 +172,34 @@ func (s *Store) ApproveConnectRequest(ctx context.Context, requestID int64, kind
 	}
 	var groupID int64
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO chat_group_threads (kind, member_title, created_by_staff_id)
-		 VALUES ($1, $2, $3) RETURNING id`,
+		// Client meeting (OPOS 48992): a conversation between two people
+		// after a request is accepted happens only with the admin present.
+		// It is created CLOSED (paused, no reason) and the admin opens it
+		// from the dashboard when they are there; they can close it again
+		// at any time.
+		`INSERT INTO chat_group_threads (kind, member_title, created_by_staff_id, lifecycle, lifecycle_changed_by, lifecycle_changed_at)
+		 VALUES ($1, $2, $3, 'paused', $3, now()) RETURNING id`,
 		string(kind), title, staffID,
 	).Scan(&groupID); err != nil {
 		return 0, fmt.Errorf("chatgroups: approving connect request %d: creating group: %w", requestID, err)
 	}
 	if err := insertMembers(ctx, tx, groupID, kind, staffID, members); err != nil {
 		return 0, err
+	}
+	// The approving admin sits in the group as a visible member, so both
+	// people can see the conversation is supervised (staff always read as
+	// "Support" to members — see autoLabelName).
+	if !membersInclude(members, staffID) {
+		if err := insertMemberRow(ctx, tx, memberRow{
+			groupID:        groupID,
+			userID:         staffID,
+			roleInGroup:    "staff",
+			masked:         kind == KindMasked,
+			label:          staffMemberLabel(kind),
+			addedByStaffID: staffID,
+		}); err != nil && !errors.Is(err, ErrGuestMember) {
+			return 0, err
+		}
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE chat_group_connect_requests
@@ -348,4 +368,22 @@ func (s *Store) ListConnectRequestsForUser(ctx context.Context, requesterID int6
 		return nil, fmt.Errorf("chatgroups: listing connect requests for user %d: %w", requesterID, err)
 	}
 	return out, nil
+}
+
+func membersInclude(members []MemberInput, userID int64) bool {
+	for _, m := range members {
+		if m.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+// staffMemberLabel — a masked group needs a label on every member row; staff
+// get the fixed "Support" everyone already sees on staff messages.
+func staffMemberLabel(kind Kind) string {
+	if kind == KindMasked {
+		return "Support"
+	}
+	return ""
 }

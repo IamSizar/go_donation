@@ -29,7 +29,7 @@ func TestSupportThreadOpensActiveAndMarked(t *testing.T) {
 	user := insertAccount(t, pool, "user", "")
 	staff := insertAccount(t, pool, "user", "")
 
-	thread, isNew, err := store.RequestSupportThread(ctx, user.id, staff.id)
+	thread, isNew, err := store.RequestSupportThread(ctx, user.id, staff.id, nil)
 	if err != nil {
 		t.Fatalf("open support thread: %v", err)
 	}
@@ -65,11 +65,11 @@ func TestSupportThreadIsReusedNotDuplicated(t *testing.T) {
 	user := insertAccount(t, pool, "user", "")
 	staff := insertAccount(t, pool, "user", "")
 
-	first, _, err := store.RequestSupportThread(ctx, user.id, staff.id)
+	first, _, err := store.RequestSupportThread(ctx, user.id, staff.id, nil)
 	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	second, isNew, err := store.RequestSupportThread(ctx, user.id, staff.id)
+	second, isNew, err := store.RequestSupportThread(ctx, user.id, staff.id, nil)
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 	donor := insertAccount(t, pool, "user", "")
 	owner := insertAccount(t, pool, "user", "")
 
-	support, _, err := store.RequestSupportThread(ctx, user.id, staff.id)
+	support, _, err := store.RequestSupportThread(ctx, user.id, staff.id, nil)
 	if err != nil {
 		t.Fatalf("support thread: %v", err)
 	}
@@ -114,11 +114,11 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 		return false
 	}
 
-	donorList, err := store.ListAllThreads(ctx, "", "direct")
+	donorList, err := store.ListAllThreads(ctx, "", "direct", "", nil)
 	if err != nil {
 		t.Fatalf("list direct: %v", err)
 	}
-	supportList, err := store.ListAllThreads(ctx, "", "support")
+	supportList, err := store.ListAllThreads(ctx, "", "support", "", nil)
 	if err != nil {
 		t.Fatalf("list support: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestAdminListsSeparateSupportFromDonorThreads(t *testing.T) {
 
 	// An unrecognised kind must not mean "everything": a typo in a query
 	// parameter would otherwise silently restore the mixed list.
-	fallback, err := store.ListAllThreads(ctx, "", "banana")
+	fallback, err := store.ListAllThreads(ctx, "", "banana", "", nil)
 	if err != nil {
 		t.Fatalf("list with a nonsense kind: %v", err)
 	}

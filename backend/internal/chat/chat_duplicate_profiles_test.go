@@ -105,7 +105,7 @@ func TestChatListAllThreadsListsEachThreadOnceWhenProfilesAreDuplicated(t *testi
 	pool := newTestPool(t)
 	f := seedDupChatFixture(t, pool)
 
-	threads, err := New(pool).ListAllThreads(context.Background(), "", "direct")
+	threads, err := New(pool).ListAllThreads(context.Background(), "", "direct", "", nil)
 	if err != nil {
 		t.Fatalf("ListAllThreads: %v", err)
 	}

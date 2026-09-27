@@ -547,6 +547,11 @@ func (h *AdminCreateHandler) SupportTicket(c *gin.Context) {
 			status = v
 		}
 	}
+	section, ok := parseSupportSection(req.Section)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid section. Allowed: " + strings.Join(supportSectionValues, ", ")})
+		return
+	}
 	var userID any
 	if req.UserID != nil && *req.UserID > 0 {
 		userID = *req.UserID
@@ -555,10 +560,10 @@ func (h *AdminCreateHandler) SupportTicket(c *gin.Context) {
 	}
 	var id int64
 	err := h.Pool.QueryRow(c.Request.Context(), `
-		INSERT INTO support_tickets (user_id, subject, message, status)
-		VALUES ($1,$2,$3,$4)
+		INSERT INTO support_tickets (user_id, subject, message, status, section)
+		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id`,
-		userID, subject, message, status,
+		userID, subject, message, status, section,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

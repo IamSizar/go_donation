@@ -272,7 +272,10 @@ func TestAdminApproveConnectRequest_AddsTheCaseOwnerWithNoMembersTyped(t *testin
 func readGroupMemberIDs(t *testing.T, pool *pgxpool.Pool, groupID int64) []int64 {
 	t.Helper()
 	rows, err := pool.Query(context.Background(),
-		`SELECT user_id FROM chat_group_members WHERE group_id = $1 AND removed_at IS NULL ORDER BY id`, groupID)
+		// The approving admin's own "Support" member row (OPOS 48992) is not a
+		// party to the request; it is pinned in chatgroups' own tests.
+		`SELECT user_id FROM chat_group_members
+		  WHERE group_id = $1 AND removed_at IS NULL AND role_in_group <> 'staff' ORDER BY id`, groupID)
 	if err != nil {
 		t.Fatalf("read members of group %d: %v", groupID, err)
 	}

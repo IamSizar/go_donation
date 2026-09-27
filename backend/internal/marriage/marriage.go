@@ -630,6 +630,13 @@ type MarriageProfileDetails struct {
 	GoldenSquareURL   string
 	GraduationCertURL string
 	CVURL             string
+	// Migration 137 — each identity document is its own front + back pair.
+	IDPhotoURL           string
+	IDPhotoBackURL       string
+	ResidenceCardURL     string
+	ResidenceCardBackURL string
+	RationCardURL        string
+	RationCardBackURL    string
 	// Social Media Accounts.
 	SocialFacebook  string
 	SocialInstagram string
@@ -676,7 +683,13 @@ func (s *Store) SetProfileDetails(ctx context.Context, profileID int64, d Marria
 		        social_facebook      = COALESCE(NULLIF($30, ''), social_facebook),
 		        social_instagram     = COALESCE(NULLIF($31, ''), social_instagram),
 		        social_telegram      = COALESCE(NULLIF($32, ''), social_telegram),
-		        social_other         = COALESCE(NULLIF($33, ''), social_other)
+		        social_other         = COALESCE(NULLIF($33, ''), social_other),
+		        id_photo_url            = COALESCE(NULLIF($34, ''), id_photo_url),
+		        id_photo_back_url       = COALESCE(NULLIF($35, ''), id_photo_back_url),
+		        residence_card_url      = COALESCE(NULLIF($36, ''), residence_card_url),
+		        residence_card_back_url = COALESCE(NULLIF($37, ''), residence_card_back_url),
+		        ration_card_url         = COALESCE(NULLIF($38, ''), ration_card_url),
+		        ration_card_back_url    = COALESCE(NULLIF($39, ''), ration_card_back_url)
 		  WHERE id = $1`,
 		profileID, d.EducationLevel, d.OtherCertificate, d.CertificatesCount,
 		d.Occupation, d.PreviousOccupation, d.JobDescription, d.WorkingHours,
@@ -686,6 +699,8 @@ func (s *Store) SetProfileDetails(ctx context.Context, profileID int64, d Marria
 		d.OwnsShop, d.OwnsCompany, d.OwnsLand, d.OtherAssets,
 		d.PartnerRequirements, d.GoldenSquareURL, d.GraduationCertURL, d.CVURL,
 		d.SocialFacebook, d.SocialInstagram, d.SocialTelegram, d.SocialOther,
+		d.IDPhotoURL, d.IDPhotoBackURL, d.ResidenceCardURL, d.ResidenceCardBackURL,
+		d.RationCardURL, d.RationCardBackURL,
 	)
 	return err
 }
@@ -710,4 +725,30 @@ func randHex(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// SetArea stores the optional district (قضاء) / sub-district (ناحية) under
+// the profile's city (migration 136). nil leaves a column alone.
+func (s *Store) SetArea(ctx context.Context, profileID int64, district, subdistrict *string) error {
+	if profileID <= 0 {
+		return errors.New("invalid profileID")
+	}
+	if district == nil && subdistrict == nil {
+		return nil
+	}
+	trim := func(p *string) *string {
+		if p == nil {
+			return nil
+		}
+		v := strings.TrimSpace(*p)
+		return &v
+	}
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE marriage_profiles
+		    SET area_district    = COALESCE($2, area_district),
+		        area_subdistrict = COALESCE($3, area_subdistrict)
+		  WHERE id = $1`,
+		profileID, trim(district), trim(subdistrict),
+	)
+	return err
 }

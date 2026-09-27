@@ -154,3 +154,29 @@ func mergeChatLifecycle(c *gin.Context, pool *pgxpool.Pool, kind chatlifecycle.K
 	body["is_archived"] = state.IsArchived
 	return body
 }
+
+// refuseIfEndedForStaff is the STAFF send gate for chats the admin supervises
+// (OPOS 48992 — connect-request groups and marriage chats). Those chats are
+// CLOSED (paused) until the admin opens them, and the admin must be able to
+// write into a closed chat ("I'll open this at 5pm"). Only an ENDED chat —
+// final — refuses staff too. Participants still go through
+// refuseIfNotSendable and cannot write while it is closed.
+func refuseIfEndedForStaff(c *gin.Context, pool *pgxpool.Pool, kind chatlifecycle.Kind, threadID int64) bool {
+	st, err := chatlifecycle.Load(c.Request.Context(), pool, kind, threadID)
+	if err == nil && st.Lifecycle != chatlifecycle.StateEnded {
+		return false
+	}
+	return refuseIfNotSendable(c, pool, kind, threadID)
+}
+
+// refuseIfInviteGone is the marriage-invite accept gate under OPOS 48992: a
+// chat now STARTS closed, waiting for the admin, so a closed (paused) chat
+// must still be acceptable — accepting only records that the owner agreed;
+// nobody can write until the admin opens it. Ended or archived still refuse.
+func refuseIfInviteGone(c *gin.Context, pool *pgxpool.Pool, kind chatlifecycle.Kind, threadID int64) bool {
+	st, err := chatlifecycle.Load(c.Request.Context(), pool, kind, threadID)
+	if err == nil && st.Lifecycle == chatlifecycle.StatePaused {
+		return refuseIfArchivedForParticipant(c, pool, kind, threadID)
+	}
+	return refuseIfInviteClosed(c, pool, kind, threadID)
+}
