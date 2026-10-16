@@ -136,7 +136,7 @@ class NotificationSummaryCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Mark all'.tr,
+                            'Mark all as read'.tr,
                             style: TextStyle(
                               color: AppThemeConfig.onAccent(context),
                               fontSize: 12,
@@ -162,31 +162,41 @@ class NotificationSummaryCard extends StatelessWidget {
         // the user has not seen, and losing a case update to a mis-tap is not
         // a trade this screen makes.
         if (countsKnown && read > 0) ...[
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
+          // R2 #40 — was a tiny grey link at the side; now a clear, centred
+          // button with a larger icon and label.
+          Center(
+            child: OutlinedButton.icon(
               onPressed: () => _confirmClearRead(context, read),
-              icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+              icon: const Icon(Icons.delete_sweep_rounded, size: 22),
               label: Text(
                 'Clear @n read'.trParams({'n': '$read'}),
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              style: TextButton.styleFrom(
-                foregroundColor: AppThemeConfig.mutedText(context),
-                visualDensity: VisualDensity.compact,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppThemeConfig.text(context),
+                side: BorderSide(color: AppThemeConfig.border(context)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
         ],
         // ---- Stat pills row ----
         Row(
           children: [
             Expanded(
               child: _StatPill(
+                selected: controller.selectedReadStatus.value == 'all',
+                onTap: () => controller.setReadStatus('all'),
                 icon: Icons.inbox_rounded,
                 label: 'All'.tr,
                 value: total,
@@ -197,6 +207,8 @@ class NotificationSummaryCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _StatPill(
+                selected: controller.selectedReadStatus.value == 'unread',
+                onTap: () => controller.setReadStatus('unread'),
                 icon: Icons.fiber_manual_record_rounded,
                 label: 'Unread'.tr,
                 value: unread,
@@ -209,6 +221,8 @@ class NotificationSummaryCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _StatPill(
+                selected: controller.selectedReadStatus.value == 'read',
+                onTap: () => controller.setReadStatus('read'),
                 icon: Icons.mark_email_read_rounded,
                 label: 'Read'.tr,
                 value: read,
@@ -377,12 +391,17 @@ class _BellOrCheckState extends State<_BellOrCheck>
 }
 
 /// Compact stat pill below the hero. icon + count + label.
+/// R2 #39 — the three counts are also the All / Unread / Read filter (the
+/// separate chip row that repeated them was removed). Equal size, count over
+/// a single-line label, both centred; the selected one is outlined.
 class _StatPill extends StatelessWidget {
   const _StatPill({
     required this.icon,
     required this.label,
     required this.value,
     required this.accent,
+    required this.selected,
+    required this.onTap,
     this.known = true,
   });
 
@@ -390,6 +409,8 @@ class _StatPill extends StatelessWidget {
   final String label;
   final int value;
   final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
 
   /// When false the count is UNKNOWN, not zero, and renders as an em dash.
   /// "0" would be a specific claim we cannot support after a failed load.
@@ -397,50 +418,58 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppThemeConfig.surface(context),
+    final ring = selected
+        ? AppThemeConfig.accent(context)
+        : accent.withValues(alpha: 0.18);
+    return Material(
+      color: AppThemeConfig.surface(context),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 14, color: accent),
+        child: Container(
+          height: 72,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ring, width: selected ? 1.6 : 1),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  known ? '$value' : '—',
-                  style: TextStyle(
-                    color: AppThemeConfig.text(context),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: accent),
+                  const SizedBox(width: 6),
+                  Text(
+                    known ? '$value' : '—',
+                    style: TextStyle(
+                      color: AppThemeConfig.text(context),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
+                ],
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
                   label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppThemeConfig.mutedText(context),
-                    fontSize: 11,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

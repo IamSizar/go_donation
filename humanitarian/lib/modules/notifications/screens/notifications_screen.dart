@@ -163,28 +163,8 @@ class _FilterSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final entry in const [
-                ('all', 'All'),
-                ('unread', 'Unread'),
-                ('read', 'Read'),
-              ])
-                ChoiceChip(
-                  label: Text(
-                    entry.$2.tr,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  selected: controller.selectedReadStatus.value == entry.$1,
-                  onSelected: (_) => controller.setReadStatus(entry.$1),
-                  visualDensity: VisualDensity.compact,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          // R2 #39 — the All / Unread / Read choice lives on the count
+          // tiles above; it is not repeated here.
           Row(
             children: [
               Expanded(
@@ -274,13 +254,17 @@ class _CompactDropdown extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(color: AppThemeConfig.border(context)),
     );
+    // R2 #41 — the label always sits above the field, so choosing a value
+    // no longer changes the field's height or look.
     return DropdownButtonFormField<String>(
-      value: value,
+      key: ValueKey(value),
+      initialValue: value,
       isExpanded: true,
       isDense: true,
       style: TextStyle(fontSize: 13, color: AppThemeConfig.text(context)),
       decoration: InputDecoration(
         labelText: label,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
         labelStyle: TextStyle(
           fontSize: 13,
           color: AppThemeConfig.mutedText(context),

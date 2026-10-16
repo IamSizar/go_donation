@@ -48,9 +48,16 @@ class NotificationsController extends GetxController {
       .where((notification) => !notification.isRead)
       .toList(growable: false);
 
+  /// R2 #41 — the Type list follows the chosen Category: only the types that
+  /// actually occur under it are offered.
   List<String> get availableTypes {
     final values =
         notifications
+            .where(
+              (n) =>
+                  selectedCategory.value == 'all' ||
+                  n.normalizedCategory == selectedCategory.value,
+            )
             .map((notification) => notification.notificationType.trim())
             .where((type) => type.isNotEmpty)
             .toSet()
@@ -215,17 +222,10 @@ class NotificationsController extends GetxController {
     }
   }
 
-  /// Stable ordering: unread urgent/payment first, then sort weight, then newest.
+  /// R2 #42 — strictly newest first by date and time. (It used to pin
+  /// unread urgent/payment rows and then sort by an internal weight, which
+  /// read as a random order.)
   int _compareNotifications(AppNotificationModel a, AppNotificationModel b) {
-    final aPinned =
-        !a.isRead &&
-        (a.normalizedCategory == 'urgent' || a.normalizedCategory == 'payment');
-    final bPinned =
-        !b.isRead &&
-        (b.normalizedCategory == 'urgent' || b.normalizedCategory == 'payment');
-    if (aPinned != bPinned) return aPinned ? -1 : 1;
-    final weightCompare = b.sortWeight.compareTo(a.sortWeight);
-    if (weightCompare != 0) return weightCompare;
     final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
     final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
     return bTime.compareTo(aTime);
@@ -375,6 +375,11 @@ class NotificationsController extends GetxController {
 
   void setCategory(String value) {
     selectedCategory.value = value;
+    // R2 #41 — a type that no longer belongs to the category is dropped.
+    if (selectedType.value != 'all' &&
+        !availableTypes.contains(selectedType.value)) {
+      selectedType.value = 'all';
+    }
   }
 
   void setType(String value) {

@@ -116,11 +116,9 @@ void main() {
       await _pushMessages(tester);
 
       expect(find.byType(MessagesScreen), findsOneWidget);
-      expect(
-        find.byType(ChatGroupsSection, skipOffstage: false),
-        findsNothing,
-        reason: 'the screen must be short enough that the block is unbuilt',
-      );
+      // R2 #56 shortened the screen (tile descriptions removed), so the
+      // block may now be built on first frame. What matters is that the
+      // controller it needs is already registered.
       expect(Get.isRegistered<ChatGroupsController>(), isTrue);
 
       await _popMessages(tester);

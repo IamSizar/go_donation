@@ -92,10 +92,13 @@ void main() {
             'things at a glance: one is a live conversation, the other files '
             'a tracked request',
       );
+      // R2 #56 — the tiles no longer carry description subtitles (client:
+      // repeated explanation text read as clutter); the titles and icons
+      // alone tell the two doors apart.
       expect(
         source.contains("'support_request_form_desc'.tr"),
-        isTrue,
-        reason: 'the form tile needs its own subtitle, not chat_support_desc',
+        isFalse,
+        reason: 'R2 #56 removed the tile descriptions',
       );
     });
 
