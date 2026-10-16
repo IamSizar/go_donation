@@ -374,14 +374,33 @@ class HeaderLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/branding/tawazzn_icon_foreground.png',
+    // R2 #7 — the bare mark on a dark bar read like a question mark. It sits
+    // on a small white disc with a soft shadow now — the same treatment as
+    // the launch / welcome logo (BrandLogo), so it reads as a logo.
+    return Container(
       width: size,
       height: size,
-      // The title text beside it already carries the semantic label;
-      // marking this decorative avoids a screen reader reading an
-      // unlocalized "tawazzn icon foreground" filename.
-      excludeFromSemantics: true,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: size * 0.18,
+            offset: Offset(0, size * 0.06),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/branding/tawazzn_icon.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          // The title text beside it already carries the semantic label.
+          excludeFromSemantics: true,
+        ),
+      ),
     );
   }
 }
