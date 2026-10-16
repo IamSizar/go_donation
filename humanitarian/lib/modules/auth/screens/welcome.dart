@@ -62,7 +62,6 @@ class WelcomeScreen extends StatelessWidget {
       color: AppThemeConfig.text(context),
       fontWeight: FontWeight.w800,
       height: 1.15,
-      letterSpacing: -0.2,
     );
 
     // Owner: the logo must sit at EXACTLY the same spot as on the launch
@@ -281,7 +280,6 @@ class _LanguageSelector extends StatelessWidget {
               style: TextStyle(
                 color: AppThemeConfig.text(context),
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
               ),
             ),
             const SizedBox(width: 4),

@@ -38,7 +38,7 @@ void main() {
       expect(headline, isNotNull);
       expect(
         headline!.fontFamily,
-        'NotoKufiArabic',
+        'NotoSansArabic',
         reason:
             'Arabic-locale text must resolve to the multi-weight family, '
             'not the platform default or the retired single-weight Kurdfont.',
@@ -64,7 +64,7 @@ void main() {
 
     expect(
       englishTheme.textTheme.headlineMedium?.fontFamily,
-      isNot('NotoKufiArabic'),
+      isNot('NotoSansArabic'),
       reason:
           'Only ar/ckb/kmr (registered as ar/ar_IQ/ar_TR) should get the '
           'Arabic-script family swap.',

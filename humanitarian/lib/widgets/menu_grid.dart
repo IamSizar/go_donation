@@ -46,7 +46,6 @@ class MenuSectionLabel extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
           color: AppThemeConfig.mutedText(context),
         ),
       ),
@@ -162,7 +161,6 @@ class _MenuTile extends StatelessWidget {
                   height: 1.25,
                   // Small text wants a touch MORE tracking, not less — the
                   // opposite of a heading. Large type is what gets tightened.
-                  letterSpacing: 0.1,
                   fontWeight: FontWeight.w600,
                   color: AppThemeConfig.text(context),
                 ),

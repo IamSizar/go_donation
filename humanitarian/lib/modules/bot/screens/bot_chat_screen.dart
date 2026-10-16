@@ -415,7 +415,6 @@ class _SuggestionsSection extends StatelessWidget {
                     fontSize: 13.5,
                     fontWeight: FontWeight.w900,
                     color: AppThemeConfig.accent(context),
-                    letterSpacing: 0.2,
                   ),
                 ),
               ],

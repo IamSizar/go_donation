@@ -206,7 +206,6 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                       color: AppThemeConfig.onAccent(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 15.5,
-                      letterSpacing: 0.1,
                     ),
                   ),
                   const SizedBox(width: 2),

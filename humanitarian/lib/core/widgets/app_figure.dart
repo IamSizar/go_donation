@@ -74,7 +74,7 @@ class AppFigure extends StatelessWidget {
           style: TextStyle(
             fontSize: AppType.label,
             fontWeight: AppType.wLabel,
-            letterSpacing: AppType.trackLabel,
+            letterSpacing: AppType.track(context, AppType.trackLabel),
             color: tone ?? c.inkTertiary,
           ),
         ),
@@ -91,7 +91,7 @@ class AppFigure extends StatelessWidget {
                 style: TextStyle(
                   fontSize: AppType.display,
                   fontWeight: AppType.wDisplay,
-                  letterSpacing: AppType.trackDisplay,
+                  letterSpacing: AppType.track(context, AppType.trackDisplay),
                   height: AppType.leadDisplay,
                   // Tabular so the layout does not jitter as the value
                   // changes — this number updates after every donation.
@@ -237,7 +237,6 @@ class _Half extends StatelessWidget {
             style: TextStyle(
               fontSize: AppType.heading,
               fontWeight: AppType.wBody,
-              letterSpacing: -0.5,
               height: 1.1,
               fontFeatures: const [FontFeature.tabularFigures()],
               color: tone ?? c.ink,

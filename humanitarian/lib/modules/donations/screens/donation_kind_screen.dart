@@ -268,7 +268,6 @@ class _NoPaymentMethodsNote extends StatelessWidget {
               style: TextStyle(
                 fontSize: AppType.heading,
                 fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
                 color: c.ink,
               ),
             ),

@@ -38,7 +38,6 @@ class ChatThreadSectionLabel extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w900,
               color: AppThemeConfig.mutedText(context),
-              letterSpacing: 0.3,
             ),
           ),
           const SizedBox(width: 6),

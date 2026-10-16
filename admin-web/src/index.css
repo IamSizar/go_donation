@@ -13,9 +13,13 @@
 /* Kurdish / Arabic display font. Used only for RTL locales (ar / ckb / kmr)
    where it renders Arabic-script text more clearly than Inter. English (LTR)
    keeps Inter. `font-display: swap` avoids a blank flash while it loads. */
+/* R2 #86 — Noto Sans Arabic (variable 100–900, real weights; covers
+   Kurdish ڕ ڵ ۆ ێ). Replaces the single-weight Kurdfont, whose faux-bold
+   headings blurred letters and made words like «الأقضية» hard to read.
+   Same face as the mobile app. */
 @font-face {
-  font-family: 'Kurdfont';
-  src: url('/fonts/Kurdfont.woff') format('woff');
+  font-family: 'NotoSansArabic';
+  src: url('/fonts/NotoSansArabic.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -3210,13 +3214,13 @@ code, pre { direction: ltr; unicode-bidi: bidi-override; }
    Arabic + Kurdish (RTL) typography
    ============================================================
    The i18n layer sets <html dir="rtl"> for ar / ckb / kmr, so these rules
-   apply only to those locales — English stays Inter/LTR untouched. Kurdfont
-   renders Arabic-script letterforms more clearly than Inter, and the extra
+   apply only to those locales — English stays Inter/LTR untouched. Noto Sans
+   Arabic renders Arabic-script letterforms more clearly than Inter, and the extra
    line-height + antialiasing make dense data screens easier on the eyes.
    Arabic must never be letter-spaced (it breaks the connected letterforms). */
 html[dir='rtl'],
 html[dir='rtl'] body {
-  font-family: 'Kurdfont', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-family: 'NotoSansArabic', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
   line-height: 1.75;
   letter-spacing: 0;
   font-feature-settings: normal;      /* drop Inter's Latin-only cvXX/ssXX alts */
@@ -3228,8 +3232,15 @@ html[dir='rtl'] body {
 /* Form controls + tables don't inherit font-family by default, so force it. */
 html[dir='rtl'] :where(button, input, select, textarea, table, th, td,
   h1, h2, h3, h4, h5, h6, .badge, .nav-item, label, option) {
-  font-family: 'Kurdfont', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-family: 'NotoSansArabic', 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
   letter-spacing: 0;
+}
+
+/* R2 #86 — class rules (.stat-label, .brand, badges…) set their own Latin
+   tracking and win over the rules above; Arabic must never be tracked, so
+   zero it everywhere in RTL. */
+html[dir='rtl'] * {
+  letter-spacing: 0 !important;
 }
 
 /* Slightly roomier lines inside data tables + cards so Arabic ascenders and

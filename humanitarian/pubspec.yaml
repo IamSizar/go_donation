@@ -144,6 +144,24 @@ flutter:
     # core/theme/app_theme_config.dart. Verified to cover the same
     # Kurdish-Sorani/Badini-specific characters Kurdfont did (ڕ ڵ ۆ ێ ھ etc.)
     # with broader glyph coverage overall (1558 vs 805 cmap entries).
+    # R2 #8 — the client found the Kufi (geometric) style hard to read: in
+    # bold, «لا» and some joins read as other letters. Noto Sans Arabic is
+    # the humanist UI face of the same family (same Kurdish coverage:
+    # ڕ ڵ ۆ ێ ڤ گ), variable 100–900.
+    - family: NotoSansArabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 300
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 700
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
+          weight: 800
     - family: NotoKufiArabic
       fonts:
         - asset: assets/fonts/NotoKufiArabic-Variable.ttf

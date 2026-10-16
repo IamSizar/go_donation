@@ -152,7 +152,6 @@ class _CategoryChips extends StatelessWidget {
         style: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
           color: AppThemeConfig.mutedText(context),
         ),
       ),

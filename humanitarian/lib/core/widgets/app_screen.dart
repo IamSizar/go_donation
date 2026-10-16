@@ -224,7 +224,7 @@ class _Header extends StatelessWidget {
                     style: TextStyle(
                       fontSize: AppType.label,
                       fontWeight: AppType.wLabel,
-                      letterSpacing: AppType.trackLabel,
+                      letterSpacing: AppType.track(context, AppType.trackLabel),
                       color: c.inkTertiary,
                     ),
                   ),
@@ -237,7 +237,7 @@ class _Header extends StatelessWidget {
                     style: TextStyle(
                       fontSize: AppType.title,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: AppType.trackTitle,
+                      letterSpacing: AppType.track(context, AppType.trackTitle),
                       height: AppType.leadTitle,
                       color: c.ink,
                     ),
@@ -332,7 +332,7 @@ class AppSectionHeader extends StatelessWidget {
                     style: TextStyle(
                       fontSize: AppType.label,
                       fontWeight: AppType.wLabel,
-                      letterSpacing: AppType.trackLabel,
+                      letterSpacing: AppType.track(context, AppType.trackLabel),
                       color: c.inkSecondary,
                     ),
                   ),

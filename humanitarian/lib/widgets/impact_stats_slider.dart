@@ -269,7 +269,6 @@ class _ImpactCard extends StatelessWidget {
                           color: AppThemeConfig.onAccent(context),
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 0.2,
                         ),
                       ),
                     ),

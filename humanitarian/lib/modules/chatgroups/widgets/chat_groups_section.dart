@@ -63,7 +63,7 @@ const int _maxBadgeCount = 99;
 const double _countFontSize = 12;
 
 /// The heading's tracking, copied from messages_screen.dart's _SectionLabel.
-const double _labelLetterSpacing = 0.3;
+const double _labelLetterSpacing = 0; // R2 #8 — no tracking on Arabic
 
 /// The Messages tab's group-chat block: the connect-requests door, then the
 /// member's masked and team groups.

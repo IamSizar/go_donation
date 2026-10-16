@@ -52,7 +52,8 @@ class AppThemeConfig {
   /// synthesized approximation. Verified to cover the same Kurdish
   /// Sorani/Badini-specific characters the old font did, with broader
   /// overall glyph coverage.
-  static const String arabicScriptFontFamily = 'NotoKufiArabic';
+  // R2 #8 — Noto Sans Arabic (clearer than Kufi; see pubspec).
+  static const String arabicScriptFontFamily = 'NotoSansArabic';
 
   /// What used to be the teal→blue hero ramp.
   ///
@@ -402,8 +403,28 @@ class AppThemeConfig {
     if (fontFamily == null) return theme;
     final isArabicScript = fontFamily == arabicScriptFontFamily;
     TextTheme apply(TextTheme t) {
-      final withFont = t.apply(fontFamily: fontFamily);
-      if (!isArabicScript) return withFont;
+      final applied = t.apply(fontFamily: fontFamily);
+      if (!isArabicScript) return applied;
+      // R2 #8 — zero tracking on every Arabic-script style (see
+      // AppType.track for why).
+      TextStyle? z(TextStyle? x) => x?.copyWith(letterSpacing: 0);
+      final withFont = applied.copyWith(
+        displayLarge: z(applied.displayLarge),
+        displayMedium: z(applied.displayMedium),
+        displaySmall: z(applied.displaySmall),
+        headlineLarge: z(applied.headlineLarge),
+        headlineMedium: z(applied.headlineMedium),
+        headlineSmall: z(applied.headlineSmall),
+        titleLarge: z(applied.titleLarge),
+        titleMedium: z(applied.titleMedium),
+        titleSmall: z(applied.titleSmall),
+        bodyLarge: z(applied.bodyLarge),
+        bodyMedium: z(applied.bodyMedium),
+        bodySmall: z(applied.bodySmall),
+        labelLarge: z(applied.labelLarge),
+        labelMedium: z(applied.labelMedium),
+        labelSmall: z(applied.labelSmall),
+      );
       return withFont.copyWith(
         displayLarge: withFont.displayLarge?.copyWith(
           height: AppType.leadDisplayAr,

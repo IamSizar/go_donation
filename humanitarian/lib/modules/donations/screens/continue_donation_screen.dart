@@ -884,7 +884,6 @@ class _AccountCard extends StatelessWidget {
                     color: text,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
                   ),
                 ),
               ],

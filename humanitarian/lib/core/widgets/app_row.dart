@@ -103,7 +103,6 @@ class AppRow extends StatelessWidget {
                       style: TextStyle(
                         fontSize: AppType.dense,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
                         height: AppType.leadDense,
                         color: c.ink,
                       ),
@@ -256,7 +255,6 @@ class AppStatusTag extends StatelessWidget {
         style: TextStyle(
           fontSize: 9,
           fontWeight: AppType.wLabel,
-          letterSpacing: 0.7,
           color: fg,
         ),
       ),

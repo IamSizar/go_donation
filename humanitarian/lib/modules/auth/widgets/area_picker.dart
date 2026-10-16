@@ -280,7 +280,6 @@ class _AreaPickerState extends State<AreaPicker> {
       style: TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w700,
-        letterSpacing: 0.3,
         color: AppThemeConfig.mutedText(context),
       ),
       children: [

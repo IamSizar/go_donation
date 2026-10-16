@@ -315,6 +315,12 @@ abstract final class AppType {
   static const double trackBody = 0;
   static const double trackLabel = 1.1; // ≈ +0.11em at 10, uppercase
 
+  /// R2 #8 — Arabic script must never be tracked: negative spacing makes
+  /// letters overlap (the «لا» complaint), positive spacing pulls joined
+  /// letters apart. Returns [latin] for left-to-right text, 0 for RTL.
+  static double track(BuildContext context, double latin) =>
+      Directionality.of(context) == TextDirection.rtl ? 0 : latin;
+
   // Leading, inverse to size.
   static const double leadDisplay = 1.02;
   static const double leadTitle = 1.14;

@@ -726,7 +726,6 @@ class _SectionLabel extends StatelessWidget {
           color: AppThemeConfig.mutedText(context),
           fontSize: 12,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
         ),
       ),
     );
