@@ -1,16 +1,22 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/data/motivational_tasks.dart';
-import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
-import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/data/motivational_tasks.dart';
+import 'package:flutter_application_1/modules/dashboard/screens/wheel_of_fortune_screen.dart';
+import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:get/get.dart';
 
 /// Client note — Quick Actions #4: "Scratch the Lucky Coupon". Tapping the
 /// coupon reveals one of [motivationalTasks] at random. Self-contained
-/// preview (no backend/reward system yet) — added now so the entry point
-/// exists ahead of the full feature.
+/// preview (no backend/reward system yet).
+///
+/// R2 #46 — the grey box / amber box looked amateur. The coupon is now a
+/// ticket in the brand's colours (deep green face with the logo, ivory back)
+/// and turns over in 3D to reveal the challenge. A real finger-scratch
+/// effect is a separate request (#44, waiting for scope).
 class LuckyCouponScreen extends StatefulWidget {
   const LuckyCouponScreen({super.key});
 
@@ -18,67 +24,255 @@ class LuckyCouponScreen extends StatefulWidget {
   State<LuckyCouponScreen> createState() => _LuckyCouponScreenState();
 }
 
-class _LuckyCouponScreenState extends State<LuckyCouponScreen> {
+class _LuckyCouponScreenState extends State<LuckyCouponScreen>
+    with SingleTickerProviderStateMixin {
   final _random = Random();
-  String? _revealedTask;
+  late final AnimationController _flip;
+  int? _index;
 
-  void _scratch() {
-    if (_revealedTask != null) return;
-    setState(() {
-      _revealedTask =
-          motivationalTasks[_random.nextInt(motivationalTasks.length)].tr;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _flip = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
   }
 
-  void _reset() => setState(() => _revealedTask = null);
+  @override
+  void dispose() {
+    _flip.dispose();
+    super.dispose();
+  }
+
+  void _reveal() {
+    if (_index != null || _flip.isAnimating) return;
+    setState(() => _index = _random.nextInt(motivationalTasks.length));
+    _flip
+      ..duration = AppMotion.resolve(
+        context,
+        const Duration(milliseconds: 750),
+      )
+      ..forward(from: 0).whenComplete(AppHaptics.success);
+    AppHaptics.gentle();
+  }
+
+  Future<void> _reset() async {
+    if (_flip.isAnimating) return;
+    AppHaptics.selection();
+    await _flip.reverse();
+    if (mounted) setState(() => _index = null);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final revealed = _revealedTask != null;
+    final revealed = _index != null;
     return SectionScaffold(
       title: 'Lucky Coupon',
-      subtitle: 'Scratch the coupon for a motivational giving challenge.',
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: _scratch,
-              child: AnimatedSwitcher(
-                duration: AppMotion.resolve(context, AppMotion.carryDuration),
-                transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: animation,
-                  child: FadeTransition(opacity: animation, child: child),
+      subtitle: '',
+      child: Column(
+        children: [
+          const Spacer(),
+          GestureDetector(
+            onTap: _reveal,
+            child: AnimatedBuilder(
+              animation: _flip,
+              builder: (context, _) {
+                final t = Curves.easeInOutCubic.transform(_flip.value);
+                final angle = t * pi;
+                final showBack = angle > pi / 2;
+                // Lift slightly mid-turn so it feels picked up, not hinged.
+                final lift = 1 + 0.06 * sin(t * pi);
+                return Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.0012)
+                    ..rotateY(angle)
+                    ..scaleByDouble(lift, lift, 1, 1),
+                  child: showBack && _index != null
+                      ? Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()..rotateY(pi),
+                          child: _CouponBack(index: _index!),
+                        )
+                      : const _CouponFront(),
+                );
+              },
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: revealed ? _reset : _reveal,
+                icon: Icon(
+                  revealed ? Icons.refresh_rounded : Icons.touch_app_rounded,
                 ),
-                child: revealed
-                    ? _RevealedCard(
-                        key: const ValueKey('revealed'),
-                        task: _revealedTask!,
-                      )
-                    : const _ScratchCard(key: ValueKey('hidden')),
+                label: Text(
+                  revealed ? 'Try another coupon'.tr : 'Scratch the coupon'.tr,
+                ),
               ),
             ),
-            const SizedBox(height: 28),
-            // THE BUG THIS FIXES: same edge-to-edge button as the Wheel of
-            // Fortune screen had — no side padding of its own here, so it
-            // hugged the screen edges instead of matching the page gutter
-            // every other action button in the app uses.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: revealed ? _reset : _scratch,
-                  icon: Icon(
-                    revealed ? Icons.refresh_rounded : Icons.touch_app_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const double _kCouponWidth = 300;
+const double _kCouponHeight = 190;
+const Color _kCouponGreen = Color(0xFF2F5D4A);
+const Color _kCouponIvory = Color(0xFFF3EFE4);
+
+/// Ticket outline: rounded corners plus a half-circle notch on each side.
+class _TicketClipper extends CustomClipper<Path> {
+  const _TicketClipper();
+
+  @override
+  Path getClip(Size size) {
+    const notch = 14.0;
+    final body = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(22)),
+      );
+    final notches = Path()
+      ..addOval(
+        Rect.fromCircle(center: Offset(0, size.height / 2), radius: notch),
+      )
+      ..addOval(
+        Rect.fromCircle(
+          center: Offset(size.width, size.height / 2),
+          radius: notch,
+        ),
+      );
+    return Path.combine(PathOperation.difference, body, notches);
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _Ticket extends StatelessWidget {
+  const _Ticket({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PhysicalShape(
+      clipper: const _TicketClipper(),
+      color: color,
+      elevation: 10,
+      shadowColor: Colors.black.withValues(alpha: 0.5),
+      child: SizedBox(
+        width: _kCouponWidth,
+        height: _kCouponHeight,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _CouponFront extends StatelessWidget {
+  const _CouponFront();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Ticket(
+      color: _kCouponGreen,
+      child: Stack(
+        children: [
+          // A faint dotted perforation across the middle, like a real ticket.
+          Positioned.fill(child: CustomPaint(painter: _PerforationPainter())),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                   ),
-                  label: Text(
-                    revealed
-                        ? 'Try another coupon'.tr
-                        : 'Scratch the coupon'.tr,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/branding/tawazzn_icon.png',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
+                const SizedBox(height: 14),
+                Text(
+                  'Tap to scratch'.tr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CouponBack extends StatelessWidget {
+  const _CouponBack({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = inkOn(_kCouponIvory);
+    return _Ticket(
+      color: _kCouponIvory,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                color: _kCouponGreen,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                wheelSliceIcons[index],
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your challenge'.tr,
+              style: TextStyle(
+                color: ink.withValues(alpha: 0.65),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              motivationalTasks[index].tr,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: ink,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                height: 1.3,
               ),
             ),
           ],
@@ -88,102 +282,18 @@ class _LuckyCouponScreenState extends State<LuckyCouponScreen> {
   }
 }
 
-class _ScratchCard extends StatelessWidget {
-  const _ScratchCard({super.key});
+class _PerforationPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.10);
+    // Fine dot grid as a subtle foil texture.
+    for (var y = 12.0; y < size.height; y += 14) {
+      for (var x = 12.0; x < size.width; x += 14) {
+        canvas.drawCircle(Offset(x, y), 1.1, paint);
+      }
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      height: 180,
-      decoration: BoxDecoration(
-        color: Color(0xFF6B7280),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.card_giftcard_rounded,
-            color: Colors.white,
-            size: 40,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Tap to scratch'.tr,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The revealed coupon's fill. The same amber the wheel uses, deliberately —
-/// the two games share a "prize" colour.
-const Color _kCouponAmber = Color(0xFFF59E0B);
-
-class _RevealedCard extends StatelessWidget {
-  const _RevealedCard({super.key, required this.task});
-
-  final String task;
-
-  @override
-  Widget build(BuildContext context) {
-    // The challenge was white on the amber: 2.15:1, measured from the rendered
-    // pixels of the wheel's identically-coloured slice. At 16px w800 this is
-    // still ordinary text — WCAG's large-text allowance starts at 18.66px bold
-    // — so 4.5:1 applies and white missed it by more than half. The fill is the
-    // reward's identity and stays; the ink flips. The icon flips with it: it
-    // sits in the same column, and a white icon over dark text reads as a bug.
-    final ink = inkOn(_kCouponAmber);
-    return Container(
-      width: 280,
-      height: 180,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _kCouponAmber,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFEA580C).withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.celebration_rounded, color: ink, size: 32),
-          const SizedBox(height: 10),
-          Text(
-            task,
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: ink,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              height: 1.25,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

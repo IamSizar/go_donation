@@ -440,8 +440,32 @@ The button already existed in the green box at the top, but its label was just �
 
 ## 46. Visual quality: wheel/scratch graphics look amateur → modern UI matching brand + smooth animations.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Wheel of Fortune**
+- The 8-colour rainbow was replaced by the app's own colours (dark green, ivory, the logo's teal, mint), with white lines between slices, a dark rim with studs, and the logo in the centre.
+- Each slice now has an icon and a clear label. The labels always read the right way up: the old Arabic labels were drawn left-to-right, which broke their letters.
+- The pointer is a pin in the app colour that flicks as each slice passes it. A light vibration ticks per slice (it follows the app's mute setting).
+- The spin slows down smoothly over 5 seconds and stops on the slice whose challenge is then shown.
+- The result card was redone: the slice icon in a soft circle, «تحديك», the challenge, and one button.
+
+**Lucky Coupon**
+- The grey box became a ticket in the brand green (side notches, fine dot texture, logo, «اضغط للكشط»).
+- Tapping it turns the ticket over in 3D to an ivory back with the challenge. «جرّب كوبوناً آخر» turns it back.
+
+The explanation line under each title was removed (style rule).
+
+Note: a real finger-scratch effect is part of #44 (an addition, ⏳ waiting for scope).
+
+| Before | After |
+|---|---|
+| ![](round2_screens/46/before-wheel.png) | ![](round2_screens/46/after-wheel.png) |
+| ![](round2_screens/46/before-coupon.png) | ![](round2_screens/46/after-coupon.png) |
+| ![](round2_screens/46/before-coupon-revealed.png) | ![](round2_screens/46/after-coupon-revealed.png) |
+
+Wheel result, and the coupon mid-turn:
+
+![](round2_screens/46/after-wheel-result.png) ![](round2_screens/46/after-coupon-flipping.png)
 
 ## 47. Donation in 2 steps max. Step 1: «قدم مساهمة» → short clean screen with 4 options: الدفع الإلكتروني / تحويل رصيد / التسليم النقدي المباشر / المساهمات العينية.
 

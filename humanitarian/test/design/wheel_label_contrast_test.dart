@@ -1,25 +1,11 @@
 // Contrast guard for عجلة الحظ's slice labels.
 //
 // WHY THIS FILE EXISTS
-// The wheel is the one screen that leaves the app's single-accent palette, and
-// that is defended: a fortune wheel's segment colours are what make it read as
-// a wheel, and eight tints of the brand green would be eight slices nobody
-// could tell apart. The rainbow stays.
-//
-// What did not survive review is what was written ON it. Every label was white,
-// and white does not work on a rainbow. Measured from the rendered pixels on an
-// iPhone 17 Pro simulator:
-//
-//   amber  #F59E0B  2.15:1     green  #16A34A  3.30:1
-//   orange #EA580C  3.56:1     cyan   #0891B2  3.68:1
-//
-// Four of eight slices, and the amber one below even the 3:1 floor that applies
-// to non-text UI — this is 12px bold text, which needs 4.5:1. The drop shadow
-// under the labels is a perceptual nicety; WCAG gives it no credit, and at
-// 2.15:1 it was not rescuing anything.
-//
-// So the fix picks the INK per slice instead of repainting the wheel. This test
-// pins both halves of that bargain: every label readable, every hue untouched.
+// The slice labels once sat in white on an eight-colour rainbow and four of
+// eight measured under 4.5:1 (amber was 2.15:1). The fix picked the ink per
+// slice. R2 #46 then replaced the rainbow with the brand's four tones; the
+// per-slice ink rule still applies, and this file pins both: every label
+// readable, and the palette is the brand one.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,50 +37,45 @@ void main() {
       );
     });
 
-    test('the four that white could not carry now use the dark ink', () {
-      // Named explicitly so a palette edit that quietly re-breaks one of them
-      // fails here with the specific slice, not just a count.
-      const amber = Color(0xFFF59E0B);
-      const green = Color(0xFF16A34A);
-      const orange = Color(0xFFEA580C);
-      const cyan = Color(0xFF0891B2);
-
-      for (final slice in [amber, green, orange, cyan]) {
-        expect(
-          wheelLabelInk(slice),
-          isNot(Colors.white),
-          reason: 'white measured under the floor on this slice',
-        );
-      }
-    });
-
-    test('the dark slices keep white, rather than flipping everything', () {
-      // A "fix" that made every label dark would pass the contrast assertion
-      // and destroy the deep-green and indigo slices instead.
+    test('the dark slices keep white, the light ones take the dark ink', () {
+      // R2 #46 palette: deep green and teal carry white; ivory and mint need
+      // the dark ink. A "fix" that flipped everything one way would fail one
+      // half of this.
       const deepGreen = Color(0xFF2F5D4A);
-      const indigo = Color(0xFF4F46E5);
+      const teal = Color(0xFF1F6F8B);
+      const ivory = Color(0xFFF3EFE4);
+      const mint = Color(0xFF6FBF9C);
 
-      for (final slice in [deepGreen, indigo]) {
+      for (final slice in [deepGreen, teal]) {
         expect(wheelLabelInk(slice), Colors.white);
+      }
+      for (final slice in [ivory, mint]) {
+        expect(wheelLabelInk(slice), isNot(Colors.white));
       }
     });
   });
 
-  group('the wheel keeps its own palette', () {
-    test('the eight hues are untouched by the label fix', () {
-      // The rainbow is the deliberate exception. If a future change "aligns"
-      // it with the accent, that is a product decision and should break here
-      // so it is made on purpose rather than by drift.
-      expect(wheelSliceColors, const [
+  group('the wheel uses the brand palette', () {
+    test('only the four brand tones', () {
+      // R2 #46 — the client called the eight-colour rainbow amateur; the
+      // wheel moved to the brand's own tones on purpose. Changing it again
+      // should break here so it is decided, not drifted into.
+      final brand = <Color>{
         Color(0xFF2F5D4A),
-        Color(0xFFF59E0B),
-        Color(0xFFDB2777),
-        Color(0xFF4F46E5),
-        Color(0xFF16A34A),
-        Color(0xFFDC2626),
-        Color(0xFF0891B2),
-        Color(0xFFEA580C),
-      ]);
+        Color(0xFFF3EFE4),
+        Color(0xFF1F6F8B),
+        Color(0xFF6FBF9C),
+      };
+      expect(wheelSliceColors.toSet(), brand);
+    });
+
+    test('no two neighbouring slices share a colour', () {
+      // With four tones over eight slices, the order is what keeps every
+      // slice distinct — including the wrap from the last back to the first.
+      for (var i = 0; i < wheelSliceColors.length; i++) {
+        final next = wheelSliceColors[(i + 1) % wheelSliceColors.length];
+        expect(wheelSliceColors[i], isNot(next), reason: 'slices $i and next');
+      }
     });
 
     test('there is a colour for every slice the wheel actually draws', () {
