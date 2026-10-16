@@ -469,28 +469,29 @@ Wheel result, and the coupon mid-turn:
 
 ## 47. Donation in 2 steps max. Step 1: «قدم مساهمة» → short clean screen with 4 options: الدفع الإلكتروني / تحويل رصيد / التسليم النقدي المباشر / المساهمات العينية.
 
-**Status:** ✅ Fixed
+**Status:** ✅ Fixed (three ways for now — see #48)
 
-Two steps. Step 1 is «قدم مساهمة»: one short screen with four options, in the client's order, each only an icon and a name:
-الدفع الإلكتروني · تحويل رصيد · التسليم النقدي المباشر · المساهمات العينية.
-Step 2 is one fixed page per option (#48–51). The old flow (a long page with campaigns, amounts and explainers, then a "what kind?" screen with five options, then a long checkout) is gone.
+Two steps. Step 1 is «قدم مساهمة»: one short screen, each option only an icon and a name:
+تحويل رصيد · التسليم النقدي المباشر · المساهمات العينية.
+Step 2 is one fixed page per option (#49–51). The old flow (a long page with campaigns, amounts and explainers, then a "what kind?" screen, then a long checkout) is gone.
 
-The featured campaigns list was not deleted: it moved to its own screen, reached from Home («حملات مميزة» → «عرض الكل»). A campaign's «مساهمة» button opens step 1 and files the gift under that campaign.
+The fourth way on the client's list, «الدفع الإلكتروني», is not offered because the app has no payment gateway (#48).
+
+The featured campaigns list moved to its own screen, reached from Home. A campaign's «مساهمة» button opens step 1 and files the gift under that campaign.
 
 | Before | After |
 |---|---|
 | ![](round2_screens/47-55/before-1-contribute-top.png) | ![](round2_screens/47-55/after-1-step1.png) |
-| ![](round2_screens/47-55/before-3-kind-screen.png) | |
 
 ## 48. Step 2 — e-payment: amount, card type (Visa, Master, FIB) → straight to gateway; IQD default, other currencies manual; notes.
 
-**Status:** ⏳ Partly done — the payment gateway is waiting
+**Status:** ⏳ Waiting — needs a payment gateway
 
-Done: the electronic-payment page has the card type (the organization's own Visa, MasterCard, FIB, wallets, app wallet, managed from the dashboard), the amount, the currency (د.ع by default, USD in one tap, any other code typed by hand), notes, and the one bottom button.
+The app has no payment gateway, so there is no electronic-payment page. I first built one (card type, amount, currency) and then removed it: it could only record a "card payment" nobody had made, and it dropped the account number the old checkout showed. Nothing half-built is left in the app.
 
-Not done: sending the donor «straight to the gateway». There is no payment-gateway integration anywhere in the app or the server, so the contribution is recorded as pending with the card type the donor chose, and staff confirm it, exactly as before. A real gateway (FIB, Visa/Master through a provider) is a new integration that needs the provider's account and keys. This may also be outside the original scope — it needs your decision.
+How people give today: no money moves inside the app. Every contribution is a pending record the donor files (cash handed over, a balance transfer with the screenshot or card photo, or goods), and staff confirm it once the money or items arrive. The only stored balance is the app wallet, which only an admin can credit from the dashboard.
 
-![](round2_screens/47-55/after-2-electronic.png)
+To offer Visa / MasterCard / FIB payment, a gateway must be integrated first: a provider account and keys, the redirect, and a confirmation callback. This may also be outside the original scope — it needs your decision.
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 

@@ -16,39 +16,33 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/modules/donations/widgets/contribution_kit.dart';
 
-
-
 Widget _app(Widget home, {Locale locale = const Locale('ar', 'SA')}) =>
-    GetMaterialApp(
-      translations: AppTranslations(),
-      locale: locale,
-      home: home,
-    );
+    GetMaterialApp(translations: AppTranslations(), locale: locale, home: home);
 
 void main() {
   setUp(Get.reset);
   tearDown(Get.reset);
 
   group('step 1', () {
-    testWidgets('offers exactly the four ways, in the client\'s order', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_app(const DonationsSection()));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'offers exactly the three ways that work today, in the client\'s order',
+      (tester) async {
+        await tester.pumpWidget(_app(const DonationsSection()));
+        await tester.pumpAndSettle();
 
-      final titles = [
-        'الدفع الإلكتروني',
-        'تحويل رصيد',
-        'التسليم النقدي المباشر',
-        'المساهمات العينية',
-      ];
-      for (final t in titles) {
-        expect(find.text(t), findsOneWidget, reason: t);
-      }
-      // Top-to-bottom order is the client's list.
-      final ys = [for (final t in titles) tester.getTopLeft(find.text(t)).dy];
-      expect([...ys]..sort(), ys, reason: 'the four are out of order');
-    });
+        final titles = [
+          'تحويل رصيد',
+          'التسليم النقدي المباشر',
+          'المساهمات العينية',
+        ];
+        for (final t in titles) {
+          expect(find.text(t), findsOneWidget, reason: t);
+        }
+        // Top-to-bottom order is the client's list.
+        final ys = [for (final t in titles) tester.getTopLeft(find.text(t)).dy];
+        expect([...ys]..sort(), ys, reason: 'the four are out of order');
+      },
+    );
 
     testWidgets('has no sentence under any option and no donation type', (
       tester,
@@ -62,7 +56,9 @@ void main() {
           .map((t) => t.data ?? '')
           .where((s) => s.isNotEmpty)
           .toList();
-      expect(texts.length, lessThanOrEqualTo(5), reason: '$texts');
+      expect(texts.length, lessThanOrEqualTo(4), reason: '$texts');
+      // No card page: there is no gateway to charge it (#48).
+      expect(find.text('الدفع الإلكتروني'), findsNothing);
       for (final gone in ['عام', 'زكاة', 'صدقة', 'التبرع لمؤسسة']) {
         expect(find.text(gone), findsNothing, reason: gone);
       }
@@ -134,23 +130,25 @@ void main() {
       expect(find.textContaining('تنويه'), findsNothing);
     });
 
-    testWidgets('the button is disabled while sending, so it cannot double-send',
-        (tester) async {
-      var confirmed = 0;
-      await tester.pumpWidget(
-        _app(
-          ContributionScaffold(
-            title: 'x',
-            submitting: true,
-            onConfirm: () => confirmed++,
-            children: const [SizedBox(height: 10)],
+    testWidgets(
+      'the button is disabled while sending, so it cannot double-send',
+      (tester) async {
+        var confirmed = 0;
+        await tester.pumpWidget(
+          _app(
+            ContributionScaffold(
+              title: 'x',
+              submitting: true,
+              onConfirm: () => confirmed++,
+              children: const [SizedBox(height: 10)],
+            ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.tap(find.byType(ElevatedButton));
-      expect(confirmed, 0);
-    });
+        );
+        await tester.pump();
+        await tester.tap(find.byType(ElevatedButton));
+        expect(confirmed, 0);
+      },
+    );
   });
 
   test('every new string reads in Arabic', () {

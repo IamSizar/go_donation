@@ -1,4 +1,8 @@
-// Step 1 of giving: "Make donation" → four ways to give (R2 #47, #53).
+// Step 1 of giving: "Make donation" → three ways to give (R2 #47, #53).
+//
+// ELECTRONIC PAYMENT IS NOT OFFERED. The client's list has a fourth way (cards
+// and a gateway), but the app has no payment gateway: a card page could only
+// record a "payment" nobody made. It comes back when a gateway exists (#48).
 //
 // WHY THIS SCREEN IS SO SHORT
 // It used to be a long page — a hero, the featured campaigns, quick amounts, a
@@ -23,7 +27,6 @@ import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/balance_transfer_contribution_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/cash_contribution_screen.dart';
-import 'package:flutter_application_1/modules/donations/screens/electronic_contribution_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/inkind_contribution_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 
@@ -88,12 +91,6 @@ class DonationsSection extends StatelessWidget {
                   ),
                 );
               }),
-            _WayTile(
-              icon: Icons.credit_card_rounded,
-              title: 'Electronic payment',
-              onTap: () => _open(ElectronicContributionScreen(campaignsId: id)),
-            ),
-            const SizedBox(height: AppSpace.sm),
             _WayTile(
               icon: Icons.smartphone_rounded,
               title: 'Balance transfer',
