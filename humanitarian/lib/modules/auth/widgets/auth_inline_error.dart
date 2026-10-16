@@ -38,7 +38,12 @@ class AuthInlineError extends StatelessWidget {
     super.key,
     required this.message,
     this.padding = const EdgeInsets.only(top: 12),
+    this.centered = false,
   });
+
+  /// R2 #30 — centred (icon + text as one centred group) on screens whose
+  /// content is centred, like the verification screen.
+  final bool centered;
 
   final String message;
 
@@ -63,14 +68,18 @@ class AuthInlineError extends StatelessWidget {
       padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment:
+            centered ? MainAxisAlignment.center : MainAxisAlignment.start,
         children: [
           // The glyph is what makes the state readable without colour vision;
           // red text alone says "error" only to people who can see the red.
           Icon(Icons.error_outline_rounded, size: 18, color: colour),
           const SizedBox(width: 8),
-          Expanded(
+          Flexible(
+            fit: centered ? FlexFit.loose : FlexFit.tight,
             child: Text(
               message,
+              textAlign: centered ? TextAlign.center : TextAlign.start,
               style: TextStyle(color: colour, fontWeight: FontWeight.w600),
             ),
           ),

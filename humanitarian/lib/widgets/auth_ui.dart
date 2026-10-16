@@ -27,7 +27,10 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return GradientScreen(
       child: SafeArea(
-        child: Center(
+        // Top-aligned (was centred): a short form like "set password" used to
+        // float mid-screen with its back arrow, under a big empty band.
+        child: Align(
+          alignment: Alignment.topCenter,
           // R2 #25 — the sign-in screens must stay still. Clamping physics:
           // when the form fits (normal case) nothing moves or bounces; it
           // only scrolls if the keyboard really covers a field.

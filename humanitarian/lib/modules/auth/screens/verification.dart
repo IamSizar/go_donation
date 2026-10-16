@@ -6,6 +6,7 @@ import 'package:flutter_application_1/controllers/login.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/auth/widgets/auth_inline_error.dart';
+import 'package:flutter_application_1/modules/auth/widgets/otp_boxes.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
@@ -76,7 +77,7 @@ class _VerificationPageState extends State<VerificationPage> {
   /// literal characters, because invisible direction marks in source are a
   /// lint (`text_direction_code_point_in_literal`) and rightly so.
   static String _formatCooldown(int totalSeconds) {
-    final minutes = totalSeconds ~/ 60;
+    final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     return '\u2066$minutes:$seconds\u2069';
   }
@@ -91,10 +92,9 @@ class _VerificationPageState extends State<VerificationPage> {
   Widget _buildResendControl(bool hasPendingPhone) {
     final canOfferResend = hasPendingPhone && !_passwordAlreadySet;
     if (!canOfferResend) {
-      return TextButton(
-        onPressed: () => Get.offAllNamed(AppRoutes.authLogin),
-        child: Text('Back to login'.tr),
-      );
+      // R2 #32 — the green button above already leads to sign-in; a second
+      // link saying the same thing was removed.
+      return const SizedBox.shrink();
     }
 
     final secondsLeft = _loginController.resendCooldown.value;
@@ -116,21 +116,6 @@ class _VerificationPageState extends State<VerificationPage> {
                 : 'Resend OTP'.tr,
           ),
         ),
-        if (waiting)
-          // The reason, once, under the button — the countdown alone says
-          // "wait" without saying why anything is being withheld (5.9).
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              'A code was just sent. You can ask for another shortly.'.tr,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -159,43 +144,44 @@ class _VerificationPageState extends State<VerificationPage> {
                   final hasPendingPhone = pendingPhone.isNotEmpty;
 
                   return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // R2 #29 — one short line, the number centred under it.
                       Text(
                         hasPendingPhone
-                            ? 'Enter the 6-digit code sent to @phone'.trParams({
-                                // #39 — isolate the embedded number as LTR
-                                // (U+2066 LRI ... U+2069 PDI) so its digit
-                                // grouping doesn't mirror when this sentence
-                                // renders inside an RTL (Arabic/Kurdish)
-                                // locale, while the rest of the sentence
-                                // still flows RTL normally.
-                                'phone':
-                                    '\u2066${formatPhoneForDisplay(pendingPhone)}\u2069',
-                              })
+                            ? 'Enter the verification code sent to'.tr
                             : 'Request an OTP from the login page first.'.tr,
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppThemeConfig.mutedText(context),
                           fontSize: 15,
                           height: 1.5,
                         ),
                       ),
+                      if (hasPendingPhone) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          formatPhoneForDisplay(pendingPhone),
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.ltr,
+                          style: TextStyle(
+                            color: AppThemeConfig.text(context),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 22),
-                      TextField(
+                      // R2 #31 — six boxes; SMS auto-fill and paste work, and
+                      // the code is checked as soon as the sixth digit lands.
+                      OtpBoxes(
                         controller: _otpController,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
                         enabled:
                             hasPendingPhone &&
                             !_passwordAlreadySet &&
                             !_loginController.isLoading.value,
-                        maxLength: 6,
-                        onSubmitted: (_) => _verifyOtp(),
-                        decoration: InputDecoration(
-                          labelText: 'Verification code'.tr,
-                          hintText: 'Enter the 6-digit code'.tr,
-                          counterText: '',
-                        ),
+                        onCompleted: (_) => _verifyOtp(),
                       ),
                       // E4 — this line used to hardcode `Colors.redAccent`,
                       // which measures 3.19:1 on this card. The shared widget
@@ -203,6 +189,7 @@ class _VerificationPageState extends State<VerificationPage> {
                       // the same one the sign-in screen behind it uses.
                       AuthInlineError(
                         message: _loginController.errorMessage.value,
+                        centered: true, // R2 #30
                       ),
                       const SizedBox(height: 24),
                       SizedBox(

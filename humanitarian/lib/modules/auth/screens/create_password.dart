@@ -21,7 +21,6 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/controllers/login.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
-import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 
@@ -43,22 +42,19 @@ class CreatePasswordPage extends StatelessWidget {
       fontWeight: FontWeight.w800,
       height: 1.1,
     );
-    final subtitleStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      color: AppThemeConfig.mutedText(context),
-      height: 1.5,
-    );
 
     return AuthScaffold(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          Text('Choose a password'.tr, style: titleStyle),
-          const SizedBox(height: 8),
+          // R2 #27 — the title, the explanation and the "setting the password
+          // for <number>" line said the same thing three times. One short
+          // centred line instead.
           Text(
-            'Your number is verified. This password is how you will sign in from now on.'
-                .tr,
-            style: subtitleStyle,
+            'Create a password for your account'.tr,
+            textAlign: TextAlign.center,
+            style: titleStyle,
           ),
           const SizedBox(height: 26),
           const _CreatePasswordForm(),
@@ -110,6 +106,11 @@ class _CreatePasswordFormState extends State<_CreatePasswordForm> {
     if (v.runes.length < min) {
       return 'Use at least @n characters.'.trParams({'n': min.toString()});
     }
+    // R2 #28 — the rule now says letters AND numbers, so check it.
+    if (!RegExp(r'\p{L}', unicode: true).hasMatch(v) ||
+        !RegExp(r'\d').hasMatch(v)) {
+      return 'Use letters and numbers.'.tr;
+    }
     return null;
   }
 
@@ -147,29 +148,11 @@ class _CreatePasswordFormState extends State<_CreatePasswordForm> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = _loginController.pendingPhone.value;
-
     return Form(
       key: _formKey,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (phone.isNotEmpty) ...[
-            Text(
-              // #39 — isolate the number as LTR (U+2066 LRI ... U+2069 PDI) so
-              // its digit grouping does not mirror inside an RTL locale. Written
-              // as escapes, not literal marks, so the source stays readable.
-              'Setting the password for @phone'.trParams({
-                'phone': '\u2066${formatPhoneForDisplay(phone)}\u2069',
-              }),
-              style: TextStyle(
-                color: AppThemeConfig.mutedText(context),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
           // Server-side refusals land here: wrong ticket, expired verification,
           // a password the server judged too short. Never a raw status code.
           Obx(
@@ -240,11 +223,13 @@ class _CreatePasswordFormState extends State<_CreatePasswordForm> {
           ),
           const SizedBox(height: 8),
           // 5.9 — say the rule before it is broken, not only after.
+          // R2 #28 — the full rule, centred.
           Obx(
             () => Text(
-              'At least @n characters.'.trParams({
+              'Minimum @n characters, letters and numbers'.trParams({
                 'n': _loginController.minPasswordLength.value.toString(),
               }),
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppThemeConfig.mutedText(context),
                 fontSize: 12.5,
@@ -326,15 +311,6 @@ class _CreatePasswordFormState extends State<_CreatePasswordForm> {
                         ),
                       ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: TextButton(
-              onPressed: _loginController.isLoading.value
-                  ? null
-                  : () => Get.offAllNamed(AppRoutes.authLogin),
-              child: Text('Back to sign in'.tr),
             ),
           ),
         ],

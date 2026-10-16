@@ -181,6 +181,10 @@ class AppTranslations extends Translations {
     'Save and continue': 'Save and continue',
     'Back to sign in': 'Back to sign in',
     'Go to sign in': 'Go to sign in',
+    'Create a password for your account': 'Create a password for your account',
+    'Minimum @n characters, letters and numbers': 'Minimum @n characters, letters and numbers',
+    'Use letters and numbers.': 'Use letters and numbers.',
+    'Enter the verification code sent to': 'Enter the verification code sent to',
     'This number already has a password. Sign in with it instead.':
         'This number already has a password. Sign in with it instead.',
     'That verification expired. Request a new code and try again.':
@@ -3494,9 +3498,12 @@ class AppTranslations extends Translations {
     'The two passwords do not match.': 'كلمتا المرور غير متطابقتين.',
     'Save and continue': 'حفظ ومتابعة',
     'Back to sign in': 'العودة إلى تسجيل الدخول',
-    'Go to sign in': 'اذهب إلى تسجيل الدخول',
+    'Go to sign in': 'متابعة تسجيل الدخول',
+    'Create a password for your account': 'أنشئ كلمة مرور لحسابك',
+    'Minimum @n characters, letters and numbers': 'الحد الأدنى @n خانات تشمل أحرفاً وأرقاماً',
+    'Use letters and numbers.': 'استخدم أحرفاً وأرقاماً معاً.',
     'This number already has a password. Sign in with it instead.':
-        'لهذا الرقم كلمة مرور بالفعل. سجّل الدخول بها بدلاً من ذلك.',
+        'الرقم مسجل بالفعل، يرجى العودة لتسجيل الدخول',
     'That verification expired. Request a new code and try again.':
         'انتهت صلاحية التحقق. اطلب رمزاً جديداً وحاول مرة أخرى.',
     'Verify your number again to continue.': 'تحقق من رقمك مرة أخرى للمتابعة.',
@@ -5009,10 +5016,11 @@ class AppTranslations extends Translations {
     'Request an OTP from the login page first.':
         'اطلب رمز التحقق من صفحة تسجيل الدخول أولا.',
     'Verification code': 'رمز التحقق',
+    'Enter the verification code sent to': 'أدخل رمز التحقق المرسل إلى',
     'Enter the 6-digit code': 'أدخل الرمز المكون من 6 أرقام',
     'Verify OTP': 'تحقق من الرمز',
     'Resend OTP': 'إعادة إرسال الرمز',
-    'Resend in @time': 'إعادة الإرسال خلال @time',
+    'Resend in @time': 'إعادة إرسال الرمز خلال @time',
     'A code was just sent. You can ask for another shortly.':
         'تم إرسال رمز للتو. يمكنك طلب رمز آخر بعد قليل.',
     'Back to login': 'العودة إلى تسجيل الدخول',
