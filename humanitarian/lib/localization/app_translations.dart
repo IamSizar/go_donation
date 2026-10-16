@@ -1907,8 +1907,7 @@ class AppTranslations extends Translations {
         'Use a darker appearance across the app.',
     'Sign out of your account securely.': 'Sign out of your account securely.',
     'Humanitarian platform': 'Tawazzn',
-    'Balance and Stability for a Better Life!':
-        'Balance and Stability for a Better Life!',
+    'Balance and Stability for a Better Life!': 'Balance for a better future',
     'Build impact with a calmer, smarter experience.':
         'Build impact with a calmer, smarter experience.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':
@@ -4963,8 +4962,7 @@ class AppTranslations extends Translations {
         'استخدم مظهرا داكنا في جميع أنحاء التطبيق.',
     'Sign out of your account securely.': 'سجل الخروج من حسابك بأمان.',
     'Humanitarian platform': 'توازن',
-    'Balance and Stability for a Better Life!':
-        'توازن واستقرار من أجل حياة أفضل!',
+    'Balance and Stability for a Better Life!': 'توازن لمستقبل أفضل',
     'Build impact with a calmer, smarter experience.':
         'اصنع أثرا بتجربة أهدأ وأكثر ذكاء.',
     'Empower communities, coordinate your work, and keep every important step in one beautiful place.':

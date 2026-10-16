@@ -7,7 +7,7 @@
      same place on screen, so the handover is invisible: the native screen
      stops and the animated one continues from the identical image. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
+    <item android:drawable="@color/launch_bg" />
     <item>
         <bitmap
             android:gravity="center"

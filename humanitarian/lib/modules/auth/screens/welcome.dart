@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 
 import '../../../localization/locale_service.dart';
+import '../../../shared/widgets/brand_logo.dart';
 import '../../../shared/widgets/glass_ui.dart';
-import '../../../widgets/auth_ui.dart';
 
 /// The very first screen the app shows, before sign-in.
 ///
@@ -66,219 +65,109 @@ class WelcomeScreen extends StatelessWidget {
       letterSpacing: -0.2,
     );
 
+    // Owner: the logo must sit at EXACTLY the same spot as on the launch
+    // screen (native + routing splash draw it at the centre of the whole
+    // screen), so the hand-over is seamless. The mark is therefore centred
+    // on the full screen here too, independent of the header and button;
+    // the tagline hangs a fixed distance below it.
     return GradientScreen(
-      child: SafeArea(
-        child: Column(
-          children: [
-            // ── Header: language control's considered home ─────────────
-            // Pinned to the top, respecting the safe area — not floating
-            // mid-body. `centerEnd` is directional and correctly flips
-            // sides for RTL, keeping it on the same logical side in both.
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                _gutter,
-                16,
-                _gutter,
-                0,
-              ),
-              child: const Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: _LanguageSelector(),
-              ),
-            ),
-            // ── Brand + promise: centred *within its own region* (between
-            // the pinned header and the pinned action), not top-aligned
-            // inside it.
-            //
-            // chunk13 defect: the previous pass anchored the outer regions
-            // correctly, but this middle `Expanded` still laid its content
-            // out top-down — brand block first, then whatever slack was
-            // left. On a tall screen (measured on the 402x874pt simulator)
-            // that put ~770px of dead space in one band directly above the
-            // button, while the logo/wordmark/headline clung to the header.
-            // The fix is to give the block's *position* the same treatment
-            // its rhythm already had: centre it on the region's cross-axis
-            // so leftover space splits above and below it instead of
-            // collecting in one place.
-            //
-            // `Center` alone inside a `SingleChildScrollView` is the classic
-            // way to reintroduce clipping at large text scales — a scroll
-            // view sizes its child to its intrinsic size, and `Center`
-            // would happily report a size *larger* than the viewport
-            // without complaint, then get vertically centred and clipped
-            // top/bottom with no way to scroll to the clipped edges.
-            // `LayoutBuilder` + `ConstrainedBox(minHeight: viewport height)`
-            // avoids that: the child is *at least* as tall as the region,
-            // so `Center` centres it when it fits and simply stops
-            // affecting layout (the column becomes exactly as tall as its
-            // content, top-aligned within the now-taller-than-viewport
-            // constraint) once large Dynamic Type makes it not fit — at
-            // which point the scroll view scrolls normally, top to bottom,
-            // with nothing lost off either edge.
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.symmetric(
-                            horizontal: _gutter,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Tight within-group gap: logo and badge read
-                              // as one brand unit.
-                              const Center(child: _BrandMark()),
-                              const SizedBox(height: 16),
-                              Center(
-                                child: AuthBadge(
-                                  icon: Icons.volunteer_activism_rounded,
-                                  label: 'Humanitarian platform',
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // #38 — approved verbal identity: short
-                              // heading, no tagline. Start-aligned (4.3:
-                              // left-aligned by default) so its edge
-                              // matches the button's below — not centred,
-                              // which is what made the two look like
-                              // different gutters.
-                              Text(
-                                'Balance and Stability for a Better Life!'
-                                    .tr,
-                                textAlign: TextAlign.start,
-                                style: headingStyle,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            // ── Action: anchored toward the bottom, in thumb reach ──────
-            // One entry action, not two. This screen used to show a filled
-            // "Sign in" button and an outlined "Create account" button, but
-            // both navigated to '/login' — the outlined one only existed
-            // because a dedicated email/password RegisterPage was planned.
-            // That page never called an API (it faked a delay and jumped
-            // to '/verify'), so it was deleted; the phone/OTP flow on
-            // Login is the single path that both signs in existing users
-            // and registers new ones. Two buttons for one destination was
-            // a false choice, so the copy names the mechanism ("Continue
-            // with phone") instead of picking a side.
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                _gutter,
-                0,
-                _gutter,
-                20,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton(
-                    // #39 — push, not offAllNamed, so Login keeps a back
-                    // target.
-                    onPressed: () => Get.toNamed('/login'),
-                    style: ElevatedButton.styleFrom(
-                      // Prefer the theme-adaptive accent over the
-                      // deprecated constant `primary` (fixed colour,
-                      // doesn't shift with brightness) — see
-                      // AppThemeConfig's own migration note. `accent`/
-                      // `onAccent` are the pair measured >=4.5:1 in both
-                      // themes (6.87:1 / 8.33:1 light-dark for the fill;
-                      // 7.54:1 / 7.72:1 for the text on it).
-                      backgroundColor: AppThemeConfig.accent(context),
-                      foregroundColor: AppThemeConfig.onAccent(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      textStyle: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      elevation: 0,
-                      minimumSize: const Size.fromHeight(
-                        52,
-                      ), // clears the 44pt target
-                    ),
-                    child: Text('Continue with phone'.tr),
-                  ),
-                  const SizedBox(height: 12),
-                  // Says out loud what the single button covers, so a
-                  // returning user isn't left wondering where "Sign in"
-                  // went. Start-aligned to match the gutter, not centred.
-                  Text(
-                    'Sign in or create an account with your phone number.'
-                        .tr,
-                    textAlign: TextAlign.start,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppThemeConfig.mutedText(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The Tawazzn brand mark, given real weight for a first-run screen: a
-/// soft tonal backdrop (the accent's own wash tint — Craft: "colours that
-/// adapt to light/dark") sitting behind a larger circular logo, instead of
-/// the previous small 88px circle boxed inside a card. Materials guidance
-/// (apple-design §12): a tonal fill used with intent to give the mark
-/// presence, not a translucent effect for its own sake.
-class _BrandMark extends StatelessWidget {
-  const _BrandMark();
-
-  @override
-  Widget build(BuildContext context) {
-    final wash = AppColors.of(context).accentWash;
-    return SizedBox(
-      width: 168,
-      height: 168,
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          // Decorative backdrop only — never intercepts taps, and carries
-          // no text, so it needs no contrast check of its own.
-          IgnorePointer(
-            child: Container(
-              width: 168,
-              height: 168,
-              decoration: BoxDecoration(color: wash, shape: BoxShape.circle),
+          const Center(child: BrandLogo()),
+          LayoutBuilder(
+            builder: (context, constraints) => Padding(
+              padding: EdgeInsets.only(
+                top: constraints.maxHeight / 2 + BrandLogo.ring / 2 + 24,
+                left: _gutter,
+                right: _gutter,
+              ),
+              // R2 #21 — short tagline, centred, one line.
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Balance and Stability for a Better Life!'.tr,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: headingStyle,
+                  ),
+                ),
+              ),
             ),
           ),
-          Container(
-            width: 116,
-            height: 116,
-            decoration: BoxDecoration(
-              color: AppThemeConfig.border(context),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppThemeConfig.border(context)),
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/branding/tawazzn_icon.png',
-                width: 116,
-                height: 116,
-                fit: BoxFit.cover,
-              ),
+          // R2 #23 — nothing on this screen scrolls.
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    _gutter,
+                    16,
+                    _gutter,
+                    0,
+                  ),
+                  child: const Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: _LanguageSelector(),
+                  ),
+                ),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    _gutter,
+                    0,
+                    _gutter,
+                    36, // R2 #22 — raised off the very bottom edge
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        // #39 — push, not offAllNamed, so Login keeps a back
+                        // target.
+                        onPressed: () => Get.toNamed('/login'),
+                        style: ElevatedButton.styleFrom(
+                          // Prefer the theme-adaptive accent over the
+                          // deprecated constant `primary` (fixed colour,
+                          // doesn't shift with brightness) — see
+                          // AppThemeConfig's own migration note. `accent`/
+                          // `onAccent` are the pair measured >=4.5:1 in both
+                          // themes (6.87:1 / 8.33:1 light-dark for the fill;
+                          // 7.54:1 / 7.72:1 for the text on it).
+                          backgroundColor: AppThemeConfig.accent(context),
+                          foregroundColor: AppThemeConfig.onAccent(context),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          textStyle: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          elevation: 0,
+                          minimumSize: const Size.fromHeight(
+                            52,
+                          ), // clears the 44pt target
+                        ),
+                        child: Text('Continue with phone'.tr),
+                      ),
+                      const SizedBox(height: 14),
+                      // Says out loud what the single button covers, so a
+                      // returning user isn't left wondering where "Sign in"
+                      // went. R2 #22: centred and a little larger.
+                      Text(
+                        'Sign in or create an account with your phone number.'
+                            .tr,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],

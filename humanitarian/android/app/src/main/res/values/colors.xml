@@ -3,4 +3,5 @@
     <color name="ic_launcher_background">#FEFEFE</color>
     <!-- Phase 27.10 — brand-blue tint applied to the FCM notification icon. -->
     <color name="notification_color">#1B37C9</color>
+    <color name="launch_bg">#F7F4EE</color>
 </resources>
