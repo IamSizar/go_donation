@@ -244,8 +244,9 @@ export async function addGroupMember(groupId: number, member: ChatGroupMemberInp
  *         member), or an axios cancel when the operator dismisses the
  *         password prompt.
  */
-export async function removeGroupMember(groupId: number, userId: number): Promise<void> {
-  await api.delete(`${BASE}/${groupId}/members/${userId}`)
+export async function removeGroupMember(groupId: number, userId: number, password?: string): Promise<void> {
+  // A password given here skips the interceptor's own prompt (one dialog, not two).
+  await api.delete(`${BASE}/${groupId}/members/${userId}`, password ? { data: { password } } : undefined)
 }
 
 // ─── Messages and contact blocks ───

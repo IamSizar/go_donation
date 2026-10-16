@@ -160,16 +160,14 @@ describe('GroupMessages — the composer', () => {
 
   // OPOS 48992 — a closed (paused) group still lets the ADMIN write; the
   // notice above the box says the members can't reply until it is opened.
-  it('keeps the composer on a closed group, with the closed notice and its reason', async () => {
+  it('keeps the composer on a closed group without repeating the closed notice (shown once by the lifecycle controls)', async () => {
     mockApi().on('get', URL, messagesAfter(MESSAGES))
 
     renderMessages({ lifecycle: 'paused', lifecycle_reason: 'Checking the delivery' })
 
     expect(await screen.findByText(MESSAGES[0].body)).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Message to the group' })).toBeInTheDocument()
-    const note = screen.getByRole('note')
-    expect(note).toHaveTextContent('This conversation is closed: the members can read it but can\'t reply until you open it. You can still write.')
-    expect(note).toHaveTextContent('Participants are being shown: Checking the delivery')
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
 
   it('replaces the composer with the ended notice', async () => {

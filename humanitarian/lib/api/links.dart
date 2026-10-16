@@ -6,14 +6,17 @@
 // from here, so updating `baseUrl` below is what swaps the backend.
 //
 // Every run target — debug and release, simulator/emulator/real device —
-// hits production. Nothing here depends on a local backend being up.
-const String baseUrl = 'https://backend-production-59d2.up.railway.app/api/';
-
-// Local dev (uncomment and swap the line above to test against your own
-// backend instead of production; pick the host for your run target):
-//   iOS Simulator: 'http://localhost:8081/api/'
-//   Android emulator: 'http://10.0.2.2:8081/api/'
-//   Real device on same Wi-Fi: 'http://<your-Mac-LAN-IP>:8081/api/'
+// hits production unless API_BASE_URL is given at build time.
+const String baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'https://backend-production-59d2.up.railway.app/api/',
+);
+//
+// Local dev: pass --dart-define=API_BASE_URL=http://localhost:8095/api/ to point
+// a debug run at your own backend. Without it, production is used. Hosts:
+//   iOS Simulator: 'http://localhost:8095/api/'
+//   Android emulator: 'http://10.0.2.2:8095/api/'
+//   Real device on same Wi-Fi: 'http://<your-Mac-LAN-IP>:8095/api/'
 
 /// Google OAuth Web/Server client ID (Phase 9 · B-09). Supplied at build time:
 ///   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com

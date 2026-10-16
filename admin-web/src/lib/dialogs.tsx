@@ -42,6 +42,8 @@ type CommonAsk = {
 
 /** Ask the operator to type something. Resolves null when cancelled. */
 export type TextAsk = CommonAsk & {
+  /** Label above the input. Defaults to the title. */
+  label?: string
   /** Mask the input (type="password"). Every PIN, password and code sets this. */
   secret?: boolean
   placeholder?: string

@@ -12,13 +12,13 @@
  *     reactivation hint (D3); the users:view guidance card (D2);
  *   - staff without messages:edit see the roster but no controls.
  *
- * askToConfirm is mocked: the confirmation dialog is DialogHost's concern.
+ * askForText is mocked: the remove dialog is DialogHost's concern.
  */
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GroupRoster from './GroupRoster'
-import { askToConfirm } from '../../lib/dialogs'
+import { askForText } from '../../lib/dialogs'
 import { EMPLOYEE_USER, matrixWith, servePermissions, serveUserSearch } from '../../test/chatGroupsKit'
 import { detailOf, membersUrl, refusal } from '../../test/chatGroupDetailKit'
 import { MASKED_GROUP_ID, TEAM_GROUP_ID } from '../../test/fixtures/chatGroups'
@@ -27,11 +27,11 @@ import { renderWithProviders } from '../../test/render'
 
 vi.mock('../../lib/dialogs', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/dialogs')>()),
-  askToConfirm: vi.fn(),
+  askForText: vi.fn(),
 }))
 
 beforeEach(() => {
-  vi.mocked(askToConfirm).mockReset()
+  vi.mocked(askForText).mockReset()
 })
 
 const PICK_TIMEOUT_MS = 4000
@@ -96,9 +96,9 @@ describe('GroupRoster — the list', () => {
 })
 
 describe('GroupRoster — remove', () => {
-  it('asks first, then removes the member and refreshes the group', async () => {
+  it('asks once (with the password), then removes the member and refreshes the group', async () => {
     const user = userEvent.setup()
-    vi.mocked(askToConfirm).mockResolvedValue(true)
+    vi.mocked(askForText).mockResolvedValue('pw123')
     const api = serveUserSearch(servePermissions(mockApi())).on('delete', `${membersUrl(MASKED_GROUP_ID)}/101`, {
       data: { success: true },
     })
@@ -107,27 +107,30 @@ describe('GroupRoster — remove', () => {
     await user.click(screen.getByRole('button', { name: 'Remove Layla Hassan' }))
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
-    expect(askToConfirm).toHaveBeenCalledWith(expect.objectContaining({ destructive: true, title: 'Remove member' }))
-    expect(api.callsTo('delete', `${membersUrl(MASKED_GROUP_ID)}/101`)).toHaveLength(1)
+    expect(askForText).toHaveBeenCalledTimes(1)
+    expect(askForText).toHaveBeenCalledWith(expect.objectContaining({ destructive: true, secret: true, title: 'Remove member' }))
+    const calls = api.callsTo('delete', `${membersUrl(MASKED_GROUP_ID)}/101`)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toEqual({ password: 'pw123' })
     expect(await screen.findByText('Member removed')).toBeInTheDocument()
   })
 
   it('sends nothing when the operator cancels', async () => {
     const user = userEvent.setup()
-    vi.mocked(askToConfirm).mockResolvedValue(false)
+    vi.mocked(askForText).mockResolvedValue(null)
     const api = serveUserSearch(servePermissions(mockApi()))
     const { onChanged } = renderRoster()
 
     await user.click(screen.getByRole('button', { name: 'Remove Layla Hassan' }))
 
-    await waitFor(() => expect(askToConfirm).toHaveBeenCalled())
+    await waitFor(() => expect(askForText).toHaveBeenCalled())
     expect(api.callsTo('delete', `${membersUrl(MASKED_GROUP_ID)}/101`)).toHaveLength(0)
     expect(onChanged).not.toHaveBeenCalled()
   })
 
   it('shows a refusal in words, never the server text', async () => {
     const user = userEvent.setup()
-    vi.mocked(askToConfirm).mockResolvedValue(true)
+    vi.mocked(askForText).mockResolvedValue('pw123')
     serveUserSearch(servePermissions(mockApi())).on(
       'delete',
       `${membersUrl(MASKED_GROUP_ID)}/101`,

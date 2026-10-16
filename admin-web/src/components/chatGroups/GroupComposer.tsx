@@ -2,8 +2,8 @@
  * GroupComposer — staff write into a chat group (Phase 6b).
  *
  * WHEN IT SHOWS (D9)
- *   - the group is paused or ended → the lifecycle notice, with the reason
- *     staff gave, in place of the box;
+ *   - the group is ended → the lifecycle notice, with the reason staff gave,
+ *     in place of the box (paused is shown once, by the lifecycle controls);
  *   - the operator lacks messages:add → a line saying why;
  *   - otherwise the box. The page never renders this for a group the operator
  *     cannot read, because it shows the permission state instead.
@@ -38,15 +38,12 @@ export default function GroupComposer({ group, canSend, onSent }: Props) {
       </p>
     )
   }
-  return (
-    <>
-      {group.lifecycle === 'paused' && <LifecycleNotice group={group} />}
-      <ComposerForm groupId={group.id} onSent={onSent} />
-    </>
-  )
+  // A paused group's state + reason are already shown once by the lifecycle
+  // controls at the top of the page; repeating them here was clutter (R2 #4).
+  return <ComposerForm groupId={group.id} onSent={onSent} />
 }
 
-/** Why nobody can write: paused or ended, and the reason shown to members. */
+/** Why nobody can write: the group ended, and the reason shown to members. */
 function LifecycleNotice({ group }: { group: ChatGroupDetail }) {
   const { t } = useI18n()
   return (

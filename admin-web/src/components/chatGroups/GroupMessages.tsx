@@ -27,6 +27,7 @@ import {
   type ChatGroupMessage,
 } from '../../lib/chatGroupsApi'
 import { formatDateTime } from '../../lib/dates'
+import { localizeGroupAlias } from '../../lib/groupAlias'
 import { useI18n, useStatusLabel } from '../../lib/i18n'
 
 type Props = {
@@ -156,10 +157,10 @@ function MessagesBody({ list, members, onRetry }: BodyProps) {
 
 /** One message: real name, label · role (or Staff), time, body. */
 function MessageRow({ message, member }: { message: ChatGroupMessage; member?: ChatGroupMember }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const role = member ? statusLabel(member.role_in_group) : t('status.staff')
-  const who = member?.masked && member.masked_label ? `${member.masked_label} · ${role}` : role
+  const who = member?.masked && member.masked_label ? `${localizeGroupAlias(member.masked_label, locale)} · ${role}` : role
 
   return (
     <li className="stack" style={{ gap: 'var(--space-1)' }}>

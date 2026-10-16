@@ -824,7 +824,7 @@ const en = {
       removed: 'Removed',
       label_of: 'Label: {label}',
       remove_title: 'Remove member',
-      remove_body: '{name} will stop receiving this group\'s messages. The history stays. If you add them back later, they keep their old label.',
+      remove_body: '{name} will stop receiving this group\'s messages. Enter your password to confirm.',
       remove_aria: 'Remove {name}',
       removed_toast: 'Member removed',
       no_edit: 'Your access level can view the members but not change them.',

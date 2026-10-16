@@ -188,7 +188,7 @@ export default function AskDialog({ request, onSettle }: Props) {
             )}
             {isText && (
               <label className="form-row" style={{ marginTop: request.message ? 16 : 0 }}>
-                <span className="form-label">{title}</span>
+                <span className="form-label">{('label' in request && request.label) || title}</span>
                 <input
                   ref={inputRef}
                   // Masked for every PIN, password and verification code. The

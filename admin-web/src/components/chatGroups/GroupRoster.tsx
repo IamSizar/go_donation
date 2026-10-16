@@ -25,7 +25,8 @@ import { activeMembers, removedMembers } from '../../lib/chatGroupDetail'
 import { describeChatGroupError } from '../../lib/chatGroupErrors'
 import { removeGroupMember, type ChatGroupDetail, type ChatGroupMember } from '../../lib/chatGroupsApi'
 import { formatDateTime } from '../../lib/dates'
-import { askToConfirm } from '../../lib/dialogs'
+import { askForText } from '../../lib/dialogs'
+import { localizeGroupAlias } from '../../lib/groupAlias'
 import { useI18n, useStatusLabel } from '../../lib/i18n'
 import { useToast } from '../../lib/toast'
 
@@ -51,17 +52,21 @@ export default function GroupRoster({ group, canEdit, onChanged }: Props) {
   /** Confirms, removes, then lets the page refresh. */
   async function remove(member: ChatGroupMember) {
     const name = member.full_name || t('chat_groups.detail.no_profile')
-    const sure = await askToConfirm({
+    // ONE dialog (R2 #4): the explanation and the delete password together.
+    // Before, a confirm box was followed by the generic password box.
+    const password = await askForText({
       title: t('chat_groups.detail.remove_title'),
       message: t('chat_groups.detail.remove_body', { name }),
+      label: t('auth.password'),
+      secret: true,
       destructive: true,
       confirmLabel: t('chat_groups.create.remove_member'),
     })
-    if (!sure) return
+    if (password == null || !password.trim()) return
     setBusyUserId(member.user_id)
     setError(null)
     try {
-      await removeGroupMember(group.id, member.user_id)
+      await removeGroupMember(group.id, member.user_id, password.trim())
       toast.success(t('chat_groups.detail.removed_toast'))
       await onChanged()
     } catch (err) {
@@ -135,7 +140,7 @@ type RowProps = {
 
 /** Name, role, masked label, and Remove or the removal date. */
 function MemberRow({ member, onRemove, busy }: RowProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
   const name = member.full_name || t('chat_groups.detail.no_profile')
 
@@ -144,7 +149,7 @@ function MemberRow({ member, onRemove, busy }: RowProps) {
       <strong style={{ overflowWrap: 'anywhere' }}>{name}</strong>
       <span className="badge tone-info">{statusLabel(member.role_in_group)}</span>
       {member.masked && member.masked_label && (
-        <span className="muted">{t('chat_groups.detail.label_of', { label: member.masked_label })}</span>
+        <span className="muted">{t('chat_groups.detail.label_of', { label: localizeGroupAlias(member.masked_label, locale) })}</span>
       )}
       {member.removed_at ? (
         <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
