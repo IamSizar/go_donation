@@ -12,7 +12,6 @@ import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/auth_navigation.dart';
-import 'package:flutter_application_1/core/design/contrast.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/iraq_governorates.dart';
 import 'package:flutter_application_1/data/nineveh_districts.dart';
@@ -2130,15 +2129,48 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        (widget.editMode
-                                ? 'Update the details on your account.'
-                                : 'Tell us about yourself so an admin can review your account.')
-                            .tr,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          height: 1.5,
-                          color: AppThemeConfig.mutedText(context),
+                      // R2 #34 — short, centred.
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          (widget.editMode
+                                  ? 'Update the details on your account.'
+                                  : 'Tell us about yourself so an admin can review your account.')
+                              .tr,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            height: 1.5,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ),
+                      // R2 #36 — one note instead of «(اختياري)» on every
+                      // field: the red * marks what must be filled.
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '* ',
+                                style: TextStyle(
+                                  color: AppThemeConfig.consequence(context),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'Fields marked with a red * are required'
+                                    .tr,
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
                         ),
                       ),
                       if (widget.editMode) ...[
@@ -2476,33 +2508,30 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       // a different role than they hold.
                       if (!widget.editMode) ...[
                         const SizedBox(height: 18),
-                        _label(context, 'Select your role'),
-                        const SizedBox(height: 10),
-                        _RoleTile(
-                          icon: Icons.volunteer_activism_rounded,
-                          color: Colors.amber,
-                          label: 'Donor',
-                          tagline: 'Give and support causes',
-                          selected: _roleId == 1,
-                          onTap: () => setState(() => _roleId = 1),
-                        ),
-                        const SizedBox(height: 10),
-                        _RoleTile(
-                          icon: Icons.family_restroom_rounded,
-                          color: Colors.deepOrangeAccent,
-                          label: 'Beneficiary',
-                          tagline: 'Receive aid and support',
-                          selected: _roleId == 2,
-                          onTap: () => setState(() => _roleId = 2),
-                        ),
-                        const SizedBox(height: 10),
-                        _RoleTile(
-                          icon: Icons.handshake_rounded,
-                          color: Colors.lightBlue,
-                          label: 'Volunteer',
-                          tagline: 'Help on the ground',
-                          selected: _roleId == 3,
-                          onTap: () => setState(() => _roleId = 3),
+                        _label(context, 'Account type'),
+                        const SizedBox(height: 6),
+                        // R2 #35 — a compact dropdown instead of three large
+                        // cards. Switching role keeps everything already typed
+                        // (the shared fields are one set of controllers); only
+                        // the role's own section below changes.
+                        DropdownButtonFormField<int>(
+                          initialValue: _roleId,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          hint: Text('Select your role'.tr),
+                          items: [
+                            for (final r in const [
+                              (1, 'Donor'),
+                              (2, 'Beneficiary'),
+                              (3, 'Volunteer'),
+                            ])
+                              DropdownMenuItem(
+                                value: r.$1,
+                                child: Text(r.$2.tr),
+                              ),
+                          ],
+                          onChanged: (v) => setState(() => _roleId = v),
                         ),
                       ],
                       // Grantor registration spec — extra fields.
@@ -5948,124 +5977,6 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
           child: Text(' *', style: style.copyWith(color: Colors.red)),
         ),
       ],
-    );
-  }
-}
-
-class _RoleTile extends StatelessWidget {
-  const _RoleTile({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.tagline,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String label;
-  final String tagline;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // The role hue drawn on a 15% wash OF ITSELF is the pattern
-    // core/design/contrast.dart was written for, and it fails the same way
-    // here: amber measured 1.39:1, deep orange 2.20:1 and light blue 2.08:1 on
-    // their own washes, all under WCAG's 3:1 floor for non-text content. Each
-    // colour is fine somewhere — none of them is fine there.
-    //
-    // readableOn keeps the hue and walks it toward the theme's own ink only as
-    // far as the floor demands, so the tile still reads as amber / orange /
-    // blue and a fourth role added later is compliant without anyone measuring
-    // it. The wash is left alone: it is the tile's identity.
-    final wash = Color.alphaBlend(
-      color.withValues(alpha: 0.15),
-      AppThemeConfig.surface(context),
-    );
-    final glyph = readableOn(
-      tint: color,
-      background: wash,
-      ink: AppThemeConfig.text(context),
-      // 3.0, not 4.5 — this is an icon beside its own label, so WCAG 1.4.11's
-      // non-text floor applies rather than the text floor.
-      minRatio: 3.0,
-    );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppThemeConfig.surface(context),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              // accent(context), not the fixed `primary`. Which role you have
-              // chosen is carried by this border and by the radio below, and
-              // `primary` is a constant #2F5D4A that does not flip with the
-              // theme — on the dark card it measured 2.41:1, under WCAG
-              // 1.4.11's 3:1 floor for a control's state. The accent token IS
-              // #2F5D4A in light, so nothing changes there, and a light mint in
-              // dark, where it clears the floor comfortably.
-              color: selected
-                  ? AppThemeConfig.accent(context)
-                  : AppThemeConfig.border(context),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: wash,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: glyph, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label.tr,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: AppThemeConfig.text(context),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tagline.tr,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                // accent(context) for the same reason as the border above —
-                // this radio is the other half of "which role is chosen".
-                color: selected
-                    ? AppThemeConfig.accent(context)
-                    : AppThemeConfig.mutedText(context),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

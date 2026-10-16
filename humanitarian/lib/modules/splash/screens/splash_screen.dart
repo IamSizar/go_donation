@@ -68,6 +68,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    // The splash is static now (no animation), so nothing else asks for a
+    // frame: request one, or the post-frame callback below never runs and
+    // the app sits on the logo forever.
+    WidgetsBinding.instance.scheduleFrame();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Section 27 — a returning guest (skip sign-in) lands on Home, not the
