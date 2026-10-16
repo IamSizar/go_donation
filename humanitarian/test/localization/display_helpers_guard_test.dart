@@ -54,12 +54,6 @@ const _currencyLineAllowlist = <String, String>{
       'EDITABLE input holding the code sent to the server; must stay raw',
   "_currencyController.text = 'IQD';":
       'resets that same input to the wire value',
-  "const String kDefaultContributionCurrency = 'IQD';":
-      'the WIRE code the contribution pages send (R2 #47-55); every place the '
-          'donor sees it goes through localizedCurrency() -> «د.ع»',
-  "static const _presets = <String>['IQD', 'USD'];":
-      'wire codes behind the currency pills; their labels are '
-          'localizedCurrency(code), so the donor reads «د.ع», not «IQD»',
 };
 
 /// Every .dart file under lib/, with its repo-relative path.

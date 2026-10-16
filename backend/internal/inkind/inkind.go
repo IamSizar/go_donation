@@ -21,8 +21,6 @@ type InKindDonation struct {
 	Status        string    `json:"status"`
 	Notes         *string   `json:"notes"`
 	CreatedAt     time.Time `json:"created_at"`
-	DonorPhone    *string   `json:"donor_phone"`
-	PhotoPath     *string   `json:"photo_path"`
 }
 
 type Store struct {
@@ -38,8 +36,7 @@ func (s *Store) List(ctx context.Context, userID int64, limit int) ([]InKindDona
 	}
 	args := []any{}
 	q := `SELECT id, donor_user_id, category, item_name, quantity,
-	             condition_note, pickup_address, status, notes, created_at,
-	             donor_phone, photo_path
+	             condition_note, pickup_address, status, notes, created_at
 	        FROM in_kind_donations`
 	if userID > 0 {
 		args = append(args, userID)
@@ -56,8 +53,7 @@ func (s *Store) List(ctx context.Context, userID int64, limit int) ([]InKindDona
 	for rows.Next() {
 		var x InKindDonation
 		if err := rows.Scan(&x.ID, &x.DonorUserID, &x.Category, &x.ItemName, &x.Quantity,
-			&x.ConditionNote, &x.PickupAddress, &x.Status, &x.Notes, &x.CreatedAt,
-			&x.DonorPhone, &x.PhotoPath); err != nil {
+			&x.ConditionNote, &x.PickupAddress, &x.Status, &x.Notes, &x.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, x)
@@ -85,27 +81,6 @@ func (s *Store) Insert(ctx context.Context, donorUserID int64, category, itemNam
 		donorUserID, category, itemName, quantity, conditionNote, pickupAddress, notes,
 	).Scan(&id)
 	return id, err
-}
-
-// SetDetails stores the phone and optional photo from the R2 in-kind page on a
-// row the caller has just inserted. Scoped to the donor so it cannot touch
-// anyone else's row. Empty values are stored as NULL. The caller is
-// responsible for validating the photo path (donations.ValidAttachment).
-func (s *Store) SetDetails(ctx context.Context, id, donorUserID int64, phone, photoPath string) error {
-	var p, ph any
-	if v := strings.TrimSpace(phone); v != "" {
-		if len(v) > 32 {
-			v = v[:32]
-		}
-		p = v
-	}
-	if v := strings.TrimSpace(photoPath); v != "" {
-		ph = v
-	}
-	_, err := s.Pool.Exec(ctx, `
-		UPDATE in_kind_donations SET donor_phone = $3, photo_path = $4
-		 WHERE id = $1 AND donor_user_id = $2`, id, donorUserID, p, ph)
-	return err
 }
 
 func itoa(n int) string {

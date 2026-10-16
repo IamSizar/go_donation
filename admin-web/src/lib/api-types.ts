@@ -77,16 +77,6 @@ export type DonationAdminRow = {
   delivery_status: string
   payment_method: string
   transaction_date: string
-  // R2 #47–55 — what the donor's contribution page collected (migration 139).
-  // All optional: older rows have none of it.
-  channel?: string | null
-  transfer_kind?: string | null
-  network?: string | null
-  serial_number?: string | null
-  attachment_path?: string | null
-  donor_address?: string | null
-  visit_note?: string | null
-  contact_phone?: string | null
 }
 
 export type DonationsListResp = {
@@ -543,9 +533,6 @@ export type AdminInKind = {
   status: string
   notes: string | null
   created_at: string
-  // R2 #51 — phone typed on the in-kind page, and the optional photo of the items.
-  contact_phone?: string | null
-  photo_path?: string | null
 }
 
 export type AdminTicket = {

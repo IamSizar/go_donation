@@ -1,146 +1,48 @@
-// Step 1 of giving: "Make donation" → four ways to give (R2 #47, #53).
-//
-// WHY THIS SCREEN IS SO SHORT
-// It used to be a long page — a hero, the featured campaigns, quick amounts, a
-// summary card and a "why people choose this" card — followed by a second
-// screen asking what KIND of donation it was, then a long checkout. The client
-// called that cluttered and repetitive, and asked for two steps at most: this
-// one (four plain options) and one fixed page per option.
-//
-// The campaigns list did not go away; it lives on [CampaignsScreen], reached
-// from Home's "Featured campaigns". A campaign's own button comes back here
-// with [initialCampaignId], and the gift is filed under that campaign.
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
+import 'package:flutter_application_1/localization/money.dart';
+import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
-import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/core/widgets/app_pressable.dart';
-import 'package:flutter_application_1/core/widgets/app_screen.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
-import 'package:flutter_application_1/modules/donations/screens/balance_transfer_contribution_screen.dart';
-import 'package:flutter_application_1/modules/donations/screens/cash_contribution_screen.dart';
-import 'package:flutter_application_1/modules/donations/screens/electronic_contribution_screen.dart';
-import 'package:flutter_application_1/modules/donations/screens/inkind_contribution_screen.dart';
+import 'package:flutter_application_1/modules/donations/models/donation_draft.dart';
+import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
+import 'package:flutter_application_1/modules/donations/screens/donation_kind_screen.dart';
+import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
+import 'package:flutter_application_1/modules/donations/screens/saved_campaigns_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:get/get.dart';
+import 'package:flutter_application_1/api/guest_session.dart';
+import 'package:intl/intl.dart'; // Added for number formatting
+import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/design/motion.dart';
 
 class DonationsSection extends StatelessWidget {
   const DonationsSection({super.key, this.initialCampaignId});
 
-  /// Set when the donor arrived from a campaign. The gift is filed under it
-  /// and the screen says so in one line.
+  /// Pre-selects a campaign and jumps straight to the amount picker — used
+  /// when arriving here via "Donate to this campaign" from a campaign card
+  /// elsewhere in the app (Home's Featured campaigns, global search), so the
+  /// donor doesn't have to re-find and re-tap the same campaign.
   final int? initialCampaignId;
 
-  void _open(Widget page) {
-    AppHaptics.selection();
-    Get.to<void>(() => page);
-  }
+  static const List<_DonationOptionData> _options = [
+    _DonationOptionData(
+      title: 'Comprehensive Giving',
+      summary:
+          'One simple donation that can be used wherever support is needed most.',
+      typeLabel: 'One-time',
+      supportNote: 'A flexible way to help the most urgent needs right away.',
+      icon: Icons.all_inclusive,
+    ),
+  ];
+
+  static const List<int> _quickAmounts = [10000, 20000, 50000, 100000];
 
   @override
   Widget build(BuildContext context) {
-    // The campaign list is needed only to name the campaign; load it if the
-    // donor came straight here (a notification, search) before Home did.
-    if (initialCampaignId != null &&
-        !Get.isRegistered<FeaturedCampaignsController>()) {
-      Get.put(FeaturedCampaignsController());
-    }
-    final accent = AppThemeConfig.accent(context);
-    final id = initialCampaignId;
-    return AppScreen(
-      // K28 — the AI icon for this section.
-      assistantRoute: 'donate',
-      title: 'Make donation',
-      scrollable: true,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: AppSpace.xxl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (id != null)
-              Obx(() {
-                final c = Get.isRegistered<FeaturedCampaignsController>()
-                    ? Get.find<FeaturedCampaignsController>().campaigns
-                          .firstWhereOrNull((x) => x.id == id)
-                    : null;
-                if (c == null) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpace.md),
-                  child: Row(
-                    children: [
-                      Icon(Icons.campaign_rounded, size: 20, color: accent),
-                      const SizedBox(width: AppSpace.xs),
-                      Expanded(
-                        child: Text(
-                          c.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: AppType.body,
-                            color: AppThemeConfig.text(context),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            _WayTile(
-              icon: Icons.credit_card_rounded,
-              title: 'Electronic payment',
-              onTap: () => _open(ElectronicContributionScreen(campaignsId: id)),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            _WayTile(
-              icon: Icons.smartphone_rounded,
-              title: 'Balance transfer',
-              onTap: () =>
-                  _open(BalanceTransferContributionScreen(campaignsId: id)),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            _WayTile(
-              icon: Icons.payments_rounded,
-              title: 'Direct cash handover',
-              onTap: () => _open(CashContributionScreen(campaignsId: id)),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            _WayTile(
-              icon: Icons.inventory_2_rounded,
-              title: 'In-kind contributions',
-              // Goods are not filed under a campaign.
-              onTap: () => _open(const InKindContributionScreen()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// One way to give: an icon and a name. No sentence under it (R2 #53).
-class _WayTile extends StatelessWidget {
-  const _WayTile({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionTile(
-      icon: icon,
-      title: title,
-      subtitle: '',
-      color: AppThemeConfig.accent(context),
-      onTap: onTap,
-    );
+    return _DonationsSectionBody(initialCampaignId: initialCampaignId);
   }
 }
 
@@ -148,6 +50,494 @@ class _WayTile extends StatelessWidget {
 String formatAmount(num amount) {
   // Falls back to en locale if the device locale cannot be determined
   return NumberFormat("#,##0", Intl.getCurrentLocale()).format(amount);
+}
+
+class _DonationsSectionBody extends StatefulWidget {
+  const _DonationsSectionBody({this.initialCampaignId});
+
+  final int? initialCampaignId;
+
+  @override
+  State<_DonationsSectionBody> createState() => _DonationsSectionBodyState();
+}
+
+class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
+  int _selectedAmount = DonationsSection._quickAmounts[1];
+  int? _selectedCampaignId;
+  String _selectedPaymentMethod = '';
+  String? donorName;
+
+  final ScrollController _listScrollController = ScrollController();
+  final GlobalKey _quickAmountKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCampaignId != null) {
+      _selectedCampaignId = widget.initialCampaignId;
+      _scrollToQuickAmount();
+    }
+  }
+
+  @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
+  }
+
+  FeaturedCampaignData? _findSelectedCampaign(
+    List<FeaturedCampaignData> campaigns,
+  ) {
+    if (_selectedCampaignId == null) return null;
+    for (final campaign in campaigns) {
+      if (campaign.id == _selectedCampaignId) {
+        return campaign;
+      }
+    }
+    return null;
+  }
+
+  void _resetDonationSelectionToDefaults() {
+    setState(() {
+      _selectedAmount = DonationsSection._quickAmounts[1];
+      _selectedCampaignId = null;
+      _selectedPaymentMethod = '';
+    });
+  }
+
+  // #18 — "Give Now": jump straight into comprehensive (unrestricted) giving.
+  // Select it (campaign = null) and scroll the donor to the amount picker so
+  // they can complete a general donation fast.
+  //
+  // This is now the *only* affordance for choosing comprehensive giving. It
+  // used to be duplicated by a "Comprehensive Giving" section further down the
+  // page whose card ran the identical mutation (haptic + clear the campaign
+  // selection) minus the scroll — two different-looking controls with one
+  // meaning, which made "which one did I press?" a real question on a money
+  // screen. The hero survives because it is reachable before the donor has
+  // scrolled anywhere and because it also moves them to the amount picker,
+  // i.e. it is the strictly more useful of the two.
+  void _giveNow() {
+    AppHaptics.selection();
+    setState(() => _selectedCampaignId = null);
+    _scrollToQuickAmount();
+  }
+
+  void _scrollToQuickAmount({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final targetContext = _quickAmountKey.currentContext;
+        if (targetContext == null || !targetContext.mounted) return;
+
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: animated
+              ? const Duration(milliseconds: 400)
+              : Duration.zero,
+          curve: Curves.easeInOut,
+          alignment: 0.05,
+        );
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final campaignsController = Get.isRegistered<FeaturedCampaignsController>()
+        ? Get.find<FeaturedCampaignsController>()
+        : Get.put(FeaturedCampaignsController());
+    final selectedCampaign = _findSelectedCampaign(
+      campaignsController.campaigns,
+    );
+    final selectedOption = selectedCampaign != null
+        ? _DonationOptionData.fromCampaign(selectedCampaign)
+        : DonationsSection._options.first;
+
+    return SectionScaffold(
+      // K28 — the AI icon for this section.
+      assistantRoute: 'donate',
+      title: 'Contribute',
+      subtitle:
+          'Choose an amount, pick general support or a featured campaign, and make your support count.',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Client report — "where can I see the campaigns I've saved?".
+          // Same "See all"-adjacent placement marriage_posts_screen.dart
+          // uses for its own Saved entry point.
+          IconButton.filledTonal(
+            onPressed: () => Get.to(() => const SavedCampaignsScreen()),
+            icon: const Icon(Icons.bookmark_rounded, size: 20),
+            tooltip: 'Saved campaigns'.tr,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+              visualDensity: VisualDensity.standard,
+            ),
+          ),
+          const SizedBox(width: 8),
+          AppPressable(
+            onTap: () => Get.to(() => const MyDonationsPage()),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppThemeConfig.accent(context),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.teal.withValues(alpha: 0.13),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    color: AppThemeConfig.onAccent(context),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    'See all'.tr,
+                    style: TextStyle(
+                      color: AppThemeConfig.onAccent(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.5,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    AppIcons.forward(context),
+                    color: AppThemeConfig.onAccent(
+                      context,
+                    ).withValues(alpha: 0.6),
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: RefreshIndicator(
+        onRefresh: campaignsController.refreshCampaigns,
+        child: SingleChildScrollView(
+          controller: _listScrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Absorbing the removed section means the hero must also *show*
+              // whether comprehensive giving is currently active — that state
+              // used to be readable from the deleted card's "Selected" badge.
+              _GiveNowCard(
+                isSelected: _selectedCampaignId == null,
+                onTap: _giveNow,
+              ),
+              const SizedBox(height: 20),
+              const SectionLabel(title: 'Featured campaigns'),
+              const SizedBox(height: 12),
+              Obx(() {
+                if (campaignsController.isLoading.value) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (campaignsController.errorMessage.value != null) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: GlassPanel(
+                      child: Column(
+                        children: [
+                          Text(
+                            campaignsController.errorMessage.value!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppThemeConfig.mutedText(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: campaignsController.refreshCampaigns,
+                            child: Text('Retry'.tr),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                if (campaignsController.campaigns.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      'No campaigns available.'.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.mutedText(context),
+                      ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: campaignsController.campaigns
+                      .map(
+                        (campaign) => Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: DonationFeaturedCampaignCard(
+                            campaign: campaign,
+                            isSelected: campaign.id == _selectedCampaignId,
+                            onCardTap: () {
+                              Get.to(
+                                () => CampaignDetailScreen(campaign: campaign),
+                              )?.then((donate) {
+                                if (!mounted) return;
+                                if (donate == true) {
+                                  setState(
+                                    () => _selectedCampaignId = campaign.id,
+                                  );
+                                  _scrollToQuickAmount(animated: true);
+                                }
+                              });
+                            },
+                            // #44 / Note #40 — donating is a "purchase", so
+                            // guests are prompted to upgrade their account
+                            // before acting (also enforced server-side).
+                            onDonatePressed: () async {
+                              if (!await requireUpgrade(context)) return;
+                              AppHaptics.selection();
+                              setState(() => _selectedCampaignId = campaign.id);
+                              _scrollToQuickAmount(animated: true);
+                            },
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              }),
+              const SizedBox(height: 22),
+              const SectionLabel(title: 'Quick amount', key: null),
+              const SizedBox(height: 12),
+              Container(
+                key: _quickAmountKey,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: DonationsSection._quickAmounts.map((amount) {
+                    final isSelected = amount == _selectedAmount;
+                    return _DonationAmountChip(
+                      label: '${formatAmount(amount)} ${localizedCurrency('IQD')}',
+                      isSelected: isSelected,
+                      onTap: () {
+                        AppHaptics.selection();
+                        setState(() => _selectedAmount = amount);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 22),
+              _SelectedDonationCard(
+                option: selectedOption,
+                selectedAmount: _selectedAmount,
+                paymentMethod: _selectedPaymentMethod,
+                onContinue: () {
+                  AppHaptics.selection();
+                  // M3 — Continue no longer lands on checkout. It asks what
+                  // KIND of donation this is first, because two of the five
+                  // answers (goods, supporting the organization) do not go to
+                  // the money form at all, and the other three decide which
+                  // payment methods checkout may offer.
+                  Get.to(
+                    () => DonationKindScreen(
+                      draft: DonationDraft(
+                        amount: _selectedAmount,
+                        campaignsId: _selectedCampaignId,
+                        optionTitle: selectedOption.title,
+                        optionSummary: selectedOption.summary,
+                        optionTypeLabel: selectedOption.typeLabel,
+                        optionSupportNote: selectedOption.supportNote,
+                        optionIcon: selectedOption.icon,
+                        optionColor:
+                            selectedOption.color ??
+                            AppThemeConfig.accent(context),
+                        paymentMethod: _selectedPaymentMethod,
+                      ),
+                    ),
+                  )?.then((submitted) {
+                    if (!mounted) return;
+                    if (submitted == true) {
+                      _resetDonationSelectionToDefaults();
+                    }
+                  });
+                },
+                donorName: donorName,
+              ),
+              const SizedBox(height: 22),
+              // The "Comprehensive Giving" section that sat here was removed:
+              // its card duplicated the Give Now hero above (same handler, no
+              // scroll). Everything it described — the option's title, summary,
+              // type label and support note — is already rendered by
+              // `_SelectedDonationCard` whenever comprehensive giving is the
+              // active selection, so no information was lost with it.
+              const _SimpleDonationInfoCard(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// #18 — prominent "Give Now" hero CTA at the top of the Contribute tab: a fast
+// entry into comprehensive (unrestricted) giving, and since the duplicate
+// "Comprehensive Giving" section was removed, the single control for it.
+class _GiveNowCard extends StatelessWidget {
+  const _GiveNowCard({required this.isSelected, required this.onTap});
+
+  /// True when comprehensive giving (campaign = null) is the active selection.
+  /// The hero is filled either way — it is the page's primary CTA — so the
+  /// state is carried by a badge rather than by the fill, which cannot change
+  /// without demoting the CTA.
+  final bool isSelected;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppThemeConfig.accent(context),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.teal.withValues(alpha: 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppThemeConfig.onAccent(
+                    context,
+                  ).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.all_inclusive,
+                  color: AppThemeConfig.onAccent(context),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Give Now'.tr,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppThemeConfig.onAccent(context),
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        // Inherited from the deleted duplicate section: the
+                        // donor needs to see that a general donation — not a
+                        // campaign — is what the Continue button will submit.
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          _DonationTypeBadge(
+                            label: 'Selected',
+                            color: AppThemeConfig.onAccent(context),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DonationsSection._options.first.summary.tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppThemeConfig.onAccent(
+                          context,
+                        ).withValues(alpha: 0.9),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                AppIcons.forwardSolid(context),
+                color: AppThemeConfig.onAccent(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DonationOptionData {
+  const _DonationOptionData({
+    required this.title,
+    required this.summary,
+    required this.typeLabel,
+    required this.supportNote,
+    required this.icon,
+    this.color,
+  });
+
+  factory _DonationOptionData.fromCampaign(FeaturedCampaignData campaign) {
+    final details = [
+      campaign.location,
+      campaign.impact,
+    ].where((value) => value.trim().isNotEmpty).join(' • ');
+
+    return _DonationOptionData(
+      title: campaign.title,
+      summary: campaign.summary,
+      typeLabel: campaign.category.trim().isNotEmpty
+          ? campaign.category
+          : 'Campaign'.tr,
+      supportNote: details.isNotEmpty ? details : campaign.fundedLabel,
+      icon: campaign.icon,
+      color: null,
+    );
+  }
+
+  final String title;
+  final String summary;
+  final String typeLabel;
+  final String supportNote;
+  final IconData icon;
+
+  /// Null resolves to the theme accent where it is rendered.
+  final Color? color;
 }
 
 /// Soft, low-contrast chrome for featured cards (not bold / not saturated).
@@ -361,9 +751,10 @@ class DonationFeaturedCampaignCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  // R2 #53 — one word, not «مساهمة لهذه الحملة».
                   child: Text(
-                    isSelected ? 'Selected'.tr : 'Contribute'.tr,
+                    isSelected
+                        ? 'Selected for donation'.tr
+                        : 'Donate to this campaign'.tr,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -424,6 +815,243 @@ class _CampaignDetailLine extends StatelessWidget {
   }
 }
 
+class _DonationAmountChip extends StatelessWidget {
+  const _DonationAmountChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPressable(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.resolve(context, AppMotion.settleDuration),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppThemeConfig.accent(context)
+              : AppThemeConfig.surface(context),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected
+                ? AppThemeConfig.accent(context)
+                : AppThemeConfig.border(context),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppThemeConfig.accent(
+                      context,
+                    ).withValues(alpha: 0.14),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? AppThemeConfig.onAccent(context)
+                : AppThemeConfig.text(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedDonationCard extends StatelessWidget {
+  const _SelectedDonationCard({
+    required this.option,
+    required this.selectedAmount,
+    required this.paymentMethod,
+    required this.onContinue,
+    this.donorName,
+  });
+
+  final _DonationOptionData option;
+  final int selectedAmount;
+  final String paymentMethod;
+  final VoidCallback onContinue;
+  final String? donorName;
+
+  @override
+  Widget build(BuildContext context) {
+    final showDonorDetails = (donorName ?? '').isEmpty;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        color: AppThemeConfig.elevatedSurface(context),
+        border: Border.all(color: AppThemeConfig.border(context)),
+        boxShadow: [
+          BoxShadow(
+            color: (option.color ?? AppThemeConfig.accent(context)).withValues(
+              alpha: 0.14,
+            ),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              TileIcon(
+                icon: option.icon,
+                color: (option.color ?? AppThemeConfig.accent(context)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Current selection'.tr,
+                      style: TextStyle(
+                        color: option.color,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      option.title.tr,
+                      style: TextStyle(
+                        color: AppThemeConfig.text(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _DonationTypeBadge(
+                label: option.typeLabel,
+                color: (option.color ?? AppThemeConfig.accent(context)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            option.summary.tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              height: 1.55,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _DonationInfoPill(
+                icon: Icons.payments_rounded,
+                label: 'Amount: @amount IQD'.trParams({
+                  'amount': formatAmount(selectedAmount),
+                }),
+              ),
+              // Only once a method is actually chosen. `_selectedPaymentMethod`
+              // starts as '' and is reset to '' whenever the kind changes, so
+              // this pill spent most of its life rendering "الدفع:" — a label,
+              // a colon, and nothing after it, sitting beside a sibling pill
+              // that reads "المبلغ: 20,000 د.ع" and looking broken by
+              // comparison. The method is picked later at checkout; a summary
+              // of the donor's choices should not list a choice they have not
+              // made yet.
+              if (paymentMethod.trim().isNotEmpty)
+                _DonationInfoPill(
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: 'Payment: @method'.trParams({
+                    'method': paymentMethod.tr,
+                  }),
+                ),
+              const _DonationInfoPill(
+                icon: Icons.favorite_border_rounded,
+                label: 'Easy giving',
+              ),
+              const _DonationInfoPill(
+                icon: Icons.check_circle_rounded,
+                label: 'Simple checkout',
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            option.supportNote.tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (showDonorDetails)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onContinue,
+                icon: Icon(Icons.favorite_rounded),
+                label: Text('Continue donation'.tr),
+                style: FilledButton.styleFrom(
+                  backgroundColor: option.color,
+                  foregroundColor: AppThemeConfig.onAccent(context),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonationInfoPill extends StatelessWidget {
+  const _DonationInfoPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppThemeConfig.surface(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppThemeConfig.border(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppThemeConfig.mutedText(context)),
+          const SizedBox(width: 8),
+          Text(
+            label.tr,
+            style: TextStyle(
+              color: AppThemeConfig.text(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DonationTypeBadge extends StatelessWidget {
   const _DonationTypeBadge({required this.label, required this.color});
 
@@ -442,6 +1070,75 @@ class _DonationTypeBadge extends StatelessWidget {
         label.tr,
         style: TextStyle(
           color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _SimpleDonationInfoCard extends StatelessWidget {
+  const _SimpleDonationInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Why people choose this'.tr,
+            style: TextStyle(
+              color: AppThemeConfig.text(context),
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'A clean donation flow helps supporters act quickly and stay focused on helping others.'
+                .tr,
+            style: TextStyle(
+              color: AppThemeConfig.mutedText(context),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _StaticDonationFieldChip(label: 'Fast to choose'),
+              _StaticDonationFieldChip(label: 'Clear options'),
+              _StaticDonationFieldChip(label: 'Trusted feeling'),
+              _StaticDonationFieldChip(label: 'Simple checkout'),
+              _StaticDonationFieldChip(label: 'Featured campaigns'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaticDonationFieldChip extends StatelessWidget {
+  const _StaticDonationFieldChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppThemeConfig.softSurface(context),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label.tr,
+        style: TextStyle(
+          color: AppThemeConfig.text(context),
           fontWeight: FontWeight.w800,
           fontSize: 12,
         ),

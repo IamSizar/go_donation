@@ -13,7 +13,6 @@ import (
 
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/dashboard"
-	"github.com/karam-flutter/humanitarian-backend/internal/donations"
 	"github.com/karam-flutter/humanitarian-backend/internal/history"
 	"github.com/karam-flutter/humanitarian-backend/internal/inkind"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriage"
@@ -273,19 +272,6 @@ func (h *InKindHandler) Post(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Missing category or item_name."})
 		return
-	}
-	// R2 #51 — phone + optional photo from the new in-kind page. Best-effort:
-	// the row is saved already. The photo must be a path /uploads issued.
-	photo := asStr(data["photo_path"])
-	if photo != "" && !donations.ValidAttachment(photo) {
-		photo = ""
-	}
-	phone := asStr(data["donor_phone"])
-	if phone == "" {
-		phone = strings.TrimSpace(tokenUser.Phone)
-	}
-	if derr := h.Store.SetDetails(c.Request.Context(), id, donor, phone, photo); derr != nil {
-		log.Printf("[in-kind] details for %d not saved: %v", id, derr)
 	}
 	// Phase 18 — centralised 4-language template.
 	_, _ = h.Notifier.Send(c.Request.Context(), donor,

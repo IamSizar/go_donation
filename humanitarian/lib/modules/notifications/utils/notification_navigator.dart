@@ -25,7 +25,6 @@ import 'package:flutter_application_1/modules/chatgroups/models/chat_group_model
 import 'package:flutter_application_1/modules/chatgroups/screens/chat_group_conversation_screen.dart';
 import 'package:flutter_application_1/modules/chatgroups/utils/chat_group_title.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
-import 'package:flutter_application_1/modules/donations/screens/campaigns_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_orders_screen.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_chat_conversation_screen.dart';
@@ -109,14 +108,9 @@ Future<void> openNotificationDestination(
       Get.to(() => const PartnersScreen());
 
     case NotificationDestinationKind.campaigns:
-      // A "new campaign" notification lands on the ways of giving to THAT
-      // campaign; a campaigns notification with no id lands on the list.
-      final campaignId = destination.id;
-      Get.to(
-        () => campaignId == null
-            ? const CampaignsScreen()
-            : DonationsSection(initialCampaignId: campaignId),
-      );
+      // DonationsSection pre-selects a campaign when it is given one, so a
+      // "new campaign" notification lands ON that campaign, not on the list.
+      Get.to(() => DonationsSection(initialCampaignId: destination.id));
 
     case NotificationDestinationKind.volunteerHub:
       Get.to(() => const SupportSection());
