@@ -469,48 +469,104 @@ Wheel result, and the coupon mid-turn:
 
 ## 47. Donation in 2 steps max. Step 1: «قدم مساهمة» → short clean screen with 4 options: الدفع الإلكتروني / تحويل رصيد / التسليم النقدي المباشر / المساهمات العينية.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+Two steps. Step 1 is «قدم مساهمة»: one short screen with four options, in the client's order, each only an icon and a name:
+الدفع الإلكتروني · تحويل رصيد · التسليم النقدي المباشر · المساهمات العينية.
+Step 2 is one fixed page per option (#48–51). The old flow (a long page with campaigns, amounts and explainers, then a "what kind?" screen with five options, then a long checkout) is gone.
+
+The featured campaigns list was not deleted: it moved to its own screen, reached from Home («حملات مميزة» → «عرض الكل»). A campaign's «مساهمة» button opens step 1 and files the gift under that campaign.
+
+| Before | After |
+|---|---|
+| ![](round2_screens/47-55/before-1-contribute-top.png) | ![](round2_screens/47-55/after-1-step1.png) |
+| ![](round2_screens/47-55/before-3-kind-screen.png) | |
 
 ## 48. Step 2 — e-payment: amount, card type (Visa, Master, FIB) → straight to gateway; IQD default, other currencies manual; notes.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Partly done — the payment gateway is waiting
 
+Done: the electronic-payment page has the card type (the organization's own Visa, MasterCard, FIB, wallets, app wallet, managed from the dashboard), the amount, the currency (د.ع by default, USD in one tap, any other code typed by hand), notes, and the one bottom button.
+
+Not done: sending the donor «straight to the gateway». There is no payment-gateway integration anywhere in the app or the server, so the contribution is recorded as pending with the card type the donor chose, and staff confirm it, exactly as before. A real gateway (FIB, Visa/Master through a provider) is a new integration that needs the provider's account and keys. This may also be outside the original scope — it needs your decision.
+
+![](round2_screens/47-55/after-2-electronic.png)
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+One fixed page with two toggles at the top: «تعبئة / تحويل مباشر» and «إرسال كرت». Switching changes the fields in place; the attachment slot, notes and the confirm button do not move.
+- **Top-up / direct transfer:** network (آسياسيل / زين / كورك), our number with a copy button, amount, attach the transfer screenshot.
+- **Send a card:** network, card serial number, amount, photograph the card with the camera.
+- Both: phone and address (pre-filled from the account, editable), notes, then «تأكيد المساهمة».
+
+The organization's number comes from the dashboard (Payment methods → the mobile-balance method's account number). It shows only when one is set.
+
+Checked end to end on the local copy: the donation was saved with network, kind, serial, currency and the uploaded screenshot, and the dashboard shows them.
+
+| Transfer | With the screenshot attached |
+|---|---|
+| ![](round2_screens/47-55/after-5-transfer.png) | ![](round2_screens/47-55/after-6-transfer-with-photo.png) |
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+Direct-cash page: amount and currency, address and phone (both pre-filled from the account, editable), and an optional «وقت الزيارة» note. One bottom button. Saved with the address, phone and visit note (checked locally).
+
+![](round2_screens/47-55/after-7-cash.png)
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+In-kind page: the type of items (the dashboard-managed list: food, clothing, stationery, furniture, appliances, other), phone and address (pre-filled, editable), an optional photo of the items, and the one bottom button. No amount and no payment method. The in-kind list in the dashboard now shows the phone and a link to the photo.
+
+![](round2_screens/47-55/after-8-inkind.png)
 
 ## 52. Every path ends with one clear bottom button «تأكيد المساهمة» that sends straight to the dashboard.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+All four pages end in the same pinned bottom button, «تأكيد المساهمة». It sends once (it is disabled while sending), shows one short message, and takes the donor straight to «تبرّعاتي», where the new contribution already appears as pending. The in-kind page ends the same way and returns to Home.
+
+![](round2_screens/47-55/after-3-sent.png) ![](round2_screens/47-55/after-4-in-my-list.png)
 
 ## 53. General: unclear labels (تبرع الان / عرض الكل); repeated confirmation screens; long explanation text under every option → remove, short labels (1–2 words per button).
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+- The old screen was titled «تبرّع» and carried a second «تبرّع الآن» card; there is now one heading, «قدم مساهمة», the same words as the Home button.
+- «عرض الكل» no longer appears on the donation screen; the campaigns list has its own title («حملات مميزة»), and My contributions stays on Home.
+- The campaign card button says one word, «مساهمة» (it was «مساهمة لهذه الحملة»).
+- No explanation text under any option, no repeated confirmation screens (the "what kind of donation" step and the checkout summary card are gone). The only fixed sentence left is the operating-costs note (#55).
 
 ## 54. After sending a contribution it says "sent & pending" but NO donation/support shows up → final submission mechanism broken, fix.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** two causes.
+1. The server saved an **empty amount** and still answered "success" for any gift of **1,000,000 or more** (a limit that suits dollars, not dinars). The app said "sent and pending", but the row had no amount and showed as 0 in the donor's list and the dashboard.
+2. The donor was dropped back on the donation screen after the message, with no sight of the gift.
+
+**Fixed:**
+- The server now accepts amounts up to 10,000,000,000 and **refuses** an invalid amount with a clear message instead of saving an empty row.
+- After sending, the donor lands on «تبرّعاتي», where the contribution is already listed.
+- Tests: large amounts are stored correctly, bad amounts are refused and save nothing.
+
+Rows created before the fix (for example #11 in the local copy) still show 0 — they are old data, not new submissions. On production, check for donations with an empty amount.
+
+![](round2_screens/47-55/after-4-in-my-list.png)
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+The donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة» are removed from the app. Every money page shows the one fixed line above the button:
+«تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
+
+Note: the donation types list in the dashboard (Donation types) and the «support the organization» section still exist on the server and in the dashboard; the app just no longer offers them. Tell me if you want them removed from the dashboard too.
 
 ## 56. Remove explanation screens/popups (مساعد الدعم / التواصل مع الدعم / إرسال تذكرة) → section becomes fast live chat.
 

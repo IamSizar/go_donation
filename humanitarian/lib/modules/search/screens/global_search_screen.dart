@@ -13,6 +13,7 @@ import 'package:flutter_application_1/modules/community/screens/community_servic
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
+import 'package:flutter_application_1/modules/donations/screens/campaigns_screen.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/proposal/screens/news_activities_screen.dart';
 import 'package:flutter_application_1/modules/proposal/screens/partners_screen.dart';
@@ -49,7 +50,7 @@ Future<void> _openSearchResult(Map<String, dynamic> result) async {
           }
         });
       } else {
-        Get.to(() => const DonationsSection());
+        Get.to(() => const CampaignsScreen());
       }
       break;
   }
@@ -99,7 +100,7 @@ Future<Map<String, dynamic>> _fetchPlaceEntry(
 void _openSection(String type) {
   switch (type) {
     case 'campaign':
-      Get.to(() => const DonationsSection());
+      Get.to(() => const CampaignsScreen());
       break;
     case 'media':
       Get.to(() => const NewsActivitiesScreen());

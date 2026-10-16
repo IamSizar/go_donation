@@ -1300,6 +1300,7 @@ const ar: DeepPartial<typeof en> = {
     donor: 'المانح',
     amount: 'المبلغ',
     method: 'الطريقة',
+    details: 'التفاصيل', attachment: 'المرفق',
     payment: 'الدفع',
     delivery: 'التسليم',
     reference: 'المرجع',
@@ -1707,6 +1708,7 @@ const ar: DeepPartial<typeof en> = {
     },
   },
   status: {
+    asiacell: 'آسياسيل', zain: 'زين', korek: 'كورك', transfer: 'تحويل مباشر', card: 'كرت',
     // chat_threads.kind (migration 119) — a CHECK value, so it can
     // reach a screen as a raw token if it is ever rendered.
     direct: 'محادثة مباشرة',

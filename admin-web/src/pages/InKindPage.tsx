@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
 import DateCell from '../components/DateCell'
-import { api, describeError } from '../lib/api'
+import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminPageResp, AdminInKind } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -29,6 +29,9 @@ const INKIND_CSV_COLUMNS: CsvColumn<AdminInKind>[] = [
   { header: 'category', get: (k) => k.category },
   { header: 'item_name', get: (k) => k.item_name },
   { header: 'quantity', get: (k) => k.quantity },
+  { header: 'contact_phone', get: (k) => k.contact_phone },
+  { header: 'pickup_address', get: (k) => k.pickup_address },
+  { header: 'photo_path', get: (k) => k.photo_path },
   { header: 'status', get: (k) => k.status },
   { header: 'created_at', get: (k) => k.created_at },
 ]
@@ -170,7 +173,20 @@ export default function InKindPage() {
     { key: 'cat', header: t('col.category'), cell: (k) => k.category ? statusLabel(k.category) : <span className="muted">—</span> },
     { key: 'item', header: t('col.item'), cell: (k) => k.item_name },
     { key: 'qty', header: t('col.quantity'), cell: (k) => k.quantity ?? <span className="muted">—</span> },
-    { key: 'pickup', header: t('col.pickup'), cell: (k) => k.pickup_address ?? <span className="muted">—</span> },
+    {
+      key: 'pickup', header: t('col.pickup'),
+      // R2 #51 — the address plus the phone the donor typed for collection, and
+      // the photo of the items when they attached one.
+      cell: (k) => (
+        <div className="cell-stack">
+          <span>{k.pickup_address ?? <span className="muted">—</span>}</span>
+          {k.contact_phone && <span className="muted" dir="ltr">{k.contact_phone}</span>}
+          {k.photo_path && (
+            <a href={assetUrl(k.photo_path)} target="_blank" rel="noopener noreferrer">{t('col.attachment')}</a>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'status', header: t('col.status'),
       cell: (k) => (

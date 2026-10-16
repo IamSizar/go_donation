@@ -197,6 +197,10 @@ type adminInKind struct {
 	Status        string    `json:"status"`
 	Notes         *string   `json:"notes"`
 	CreatedAt     time.Time `json:"created_at"`
+	// R2 #51 — the phone typed on the in-kind page and the optional photo of
+	// the items (migration 139). ContactPhone is masked with DonorPhone.
+	ContactPhone *string `json:"contact_phone"`
+	PhotoPath    *string `json:"photo_path"`
 }
 
 func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
@@ -233,7 +237,8 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 	args = append(args, pp, off)
 	rows, err := h.Pool.Query(c.Request.Context(), `
 		SELECT k.id, k.donor_user_id, u.phone, up.full_name, k.category, k.item_name,
-		       k.quantity, k.condition_note, k.pickup_address, k.status, k.notes, k.created_at
+		       k.quantity, k.condition_note, k.pickup_address, k.status, k.notes, k.created_at,
+		       k.donor_phone, k.photo_path
 		  FROM in_kind_donations k
 		  LEFT JOIN users u ON u.id = k.donor_user_id
 		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so a
@@ -257,7 +262,7 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 		var k adminInKind
 		if err := rows.Scan(&k.ID, &k.DonorUserID, &k.DonorPhone, &k.DonorFullName,
 			&k.Category, &k.ItemName, &k.Quantity, &k.ConditionNote, &k.PickupAddress,
-			&k.Status, &k.Notes, &k.CreatedAt); err != nil {
+			&k.Status, &k.Notes, &k.CreatedAt, &k.ContactPhone, &k.PhotoPath); err != nil {
 			listLoadFailed(c, "in-kind contributions", err)
 			return
 		}
@@ -267,6 +272,7 @@ func (h *AdminListsHandler) InKindDonations(c *gin.Context) {
 	if !canViewContact(c, h.Perms) {
 		for i := range items {
 			items[i].DonorPhone = sensitive.MaskPtr(items[i].DonorPhone)
+			items[i].ContactPhone = sensitive.MaskPtr(items[i].ContactPhone)
 		}
 	}
 	c.JSON(http.StatusOK, envelopePage(items, pageMeta(p, pp, total)))

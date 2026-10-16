@@ -10,6 +10,7 @@ import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
+import 'package:flutter_application_1/modules/donations/screens/campaigns_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/marketplace/screens/marketplace_section.dart';
 import 'package:flutter_application_1/modules/proposal/controllers/media_posts_controller.dart';
@@ -1106,7 +1107,7 @@ class _FeaturedCampaignsSection extends StatelessWidget {
             // same resting layout and a truncating one when the heading is long.
             const Expanded(child: _SectionLabel(title: 'Featured campaigns')),
             InkWell(
-              onTap: () => Get.to(() => const DonationsSection()),
+              onTap: () => Get.to(() => const CampaignsScreen()),
               child: Text(
                 'See all'.tr,
                 style: TextStyle(

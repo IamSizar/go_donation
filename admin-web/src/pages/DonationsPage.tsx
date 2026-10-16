@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import ExportCsvButton from '../components/ExportCsvButton'
 import DateCell from '../components/DateCell'
-import { api, describeError } from '../lib/api'
+import { api, describeError, assetUrl } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import {
   paymentStatusLabel,
@@ -38,6 +38,14 @@ const DONATION_CSV_COLUMNS: CsvColumn<DonationAdminRow>[] = [
   { header: 'delivery_status', get: (d) => d.delivery_status },
   { header: 'payment_method', get: (d) => d.payment_method },
   { header: 'donation_type', get: (d) => d.donation_type },
+  { header: 'channel', get: (d) => d.channel },
+  { header: 'transfer_kind', get: (d) => d.transfer_kind },
+  { header: 'network', get: (d) => d.network },
+  { header: 'serial_number', get: (d) => d.serial_number },
+  { header: 'contact_phone', get: (d) => d.contact_phone },
+  { header: 'donor_address', get: (d) => d.donor_address },
+  { header: 'visit_note', get: (d) => d.visit_note },
+  { header: 'attachment_path', get: (d) => d.attachment_path },
   { header: 'transaction_date', get: (d) => d.transaction_date },
 ]
 
@@ -304,6 +312,36 @@ export default function DonationsPage() {
     // zakat/sadaqah/general) and were being printed as raw tokens.
     { key: 'method', header: t('col.method'), cell: (d) => d.payment_method ? statusLabel(d.payment_method) : <span className="muted">—</span> },
     { key: 'type', header: t('col.type'), cell: (d) => <span className="muted">{d.donation_type ? statusLabel(d.donation_type) : '—'}</span> },
+    {
+      // R2 #47–55 — what the donor filled in on their contribution page: the
+      // network and serial for a balance transfer, the address and visit note
+      // for cash, and the attached receipt / card photo. Without this column
+      // staff would have nothing to check a transfer against.
+      key: 'details',
+      header: t('col.details'),
+      cell: (d) => {
+        const bits = [
+          d.network ? statusLabel(d.network) : null,
+          d.transfer_kind ? statusLabel(d.transfer_kind) : null,
+          d.serial_number,
+          d.donor_address,
+          d.visit_note,
+        ].filter((x): x is string => !!x)
+        if (bits.length === 0 && !d.attachment_path) return <span className="muted">—</span>
+        return (
+          <div className="cell-stack">
+            {bits.map((b, i) => (
+              <span key={i} className="muted" style={{ maxWidth: '200px', overflowWrap: 'anywhere' }}>{b}</span>
+            ))}
+            {d.attachment_path && (
+              <a href={assetUrl(d.attachment_path)} target="_blank" rel="noopener noreferrer">
+                {t('col.attachment')}
+              </a>
+            )}
+          </div>
+        )
+      },
+    },
     {
       key: 'date',
       header: t('col.date'),

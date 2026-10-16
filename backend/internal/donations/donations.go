@@ -21,6 +21,11 @@ import (
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
+// maxAmount is the largest single gift accepted, in the donation's own
+// currency units. It was 1,000,000 — a limit that made sense for USD and
+// silently broke IQD, where a mid-sized gift is hundreds of thousands.
+const maxAmount = 10_000_000_000
+
 // fallbackDonationType maps a donor-supplied donation type to one of the three
 // types that shipped hardcoded (#16), defaulting to general.
 //
@@ -77,6 +82,12 @@ var (
 	ErrCampaignNotFound     = errors.New("campaign not found")
 	ErrCampaignFinished     = errors.New("campaign has finished and is no longer accepting donations")
 	ErrCampaignNotDonatable = errors.New("campaign is not accepting donations right now")
+	// ErrInvalidAmount — the amount is missing, not a positive number, or above
+	// maxAmount. R2 #54: Insert used to swallow this and save the row with an
+	// EMPTY amount while the app was told "success", so a donor saw "sent and
+	// pending" and then nothing real in their history or in the dashboard. Any
+	// gift of 1,000,000 or more triggered it — an ordinary IQD amount.
+	ErrInvalidAmount = errors.New("a valid amount is required")
 )
 
 // Donation is the row returned to clients (mirrors getDonationsByUserId shape).
@@ -96,6 +107,11 @@ type Donation struct {
 	PaymentMethod   string    `json:"payment_method"`
 	ImpactNote      *string   `json:"impact_note"`
 	TransactionDate time.Time `json:"transaction_date"`
+	Channel         *string   `json:"channel"`
+	TransferKind    *string   `json:"transfer_kind"`
+	Network         *string   `json:"network"`
+	SerialNumber    *string   `json:"serial_number"`
+	AttachmentPath  *string   `json:"attachment_path"`
 }
 
 // Stats mirrors the PHP "stats" object on /my_donations.
@@ -141,6 +157,100 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{Pool: pool}
 }
 
+// ChannelDetails are the extra facts the R2 donation pages collect (migration
+// 139). Every field is optional; empty strings are stored as NULL.
+type ChannelDetails struct {
+	// Channel is electronic | balance_transfer | cash.
+	Channel string
+	// TransferKind is transfer | card (balance-transfer page only).
+	TransferKind string
+	Network      string
+	SerialNumber string
+	// AttachmentPath is what POST /uploads returned for the screenshot / card
+	// photo. Only paths this server issued are accepted — see ValidAttachment.
+	AttachmentPath string
+	DonorPhone     string
+	DonorAddress   string
+	VisitNote      string
+	Currency       string
+}
+
+var (
+	validChannels = map[string]bool{"electronic": true, "balance_transfer": true, "cash": true}
+	validKinds    = map[string]bool{"transfer": true, "card": true}
+	validNetworks = map[string]bool{"asiacell": true, "zain": true, "korek": true}
+)
+
+// ValidAttachment reports whether p looks like a path POST /uploads issued: the
+// relative local form ("images/uploads/<name>") or an https URL ending in
+// /uploads/<name>. Anything else — a data: URI, a file:// path, a link to
+// someone else's server — is rejected so the dashboard never renders it.
+func ValidAttachment(p string) bool {
+	p = strings.TrimSpace(p)
+	if p == "" || len(p) > 500 || strings.ContainsAny(p, " \t\r\n<>\"'") {
+		return false
+	}
+	if strings.HasPrefix(p, "images/uploads/") && !strings.Contains(p, "..") {
+		return true
+	}
+	return strings.HasPrefix(p, "https://") && strings.Contains(p, "/uploads/") && !strings.Contains(p, "..")
+}
+
+func clip(v string, n int) string {
+	v = strings.TrimSpace(v)
+	if utf8.RuneCountInString(v) > n {
+		return string([]rune(v)[:n])
+	}
+	return v
+}
+
+func nullIfEmpty(v string) any {
+	if v == "" {
+		return nil
+	}
+	return v
+}
+
+// SetChannelDetails stores the extra page details on a donation the caller has
+// just inserted. Scoped to the donor (user_id) so it can never touch another
+// person's row. Unknown channel / kind / network values are dropped rather than
+// stored, so the dashboard only ever sees the closed vocabularies above.
+func (s *Store) SetChannelDetails(ctx context.Context, donationID, userID int64, d ChannelDetails) error {
+	channel := strings.ToLower(strings.TrimSpace(d.Channel))
+	if !validChannels[channel] {
+		channel = ""
+	}
+	kind := strings.ToLower(strings.TrimSpace(d.TransferKind))
+	if channel != "balance_transfer" || !validKinds[kind] {
+		kind = ""
+	}
+	network := strings.ToLower(strings.TrimSpace(d.Network))
+	if !validNetworks[network] {
+		network = ""
+	}
+	attachment := strings.TrimSpace(d.AttachmentPath)
+	if !ValidAttachment(attachment) {
+		attachment = ""
+	}
+	currency := strings.ToUpper(clip(d.Currency, 8))
+	if currency == "" {
+		currency = "IQD"
+	}
+	_, err := s.Pool.Exec(ctx, `
+		UPDATE donations
+		   SET channel = $3, transfer_kind = $4, network = $5, serial_number = $6,
+		       attachment_path = $7, donor_phone = $8, donor_address = $9,
+		       visit_note = $10, currency = $11
+		 WHERE id = $1 AND user_id = $2`,
+		donationID, userID,
+		nullIfEmpty(channel), nullIfEmpty(kind), nullIfEmpty(network),
+		nullIfEmpty(clip(d.SerialNumber, 64)), nullIfEmpty(attachment),
+		nullIfEmpty(clip(d.DonorPhone, 32)), nullIfEmpty(clip(d.DonorAddress, 500)),
+		nullIfEmpty(clip(d.VisitNote, 500)), currency,
+	)
+	return err
+}
+
 // Insert ports insertDonationUserId(). Validates inputs the same way and
 // returns the inserted-donation metadata.
 func (s *Store) Insert(
@@ -178,9 +288,12 @@ func (s *Store) Insert(
 	if amount != nil {
 		amt := strings.TrimSpace(*amount)
 		var n float64
-		if _, err := fmt.Sscanf(amt, "%f", &n); err == nil && n > 0 && n < 1_000_000 {
+		if _, err := fmt.Sscanf(amt, "%f", &n); err == nil && n > 0 && n <= maxAmount {
 			amountStr = amt
 		}
+	}
+	if amountStr == "" {
+		return nil, ErrInvalidAmount
 	}
 
 	method := ""
@@ -556,9 +669,10 @@ func (s *Store) ListByUser(ctx context.Context, userID int64) ([]Donation, Stats
 	rows, err := s.Pool.Query(ctx, `
 		SELECT d.id, d.reference_number, d.user_id, d.campaign_id, d.donation_kind,
 		       c.title, c.title_ar,
-		       'IQD'::text AS currency,
+		       d.currency,
 		       d.message, d.amount, d.payment_status, d.delivery_status,
-		       d.payment_method, d.impact_note, d.transaction_date
+		       d.payment_method, d.impact_note, d.transaction_date,
+		       d.channel, d.transfer_kind, d.network, d.serial_number, d.attachment_path
 		  FROM donations d
 		  LEFT JOIN campaigns c ON d.campaign_id = c.id
 		 WHERE d.user_id = $1
@@ -578,6 +692,7 @@ func (s *Store) ListByUser(ctx context.Context, userID int64) ([]Donation, Stats
 			&d.CampaignName, &d.CampaignNameAr, &d.Currency,
 			&d.Message, &d.Amount, &d.PaymentStatus, &d.DeliveryStatus,
 			&d.PaymentMethod, &d.ImpactNote, &d.TransactionDate,
+			&d.Channel, &d.TransferKind, &d.Network, &d.SerialNumber, &d.AttachmentPath,
 		)
 		if err != nil {
 			return nil, emptyStats, err
@@ -646,6 +761,17 @@ type AdminListRow struct {
 	DeliveryStatus  string    `json:"delivery_status"`
 	PaymentMethod   string    `json:"payment_method"`
 	TransactionDate time.Time `json:"transaction_date"`
+	Channel         *string   `json:"channel"`
+	TransferKind    *string   `json:"transfer_kind"`
+	Network         *string   `json:"network"`
+	SerialNumber    *string   `json:"serial_number"`
+	AttachmentPath  *string   `json:"attachment_path"`
+	DonorAddress    *string   `json:"donor_address"`
+	VisitNote       *string   `json:"visit_note"`
+	// ContactPhone is the number the donor typed on the donation page (it may
+	// differ from the account phone). Masked like DonorPhone — see AdminList in
+	// the handler.
+	ContactPhone *string `json:"contact_phone"`
 }
 
 // AdminPage is the page response for AdminList.
@@ -711,8 +837,10 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 		SELECT d.id, d.reference_number, d.user_id, COALESCE(u.phone, ''), up.full_name,
 		       d.campaign_id, c.title,
 		       d.donation_kind, d.donation_type, d.amount,
-		       'IQD'::text AS currency,
-		       d.payment_status, d.delivery_status, d.payment_method, d.transaction_date
+		       d.currency,
+		       d.payment_status, d.delivery_status, d.payment_method, d.transaction_date,
+		       d.channel, d.transfer_kind, d.network, d.serial_number, d.attachment_path,
+		       d.donor_address, d.visit_note, d.donor_phone
 		  FROM donations d
 		  LEFT JOIN users u ON u.id = d.user_id
 		  -- OPOS #26603: one profile row per donor, oldest wins (see the count above).
@@ -736,7 +864,9 @@ func (s *Store) AdminList(ctx context.Context, page, perPage int, q string) (*Ad
 		if err := rows.Scan(&r.ID, &r.ReferenceNumber, &r.UserID, &r.DonorPhone, &r.DonorFullName,
 			&r.CampaignID, &r.CampaignTitle,
 			&r.DonationKind, &r.DonationType, &r.Amount, &r.Currency,
-			&r.PaymentStatus, &r.DeliveryStatus, &r.PaymentMethod, &r.TransactionDate); err != nil {
+			&r.PaymentStatus, &r.DeliveryStatus, &r.PaymentMethod, &r.TransactionDate,
+			&r.Channel, &r.TransferKind, &r.Network, &r.SerialNumber, &r.AttachmentPath,
+			&r.DonorAddress, &r.VisitNote, &r.ContactPhone); err != nil {
 			return nil, err
 		}
 		if r.DonationKind == "general" && (r.CampaignTitle == nil || *r.CampaignTitle == "") {

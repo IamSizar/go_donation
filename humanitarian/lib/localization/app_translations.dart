@@ -17,6 +17,51 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Other currency': 'Other currency',
+    'Currency code': 'Currency code',
+    // R2 #47–55 — the four contribution pages.
+    'Electronic payment': 'Electronic payment',
+    'Balance transfer': 'Balance transfer',
+    'Direct cash handover': 'Direct cash handover',
+    'In-kind contributions': 'In-kind contributions',
+    'Confirm contribution': 'Confirm contribution',
+    'Note: a small percentage of contributions is deducted to cover operating costs and keep the project running.':
+        'Note: a small percentage of contributions is deducted to cover operating costs and keep the project running.',
+    'Card type': 'Card type',
+    'App wallet': 'App wallet',
+    'Choose a card type': 'Choose a card type',
+    'Top-up / direct transfer': 'Top-up / direct transfer',
+    'Send a card': 'Send a card',
+    'Network': 'Network',
+    'Asiacell': 'Asiacell',
+    'Zain': 'Zain',
+    'Korek': 'Korek',
+    'Our number': 'Our number',
+    'Card serial number': 'Card serial number',
+    'Enter the serial number': 'Enter the serial number',
+    'Photograph the card': 'Photograph the card',
+    'Attach the screenshot': 'Attach the screenshot',
+    'Attach the transfer screenshot': 'Attach the transfer screenshot',
+    'Choose a network': 'Choose a network',
+    'Enter the address': 'Enter the address',
+    'Visit time': 'Visit time',
+    'Best time for us to visit': 'Best time for us to visit',
+    'Type of items': 'Type of items',
+    'Choose the type of items': 'Choose the type of items',
+    'Food, clothing, furniture…': 'Food, clothing, furniture…',
+    'Photo of the items': 'Photo of the items',
+    'Contribution sent': 'Contribution sent',
+    'It is under review. You can follow it in My contributions.':
+        'It is under review. You can follow it in My contributions.',
+    'It is under review. We will contact you to arrange collection.':
+        'It is under review. We will contact you to arrange collection.',
+    'Contribution failed': 'Contribution failed',
+    'The photo could not be uploaded. Try again.':
+        'The photo could not be uploaded. Try again.',
+    'The contribution could not be sent. Try again.':
+        'The contribution could not be sent. Try again.',
+    'A valid amount is required.': 'A valid amount is required.',
+    'Could not load. Tap to retry.': 'Could not load. Tap to retry.',
     'My account': 'My account',
     'About & support': 'About & support',
     'Save changes': 'Save changes',
@@ -182,14 +227,18 @@ class AppTranslations extends Translations {
     'Back to sign in': 'Back to sign in',
     'Go to sign in': 'Go to sign in',
     'Mark all as read': 'Mark all as read',
-    'Please confirm your phone number to upgrade your account.': 'Please confirm your phone number to upgrade your account.',
+    'Please confirm your phone number to upgrade your account.':
+        'Please confirm your phone number to upgrade your account.',
     'Sign in to donate or volunteer.': 'Sign in to donate or volunteer.',
     'Account type': 'Account type',
-    'Fields marked with a red * are required': 'Fields marked with a red * are required',
+    'Fields marked with a red * are required':
+        'Fields marked with a red * are required',
     'Create a password for your account': 'Create a password for your account',
-    'Minimum @n characters, letters and numbers': 'Minimum @n characters, letters and numbers',
+    'Minimum @n characters, letters and numbers':
+        'Minimum @n characters, letters and numbers',
     'Use letters and numbers.': 'Use letters and numbers.',
-    'Enter the verification code sent to': 'Enter the verification code sent to',
+    'Enter the verification code sent to':
+        'Enter the verification code sent to',
     'This number already has a password. Sign in with it instead.':
         'This number already has a password. Sign in with it instead.',
     'That verification expired. Request a new code and try again.':
@@ -3347,6 +3396,51 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Other currency': 'عملة أخرى',
+    'Currency code': 'رمز العملة من ثلاثة أحرف',
+    // R2 #47–55 — the four contribution pages.
+    'Electronic payment': 'الدفع الإلكتروني',
+    'Balance transfer': 'تحويل رصيد',
+    'Direct cash handover': 'التسليم النقدي المباشر',
+    'In-kind contributions': 'المساهمات العينية',
+    'Confirm contribution': 'تأكيد المساهمة',
+    'Note: a small percentage of contributions is deducted to cover operating costs and keep the project running.':
+        'تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.',
+    'Card type': 'نوع البطاقة',
+    'App wallet': 'محفظة التطبيق',
+    'Choose a card type': 'اختر نوع البطاقة',
+    'Top-up / direct transfer': 'تعبئة / تحويل مباشر',
+    'Send a card': 'إرسال كرت',
+    'Network': 'الشبكة',
+    'Asiacell': 'آسياسيل',
+    'Zain': 'زين',
+    'Korek': 'كورك',
+    'Our number': 'رقمنا',
+    'Card serial number': 'الرقم التسلسلي للكرت',
+    'Enter the serial number': 'أدخل الرقم التسلسلي',
+    'Photograph the card': 'صوّر الكرت',
+    'Attach the screenshot': 'أرفق صورة التحويل',
+    'Attach the transfer screenshot': 'أرفق صورة التحويل',
+    'Choose a network': 'اختر الشبكة',
+    'Enter the address': 'أدخل العنوان',
+    'Visit time': 'وقت الزيارة',
+    'Best time for us to visit': 'أفضل وقت لزيارتكم',
+    'Type of items': 'نوع المواد',
+    'Choose the type of items': 'اختر نوع المواد',
+    'Food, clothing, furniture…': 'غذاء، ملابس، أثاث…',
+    'Photo of the items': 'صورة المواد',
+    'Contribution sent': 'تم إرسال المساهمة',
+    'It is under review. You can follow it in My contributions.':
+        'هي قيد المراجعة. يمكنك متابعتها من «تبرّعاتي».',
+    'It is under review. We will contact you to arrange collection.':
+        'هي قيد المراجعة. سنتواصل معك لترتيب الاستلام.',
+    'Contribution failed': 'تعذر إرسال المساهمة',
+    'The photo could not be uploaded. Try again.':
+        'تعذر رفع الصورة. حاول مرة أخرى.',
+    'The contribution could not be sent. Try again.':
+        'تعذر إرسال المساهمة. حاول مرة أخرى.',
+    'A valid amount is required.': 'أدخل مبلغاً صحيحاً.',
+    'Could not load. Tap to retry.': 'تعذر التحميل. اضغط للمحاولة.',
     'My account': 'حسابي',
     'About & support': 'عن التطبيق والدعم',
     'Save changes': 'حفظ التغييرات',
@@ -3502,12 +3596,15 @@ class AppTranslations extends Translations {
     'Back to sign in': 'العودة إلى تسجيل الدخول',
     'Go to sign in': 'متابعة تسجيل الدخول',
     'Mark all as read': 'تحديد الكل كمقروء',
-    'Please confirm your phone number to upgrade your account.': 'يرجى تأكيد رقم هاتفك لترقية الحساب',
+    'Please confirm your phone number to upgrade your account.':
+        'يرجى تأكيد رقم هاتفك لترقية الحساب',
     'Sign in to donate or volunteer.': 'سجّل الدخول للتبرع أو التطوع.',
     'Account type': 'نوع الحساب',
-    'Fields marked with a red * are required': 'الحقول المصحوبة بعلامة حمراء إجبارية',
+    'Fields marked with a red * are required':
+        'الحقول المصحوبة بعلامة حمراء إجبارية',
     'Create a password for your account': 'أنشئ كلمة مرور لحسابك',
-    'Minimum @n characters, letters and numbers': 'الحد الأدنى @n خانات تشمل أحرفاً وأرقاماً',
+    'Minimum @n characters, letters and numbers':
+        'الحد الأدنى @n خانات تشمل أحرفاً وأرقاماً',
     'Use letters and numbers.': 'استخدم أحرفاً وأرقاماً معاً.',
     'This number already has a password. Sign in with it instead.':
         'الرقم مسجل بالفعل، يرجى العودة لتسجيل الدخول',
@@ -8091,8 +8188,7 @@ class AppTranslations extends Translations {
     'No conversations yet': 'تاوەکو ئێستا هیچ گفتوگۆیەک نیە',
     'No donations yet for this campaign.':
         'تاوەکو ئێستا هیچ بەشداریێک بۆ ئەم کەمپەینە نیە.',
-    'No messages yet. Say hello! 👋':
-        'تاوەکو ئێستا هیچ پەیامێک نیە. سڵاو بکە!',
+    'No messages yet. Say hello! 👋': 'تاوەکو ئێستا هیچ پەیامێک نیە. سڵاو بکە!',
     'OTP ready': 'OTP ئامادەیە',
     'Once your project request is approved and published, donations will appear here.':
         'کاتێک داواکاری پڕۆژەکەت پەسەند و بڵاوکرایەوە، بەشدارییەکان لێرە دەردەکەون.',

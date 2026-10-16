@@ -1370,6 +1370,7 @@ const en = {
     donor: 'Grantor',
     amount: 'Amount',
     method: 'Method',
+    details: 'Details', attachment: 'Attachment',
     payment: 'Payment',
     delivery: 'Delivery',
     reference: 'Reference',
@@ -1824,6 +1825,7 @@ const en = {
     },
   },
   status: {
+    asiacell: 'Asiacell', zain: 'Zain', korek: 'Korek', transfer: 'Direct transfer', card: 'Card',
     // chat_threads.kind (migration 119) — a CHECK value, so it can
     // reach a screen as a raw token if it is ever rendered.
     direct: 'Direct chat',

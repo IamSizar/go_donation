@@ -196,6 +196,15 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 		// a meaningful "this campaign just ended" message instead of a
 		// generic "Failed to insert donation."
 		switch {
+		case errors.Is(err, donations.ErrInvalidAmount):
+			// R2 #54 — this used to save an empty-amount row and answer
+			// success. The donor now hears that the amount is wrong.
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "A valid amount is required.",
+				"code":    "invalid_amount",
+			})
+			return
 		case errors.Is(err, donations.ErrCampaignFinished):
 			c.JSON(http.StatusGone, gin.H{ // 410 — resource intentionally gone
 				"success": false,
@@ -217,6 +226,35 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 			"error":   "Failed to insert donation.",
 		})
 		return
+	}
+
+	// R2 #47–55 — the extra facts the new donation pages collect (network,
+	// serial, screenshot, phone, address, visit note, currency). Best-effort:
+	// the donation itself is already saved, so a failure here is logged and
+	// never turns a recorded gift into an error the donor would retry.
+	if ins != nil {
+		phone, _ := get("donor_phone")
+		if phone == "" && tokenUser != nil {
+			phone = strings.TrimSpace(tokenUser.Phone)
+		}
+		channel, _ := get("channel")
+		kind, _ := get("transfer_kind")
+		network, _ := get("network")
+		serial, _ := get("serial_number")
+		attachment, _ := get("attachment_path")
+		address, _ := get("donor_address")
+		visit, _ := get("visit_note")
+		currency, _ := get("currency")
+		if channel != "" || kind != "" || network != "" || serial != "" || attachment != "" ||
+			address != "" || visit != "" || currency != "" || phone != "" {
+			if derr := h.Store.SetChannelDetails(ctx, ins.ID, uid, donations.ChannelDetails{
+				Channel: channel, TransferKind: kind, Network: network, SerialNumber: serial,
+				AttachmentPath: attachment, DonorPhone: phone, DonorAddress: address,
+				VisitNote: visit, Currency: currency,
+			}); derr != nil {
+				log.Printf("[donate] channel details for donation %d not saved: %v", ins.ID, derr)
+			}
+		}
 	}
 
 	// Phase 18 — fire a "new donation received" notification to the project
@@ -479,6 +517,10 @@ func (h *DonationsHandler) AdminList(c *gin.Context) {
 	if !canViewContact(c, h.Perms) {
 		for i := range res.Items {
 			res.Items[i].DonorPhone = sensitive.Mask(res.Items[i].DonorPhone)
+			if res.Items[i].ContactPhone != nil {
+				masked := sensitive.Mask(*res.Items[i].ContactPhone)
+				res.Items[i].ContactPhone = &masked
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{

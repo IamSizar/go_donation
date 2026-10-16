@@ -22,6 +22,11 @@ class ContinueDonationController extends GetxController {
     /// (#7). Null for a general or campaign donation.
     String? projectSlug,
     String? donationKind,
+
+    /// R2 #47–55 — the extra facts the contribution pages collect (channel,
+    /// network, serial, attachment path, phone, address, visit note,
+    /// currency). Sent as-is; the server keeps only the values it knows.
+    Map<String, String>? extraFields,
   }) async {
     if (isSubmitting.value) {
       return 'Please wait'.tr;
@@ -67,6 +72,11 @@ class ContinueDonationController extends GetxController {
       if (kind != null && kind.isNotEmpty) {
         body['donation_kind'] = kind;
       }
+
+      extraFields?.forEach((k, v) {
+        final value = v.trim();
+        if (value.isNotEmpty) body[k] = value;
+      });
 
       final response = await http.post(
         uri,

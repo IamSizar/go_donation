@@ -34,7 +34,6 @@ import 'package:flutter_application_1/localization/app_translations.dart';
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
-import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
 
 import 'fake_chat_groups_api.dart';
 
