@@ -469,48 +469,61 @@ Wheel result, and the coupon mid-turn:
 
 ## 47. Donation in 2 steps max. Step 1: «قدم مساهمة» → short clean screen with 4 options: الدفع الإلكتروني / تحويل رصيد / التسليم النقدي المباشر / المساهمات العينية.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 48. Step 2 — e-payment: amount, card type (Visa, Master, FIB) → straight to gateway; IQD default, other currencies manual; notes.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — needs a payment gateway (and a decision)
 
+The app has no payment gateway, so "straight to the gateway" cannot be built. A gateway means a provider account and keys, a redirect, and a confirmation callback. The old flow records a pending contribution and staff confirm it. Left unchanged.
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 52. Every path ends with one clear bottom button «تأكيد المساهمة» that sends straight to the dashboard.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 53. General: unclear labels (تبرع الان / عرض الكل); repeated confirmation screens; long explanation text under every option → remove, short labels (1–2 words per button).
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 54. After sending a contribution it says "sent & pending" but NO donation/support shows up → final submission mechanism broken, fix.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — found, not changed (payment change, owner said no)
 
+**Found:** the server saves an **empty amount** and still answers "success" for any gift of **1,000,000 or more** (a limit that suits dollars, not dinars). The app says "sent and pending", but the row has no amount and shows as 0 in the donor's list and in the dashboard. This reproduces on the local copy.
+
+**Not fixed**, because it changes payment behaviour. The fix is small: accept larger amounts and refuse an invalid amount with a clear message instead of saving an empty row. Say the word and it is a few lines plus tests.
+
+Check production for donations with an empty amount.
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ Waiting — donation flow left as it was
 
+Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
 
 ## 56. Remove explanation screens/popups (مساعد الدعم / التواصل مع الدعم / إرسال تذكرة) → section becomes fast live chat.
 
