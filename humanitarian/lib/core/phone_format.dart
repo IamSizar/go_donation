@@ -57,3 +57,57 @@ class PhoneSpaceInputFormatter extends TextInputFormatter {
     );
   }
 }
+
+/// R2 #26 — the longest national number (digits after the dial code) per
+/// country. Unknown countries get what E.164 leaves after the dial code.
+const Map<String, int> _nationalDigits = {
+  '964': 10, // Iraq — 7XX XXX XXXX
+  '1': 10,
+  '20': 10,
+  '33': 9,
+  '44': 10,
+  '46': 9,
+  '49': 11,
+  '90': 10,
+  '961': 8,
+  '962': 9,
+  '963': 9,
+  '965': 8,
+  '966': 9,
+  '968': 8,
+  '971': 9,
+  '973': 8,
+  '974': 8,
+  '98': 10,
+};
+
+int maxNationalDigits(String dialCode) {
+  final code = dialCode.replaceAll(RegExp(r'\D'), '');
+  return _nationalDigits[code] ?? (15 - code.length);
+}
+
+/// R2 #26 — keeps the phone field to the selected country's rules as the
+/// user types: digits only, a leading trunk 0 is dropped (in Iraq "0770…"
+/// becomes "770…" so no one types 11 digits), and nothing past the
+/// country's length is accepted. [dialCode] is read on every keystroke, so
+/// switching the country picker applies the new rule at once.
+class NationalNumberInputFormatter extends TextInputFormatter {
+  NationalNumberInputFormatter(this.dialCode);
+
+  final String Function() dialCode;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    digits = digits.replaceFirst(RegExp(r'^0+'), '');
+    final max = maxNationalDigits(dialCode());
+    if (digits.length > max) digits = digits.substring(0, max);
+    return TextEditingValue(
+      text: digits,
+      selection: TextSelection.collapsed(offset: digits.length),
+    );
+  }
+}

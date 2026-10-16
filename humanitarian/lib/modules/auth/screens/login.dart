@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter/services.dart'; // LengthLimitingTextInputFormatter
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/phone_format.dart';
 import 'package:get/get.dart';
@@ -125,11 +124,9 @@ class _LoginFormState extends State<_LoginForm>
     }
     final digits = value.replaceAll(RegExp(r'\D'), '');
     if (_dialCode == '964') {
-      // Iraq keeps its precise NSN-length check (10 digits, or 11 with a
-      // leading trunk 0).
+      // Iraq: exactly 10 digits — the field already drops a leading 0.
       if (digits.length == 10) return null;
-      if (digits.length == 11 && digits.startsWith('0')) return null;
-      return 'Enter 10 digits (or 11 starting with 0)'.tr;
+      return 'Enter 10 digits'.tr;
     }
     // Other countries: a generic sanity range; the backend applies the
     // authoritative E.164 check.
@@ -486,8 +483,8 @@ class _LoginFormState extends State<_LoginForm>
                       ),
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
+                        NationalNumberInputFormatter(() => _dialCode),
                         PhoneSpaceInputFormatter(),
-                        LengthLimitingTextInputFormatter(20),
                       ],
                       // Sign-in has a password field after this one, so the
                       // return key moves on rather than submitting a half-

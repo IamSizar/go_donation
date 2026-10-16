@@ -2983,6 +2983,7 @@ class AppTranslations extends Translations {
     'Done': 'Done',
     'Enter 10 digits (or 11 starting with 0)':
         'Enter 10 digits (or 11 starting with 0)',
+    'Enter 10 digits': 'Enter 10 digits',
     'Every day': 'Every day',
     'Explore': 'Explore',
     'Field 1': 'Field 1',
@@ -5972,6 +5973,7 @@ class AppTranslations extends Translations {
     'Done': 'تم',
     'Enter 10 digits (or 11 starting with 0)':
         'أدخل 10 أرقام (أو 11 تبدأ بـ 0)',
+    'Enter 10 digits': 'أدخل 10 أرقام',
     'Every day': 'كل يوم',
     'Explore': 'استكشاف',
     'Field 1': 'الحقل 1',

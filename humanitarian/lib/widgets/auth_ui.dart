@@ -28,7 +28,11 @@ class AuthScaffold extends StatelessWidget {
     return GradientScreen(
       child: SafeArea(
         child: Center(
+          // R2 #25 — the sign-in screens must stay still. Clamping physics:
+          // when the form fits (normal case) nothing moves or bounces; it
+          // only scrolls if the keyboard really covers a field.
           child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),

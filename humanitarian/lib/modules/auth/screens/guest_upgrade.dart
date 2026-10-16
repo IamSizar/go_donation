@@ -259,8 +259,9 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
                   ),
               keyboardType: TextInputType.number,
               inputFormatters: [
+                // R2 #26 — same per-country rule as sign-in.
+                NationalNumberInputFormatter(() => _dialCode),
                 PhoneSpaceInputFormatter(),
-                LengthLimitingTextInputFormatter(20),
               ],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
