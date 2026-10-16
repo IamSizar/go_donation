@@ -40,7 +40,7 @@ abstract final class ChatActions {
     ModuleApi api = const ModuleApi(),
   }) async {
     // R2 #16 — visitors may contact support (no sign-in wall).
-    section ??= await pickSupportSection(context);
+    section ??= impliedSupportSection() ?? await pickSupportSection(context);
     if (section == null || !context.mounted) return;
 
     final result = await api.openSupportThread(section: section);

@@ -132,7 +132,7 @@ class _ConnectRequestsDoor extends StatelessWidget {
     return SectionTile(
       icon: Icons.mark_chat_read_outlined,
       title: 'chat_groups_my_connect_requests',
-      subtitle: 'chat_groups_my_connect_requests_desc',
+      subtitle: '', // R2 #56 — title only
       color: AppThemeConfig.accent(context),
       onTap: () => Get.to(() => MyConnectRequestsScreen(api: api)),
     );

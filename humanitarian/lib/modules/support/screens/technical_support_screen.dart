@@ -41,7 +41,8 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
 
   /// Support split — which department the new ticket is for. Required, so
   /// it reaches the right staff instead of the unsectioned queue.
-  late String? _section = widget.initialSection;
+  // R2 #56 — preselect the section the role implies (volunteers).
+  late String? _section = widget.initialSection ?? impliedSupportSection();
 
   List<Map<String, dynamic>> _tickets = const [];
   bool _loading = true;

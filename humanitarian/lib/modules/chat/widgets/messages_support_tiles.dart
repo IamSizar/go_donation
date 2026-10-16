@@ -61,14 +61,7 @@ class BotAssistantCard extends StatelessWidget {
                         color: AppThemeConfig.accent(context),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Ask me anything — I\'ll guide you through the app'.tr,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppThemeConfig.mutedText(context),
-                      ),
-                    ),
+                    // R2 #56 — title only, no explanation line.
                   ],
                 ),
               ),

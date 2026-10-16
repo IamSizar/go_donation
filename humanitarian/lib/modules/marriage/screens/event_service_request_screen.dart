@@ -74,10 +74,14 @@ class _EventServiceRequestScreenState extends State<EventServiceRequestScreen> {
     try {
       await const ModuleApi().postJson(supportTicketsUrl, {
         'user_id': sharedPreferences.getString('id_user') ?? '',
-        'subject': 'Event service request: $service',
+        // R2 #57 — the ticket is read by the team in Arabic, so the text the
+        // app composes is Arabic (it used to arrive as "Event service
+        // request: …" / "Name:" / "Phone:"). Routed to the events desk.
+        'section': 'events',
+        'subject': 'طلب خدمة فعالية: $service',
         'message':
-            'Name: ${_nameController.text.trim()}\n'
-            'Phone: ${_phoneController.text.trim()}\n\n'
+            'الاسم: ${_nameController.text.trim()}\n'
+            'الهاتف: ${_phoneController.text.trim()}\n\n'
             '${_detailsController.text.trim()}',
       });
       if (!mounted) return;

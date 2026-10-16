@@ -16,7 +16,6 @@ import 'package:flutter_application_1/modules/chat/screens/chat_conversation_scr
 import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/modules/chatgroups/controllers/chat_groups_controller.dart';
 import 'package:flutter_application_1/modules/chatgroups/widgets/chat_groups_section.dart';
-import 'package:flutter_application_1/modules/dashboard/screens/guest_sections.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
@@ -61,7 +60,7 @@ Future<void> openSupportChat(
   // fix, so it needs asserting.
   ModuleApi api = const ModuleApi(),
 }) async {
-  section ??= await pickSupportSection(context);
+  section ??= impliedSupportSection() ?? await pickSupportSection(context);
   if (section == null) return;
   _lastSupportSection = section;
 
@@ -118,18 +117,12 @@ class MessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // OPOS #26423 — no ChatController for a guest. The server gives a guest
-    // session an empty /api/chats and refuses thread messages (OPOS #26354),
-    // so a controller here would fetch on open and poll every 5 seconds for a
-    // list that can never fill, and the tab would draw its empty or error
-    // state for something a guest simply does not have. The guest gets
-    // GuestMessagesPrompt in the list's place; the doors above it stay.
     final guest = isGuestMode();
     // R2 #16 — a visitor gets the thread list too: the server now lets a
     // visitor open and use support threads (and only those).
     // Typed put: a nullable declared type would make GetX register the
     // controller under `ChatController?`, invisible to Get.find elsewhere.
-    final ChatController? ctrl = Get.isRegistered<ChatController>()
+    final ChatController ctrl = Get.isRegistered<ChatController>()
         ? Get.find<ChatController>()
         : Get.put<ChatController>(ChatController());
     // Put here, never in the lazily built ChatGroupsSection: GetX deletes a
@@ -159,7 +152,7 @@ class MessagesScreen extends StatelessWidget {
         SectionTile(
           icon: Icons.support_agent_rounded,
           title: 'chat_support'.tr,
-          subtitle: 'chat_support_desc'.tr,
+          subtitle: '', // R2 #56 — title only
           color: AppThemeConfig.accent(context),
           onTap: () => openSupportChat(context),
         ),
@@ -172,7 +165,7 @@ class MessagesScreen extends StatelessWidget {
         SectionTile(
           icon: Icons.contact_support_outlined,
           title: 'support_request_form'.tr,
-          subtitle: 'support_request_form_desc'.tr,
+          subtitle: '', // R2 #56 — title only
           color: AppThemeConfig.accent(context),
           onTap: () => Get.to(() => const TechnicalSupportScreen()),
         ),
@@ -213,64 +206,60 @@ class MessagesScreen extends StatelessWidget {
         // The Obx wraps this region alone rather than the whole list: nothing
         // above it reads the threads, and a guest has no controller to observe
         // at all (an Obx that reads no observable throws in GetX).
-        if (ctrl == null)
-          const GuestMessagesPrompt()
-        else
-          Obx(() {
-            final incoming = ctrl.threads
-                .where((t) => t.incomingPending)
-                .toList();
-            final active = ctrl.threads.where((t) => t.isActive).toList();
-            final outgoing = ctrl.threads
-                .where((t) => t.isPending && !t.incomingPending)
-                .toList();
+        Obx(() {
+          final incoming = ctrl.threads
+              .where((t) => t.incomingPending)
+              .toList();
+          final active = ctrl.threads.where((t) => t.isActive).toList();
+          final outgoing = ctrl.threads
+              .where((t) => t.isPending && !t.incomingPending)
+              .toList();
 
-            return AppAsync<List<dynamic>>(
-              loading: ctrl.isLoading.value,
-              error: ctrl.errorMessage.value,
-              onRetry: ctrl.fetchThreads,
-              data: ctrl.threads,
-              isEmpty: (list) => list.isEmpty,
-              // The old copy told the user to "start a chat from a donation" —
-              // a flow that no longer exists: members cannot open a chat with
-              // each other at all (OPOS #25284). What they do instead is ask
-              // our team, who open a supervised group. Localised keys, en +
-              // ar; Sorani and Badini fall back to English (#21431).
-              empty: AppEmpty(
-                title: 'chat_empty_title'.tr,
-                message: 'chat_empty_message'.tr,
-              ),
-              builder: (_) => Column(
-                children: [
-                  if (incoming.isNotEmpty) ...[
-                    ChatThreadSectionLabel(
-                      label: 'Chat requests',
-                      count: incoming.length,
-                    ),
-                    for (final t in incoming)
-                      IncomingChatRequestCard(thread: t, ctrl: ctrl),
-                    const SizedBox(height: 8),
-                  ],
-                  if (active.isNotEmpty) ...[
-                    ChatThreadSectionLabel(
-                      label: 'Conversations',
-                      count: active.length,
-                    ),
-                    for (final t in active) ChatThreadTile(thread: t),
-                  ],
-                  if (outgoing.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    ChatThreadSectionLabel(
-                      label: 'Waiting for accept',
-                      count: outgoing.length,
-                    ),
-                    for (final t in outgoing)
-                      OutgoingPendingChatTile(thread: t),
-                  ],
+          return AppAsync<List<dynamic>>(
+            loading: ctrl.isLoading.value,
+            error: ctrl.errorMessage.value,
+            onRetry: ctrl.fetchThreads,
+            data: ctrl.threads,
+            isEmpty: (list) => list.isEmpty,
+            // The old copy told the user to "start a chat from a donation" —
+            // a flow that no longer exists: members cannot open a chat with
+            // each other at all (OPOS #25284). What they do instead is ask
+            // our team, who open a supervised group. Localised keys, en +
+            // ar; Sorani and Badini fall back to English (#21431).
+            empty: AppEmpty(
+              title: 'chat_empty_title'.tr,
+              message: 'chat_empty_message'.tr,
+            ),
+            builder: (_) => Column(
+              children: [
+                if (incoming.isNotEmpty) ...[
+                  ChatThreadSectionLabel(
+                    label: 'Chat requests',
+                    count: incoming.length,
+                  ),
+                  for (final t in incoming)
+                    IncomingChatRequestCard(thread: t, ctrl: ctrl),
+                  const SizedBox(height: 8),
                 ],
-              ),
-            );
-          }),
+                if (active.isNotEmpty) ...[
+                  ChatThreadSectionLabel(
+                    label: 'Conversations',
+                    count: active.length,
+                  ),
+                  for (final t in active) ChatThreadTile(thread: t),
+                ],
+                if (outgoing.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ChatThreadSectionLabel(
+                    label: 'Waiting for accept',
+                    count: outgoing.length,
+                  ),
+                  for (final t in outgoing) OutgoingPendingChatTile(thread: t),
+                ],
+              ],
+            ),
+          );
+        }),
         // OPOS #25284 — staff-mediated group chats. Last, so nothing in it can
         // displace the doors above; guests cannot message at all.
         if (!isGuestMode()) const ChatGroupsSection(),
@@ -280,21 +269,19 @@ class MessagesScreen extends StatelessWidget {
     return SectionScaffold(
       assistantRoute: 'messages',
       title: 'Messages',
-      subtitle: 'Chat with campaign owners and donors. Support is included.',
+      subtitle: '', // R2 #56 — no explanation line
       // Pull-to-refresh only where there is something to refresh: a guest has
       // no threads and no groups, so a spinner would promise an update that
       // cannot come.
-      child: ctrl == null
-          ? list
-          : RefreshIndicator(
-              // Pulling down refreshes everything the tab lists, groups
-              // included.
-              onRefresh: () => Future.wait([
-                ctrl.fetchThreads(),
-                if (groups != null) groups.fetchGroups(),
-              ]),
-              child: list,
-            ),
+      child: RefreshIndicator(
+        // Pulling down refreshes everything the tab lists, groups
+        // included.
+        onRefresh: () => Future.wait([
+          ctrl.fetchThreads(),
+          if (groups != null) groups.fetchGroups(),
+        ]),
+        child: list,
+      ),
     );
   }
 }

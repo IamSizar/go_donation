@@ -341,13 +341,16 @@ class SectionTile extends StatelessWidget {
             color: AppThemeConfig.text(context),
           ),
         ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            subtitle.tr,
-            style: TextStyle(color: AppThemeConfig.mutedText(context)),
-          ),
-        ),
+        // An empty subtitle draws no second line (R2 #56 — titles only).
+        subtitle: subtitle.isEmpty
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  subtitle.tr,
+                  style: TextStyle(color: AppThemeConfig.mutedText(context)),
+                ),
+              ),
         trailing: Icon(
           AppIcons.forward(context),
           size: 18,

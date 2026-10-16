@@ -1668,10 +1668,7 @@ class AppTranslations extends Translations {
     // a supervised group (OPOS #25284). Same words as connect_request_action
     // below, so the sentence names the button the user has to find.
     'chat_empty_title': 'No conversations yet',
-    'chat_empty_message':
-        'You and our team can talk here. Members do not message each other '
-        'directly — use "Ask our team to connect me", and our team will open '
-        'a supervised group chat for you.',
+    'chat_empty_message': 'Your conversations appear here.',
     'connect_request_action': 'Ask our team to connect me',
     'connect_request_title': 'Ask our team to connect you',
     'connect_request_explainer':
@@ -4766,10 +4763,7 @@ class AppTranslations extends Translations {
     'chat_support_unavailable_action': 'فتح الدعم الفني',
     // "فريقنا" and never "الفريق", as in the chat-group strings (OPOS #26351).
     'chat_empty_title': 'لا توجد محادثات بعد',
-    'chat_empty_message':
-        'يمكنك التحدث هنا مع فريقنا. لا يتراسل الأعضاء فيما بينهم مباشرة — '
-        'استخدم «اطلب التواصل عبر فريقنا»، وسيفتح لك فريقنا محادثة جماعية '
-        'تحت إشرافه.',
+    'chat_empty_message': 'تظهر محادثاتك هنا.',
     'connect_request_action': 'اطلب التواصل عبر فريقنا',
     'connect_request_title': 'طلب تواصل عبر فريقنا',
     'connect_request_explainer':

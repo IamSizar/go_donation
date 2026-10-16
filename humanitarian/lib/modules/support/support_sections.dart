@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -59,17 +60,13 @@ Future<String?> pickSupportSection(BuildContext context) {
               fontSize: 17,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'support_section_hint'.tr,
-            style: TextStyle(color: AppThemeConfig.mutedText(sheet)),
-          ),
+          // R2 #56 — no explanation line, no per-section description.
           const SizedBox(height: 16),
           for (final s in kSupportSections) ...[
             SectionTile(
               icon: supportSectionIcon(s),
               title: 'support_section_$s',
-              subtitle: 'support_section_${s}_desc',
+              subtitle: '',
               color: AppThemeConfig.accent(sheet),
               onTap: () => Navigator.of(sheet).pop(s),
             ),
@@ -145,4 +142,13 @@ class SupportSectionSelector extends StatelessWidget {
       ],
     );
   }
+}
+
+/// R2 #56 — the section a user's role already implies, so they are not asked
+/// every time: a volunteer's questions go to the volunteers desk. Null means
+/// "ask" (donors, beneficiaries, visitors…).
+String? impliedSupportSection() {
+  final role = sharedPreferences.getString('role_id');
+  if (role == '3') return 'volunteers';
+  return null;
 }
