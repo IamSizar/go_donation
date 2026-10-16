@@ -92,9 +92,11 @@ func newChatReadRouter(pool *pgxpool.Pool) *gin.Engine {
 
 	r := gin.New()
 	participant := r.Group("/api", auth.RequireBearer(auth.NewTokenStore(pool)), auth.RequireApproved())
-	participant.GET("/chats", GuestGetsEmptyList(), chatH.List)
-	participant.GET("/chats/", GuestGetsEmptyList(), chatH.List)
-	participant.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
+	// R2 #16 — mirrors main.go: /chats is a guest's own threads (only support
+	// can exist), messages pass a guest only on a support thread with staff.
+	participant.GET("/chats", chatH.List)
+	participant.GET("/chats/", chatH.List)
+	participant.GET("/chats/:id/messages", chatH.GuestSupportThreadOnly(), chatH.Messages)
 	participant.GET("/marriage/chats", GuestGetsEmptyList(), marriageH.List)
 	participant.GET("/marriage/chats/", GuestGetsEmptyList(), marriageH.List)
 	participant.GET("/marriage/chats/:id/messages", auth.RequireNotGuest(), marriageH.Messages)

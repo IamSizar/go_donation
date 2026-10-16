@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/failure_message.dart';
-import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/support_chat_result.dart';
 import 'package:flutter_application_1/modules/chat/widgets/support_chat_unavailable_notice.dart';
@@ -40,9 +39,7 @@ abstract final class ChatActions {
     // A seam for tests, defaulted so the call site is unchanged.
     ModuleApi api = const ModuleApi(),
   }) async {
-    if (!await requireUpgrade(context)) return;
-    if (!context.mounted) return;
-
+    // R2 #16 — visitors may contact support (no sign-in wall).
     section ??= await pickSupportSection(context);
     if (section == null || !context.mounted) return;
 

@@ -125,11 +125,13 @@ class MessagesScreen extends StatelessWidget {
     // state for something a guest simply does not have. The guest gets
     // GuestMessagesPrompt in the list's place; the doors above it stay.
     final guest = isGuestMode();
-    final ctrl = guest
-        ? null
-        : Get.isRegistered<ChatController>()
+    // R2 #16 — a visitor gets the thread list too: the server now lets a
+    // visitor open and use support threads (and only those).
+    // Typed put: a nullable declared type would make GetX register the
+    // controller under `ChatController?`, invisible to Get.find elsewhere.
+    final ChatController? ctrl = Get.isRegistered<ChatController>()
         ? Get.find<ChatController>()
-        : Get.put(ChatController());
+        : Get.put<ChatController>(ChatController());
     // Put here, never in the lazily built ChatGroupsSection: GetX deletes a
     // controller with the route current when it was put, and only this build
     // is sure to run while Messages is that route. Guests have no groups.

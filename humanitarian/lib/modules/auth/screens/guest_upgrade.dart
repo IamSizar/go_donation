@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
@@ -13,6 +12,7 @@ import '../../../core/auth_navigation.dart';
 import '../../../core/phone_format.dart';
 import '../../../widgets/auth_ui.dart';
 import '../widgets/localized_country_list.dart';
+import '../widgets/otp_boxes.dart';
 
 /// Note #40 — "Account Upgrade and Conversion". A guest enters their phone,
 /// verifies it via OTP (reusing the existing public otp/request endpoint),
@@ -87,28 +87,42 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
           .post(
             Uri.parse(otpRequestUrl),
             headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode({'phone': phone, 'mode': 'real'}),
+            // R2 #17 — same request as sign-up: 'demo' lets the SERVER pick
+            // the delivery (real SMS/WhatsApp when the gateway is set up).
+            // Forcing 'real' made this screen fail on its own and show the
+            // server's raw English text.
+            body: jsonEncode({'phone': phone, 'mode': 'demo'}),
           )
           .timeout(const Duration(seconds: 15));
       final body = _decode(resp.body);
       if (resp.statusCode != 200 || body['status'] != 'success') {
-        setState(
-          () => _error =
-              body['error']?.toString() ?? 'Failed to send verification code.',
-        );
+        // Never the server's English: one translated sentence.
+        setState(() => _error = 'error_otp_send_failed'.tr);
         return;
+      }
+      final demoCode = body['demo_code']?.toString();
+      if (demoCode != null && demoCode.isNotEmpty) {
+        Get.snackbar(
+          'OTP ready'.tr,
+          'Demo OTP: @code'.trParams({'code': demoCode}),
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 6),
+        );
       }
       _normalizedPhone = phone;
       setState(() => _step = _Step.otp);
     } catch (_) {
-      setState(() => _error = 'Network error. Please try again.');
+      setState(() => _error = 'Network error. Please try again.'.tr);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _verifyAndUpgrade() async {
-    if (!_otpFormKey.currentState!.validate()) return;
+    if (_otpController.text.trim().length != 6) {
+      setState(() => _error = 'Enter the 6-digit code'.tr);
+      return;
+    }
     setState(() {
       _loading = true;
       _error = '';
@@ -120,7 +134,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
     if (!mounted) return;
     setState(() => _loading = false);
     if (!result.ok) {
-      setState(() => _error = result.error ?? 'Something went wrong.');
+      setState(() => _error = (result.error ?? 'Something went wrong.').tr);
       return;
     }
     // The account is now a normal 'incomplete' phone account — send it
@@ -172,15 +186,13 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
             const SizedBox(height: 6),
             Text(
               _step == _Step.phone
-                  ? 'We\'ll text you a one-time code to confirm it\'s yours.'.tr
+                  // R2 #19 — one short line.
+                  ? 'Please confirm your phone number to upgrade your account.'.tr
                   // Isolate the embedded number as LTR (U+2066 LRI ...
                   // U+2069 PDI) so its digit grouping doesn't mirror under
                   // an RTL locale (matches Note #39's fix on the verify
                   // screen).
-                  : 'We sent a 6-digit code to @phone'.trParams({
-                      'phone':
-                          '\u2066${formatPhoneForDisplay(_normalizedPhone)}\u2069',
-                    }),
+                  : '${'Enter the verification code sent to'.tr} \u2066${formatPhoneForDisplay(_normalizedPhone)}\u2069',
               style: subtitleStyle,
             ),
             const SizedBox(height: 18),
@@ -282,8 +294,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
             child: ElevatedButton(
               onPressed: _loading ? null : _sendOtp,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppThemeConfig.text(context),
-                foregroundColor: const Color(0xFF0B385D),
+                // R2 #18 — was text-colour fill + navy label (black, label
+                // unreadable). The app's accent pair, readable in both themes.
+                backgroundColor: AppThemeConfig.accent(context),
+                foregroundColor: AppThemeConfig.onAccent(context),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
@@ -316,30 +330,12 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextFormField(
+          // Same 6 boxes as the sign-up code screen (auto-fill, paste,
+          // auto-verify on the 6th digit).
+          OtpBoxes(
             controller: _otpController,
-            style: TextStyle(color: AppThemeConfig.text(context), fontSize: 20),
-            cursorColor: AppThemeConfig.primary,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration: authInputDecoration(
-              context,
-              label: 'Verification code'.tr,
-              hintText: '••••••',
-              icon: Icons.password_rounded,
-            ).copyWith(counterText: ''),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-            validator: (value) {
-              if (value == null || value.trim().length != 6) {
-                return 'Enter the 6-digit code'.tr;
-              }
-              return null;
-            },
-            onFieldSubmitted: (_) => _verifyAndUpgrade(),
+            enabled: !_loading,
+            onCompleted: (_) => _verifyAndUpgrade(),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -347,8 +343,10 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
             child: ElevatedButton(
               onPressed: _loading ? null : _verifyAndUpgrade,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppThemeConfig.text(context),
-                foregroundColor: const Color(0xFF0B385D),
+                // R2 #18 — was text-colour fill + navy label (black, label
+                // unreadable). The app's accent pair, readable in both themes.
+                backgroundColor: AppThemeConfig.accent(context),
+                foregroundColor: AppThemeConfig.onAccent(context),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),

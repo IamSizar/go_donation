@@ -201,7 +201,14 @@ class _VerificationPageState extends State<VerificationPage> {
                                   !_loginController.isLoading.value
                               ? _verifyOtp
                               : (_passwordAlreadySet
-                                    ? () => Get.offAllNamed(AppRoutes.authLogin)
+                                    ? () {
+                                        // The "already registered" note was
+                                        // for this screen; don't carry it
+                                        // onto the sign-in screen.
+                                        _loginController.errorMessage.value =
+                                            '';
+                                        Get.offAllNamed(AppRoutes.authLogin);
+                                      }
                                     : null),
                           child: _loginController.isLoading.value
                               ? const SizedBox(

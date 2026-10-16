@@ -152,7 +152,8 @@ void main() {
     await tester.tap(find.text('— None —').last);
     await tester.pumpAndSettle();
     expect(find.text('value:الموصل||'), findsOneWidget);
-    expect(find.textContaining('(optional)', findRichText: true), findsWidgets);
+    // R2 #36 — optional fields are no longer labelled «(optional)».
+    expect(find.textContaining('(optional)', findRichText: true), findsNothing);
   });
 
   testWidgets('a governorate with no cities renders nothing (free-text city stays)', (tester) async {

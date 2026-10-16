@@ -71,19 +71,18 @@ func configureSupportUser(t *testing.T, pool *pgxpool.Pool, userID int64) {
 }
 
 // newGuestChatRouter wires the guest-reachable chat routes exactly as main.go
-// does — the authed group's RequireBearer + RequireApproved, then each route's
-// RequireNotGuest — because the gates ARE what is under test. A guest is
-// created approved, so RequireApproved lets it through and the refusal comes
-// from RequireNotGuest, as it does in production.
+// does, because the gates ARE what is under test. R2 #16 (client 2026-10-16):
+// a guest may open a support thread and post in it (no RequireNotGuest there;
+// GuestSupportThreadOnly on the thread routes keeps every OTHER thread shut).
 func newGuestChatRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	h := NewChatHandler(chat.New(pool), notify.New(pool), pool)
 	bearer := auth.RequireBearer(auth.NewTokenStore(pool))
 	approved := auth.RequireApproved()
 	r := gin.New()
-	r.POST("/api/chats/support", bearer, approved, auth.RequireNotGuest(), h.SupportThread)
+	r.POST("/api/chats/support", bearer, approved, h.SupportThread)
 	r.POST("/api/chats/request", bearer, approved, auth.RequireNotGuest(), h.Request)
-	r.POST("/api/chats/:id/messages", bearer, approved, auth.RequireNotGuest(), h.PostMessage)
+	r.POST("/api/chats/:id/messages", bearer, approved, h.GuestSupportThreadOnly(), h.PostMessage)
 	return r
 }
 
@@ -106,9 +105,9 @@ func guestPost(t *testing.T, pool *pgxpool.Pool, r *gin.Engine, userID int64, pa
 	return w.Code, out
 }
 
-// ─── Support is account-only ────────────────────────────────────────────
+// ─── Support is open to visitors (R2 #16) ───────────────────────────────
 
-func TestGuestSupport_GuestCannotOpenASupportThread(t *testing.T) {
+func TestGuestSupport_GuestCanOpenASupportThread(t *testing.T) {
 	pool := newContactBlockPool(t)
 	r := newGuestChatRouter(pool)
 	support := makeContactUser(t, pool, "employee")
@@ -116,36 +115,34 @@ func TestGuestSupport_GuestCannotOpenASupportThread(t *testing.T) {
 	guest := makeGuestUser(t, pool)
 
 	code, body := guestPost(t, pool, r, guest, "/api/chats/support", `{}`)
-	if code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403 — a guest must sign in before contacting support (body %v)", code, body)
-	}
-	if body["code"] != "guest_restricted" {
-		t.Fatalf("code = %v, want guest_restricted", body["code"])
+	if code != http.StatusOK && code != http.StatusCreated {
+		t.Fatalf("status = %d, want 200/201 — a visitor may contact support (body %v)", code, body)
 	}
 }
 
-func TestGuestSupport_GuestCannotPostToSupport(t *testing.T) {
+func TestGuestSupport_GuestCanPostToSupport(t *testing.T) {
 	pool := newContactBlockPool(t)
 	r := newGuestChatRouter(pool)
 	support := makeContactUser(t, pool, "employee")
 	guest := makeGuestUser(t, pool)
 	thread := makeContactThread(t, pool, guest, support) // already 'active'
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE chat_threads SET kind = 'support' WHERE id = $1`, thread); err != nil {
+		t.Fatalf("mark support: %v", err)
+	}
 
 	code, body := guestPost(t, pool, r, guest,
 		fmt.Sprintf("/api/chats/%d/messages", thread), `{"body":"How do I register for aid?"}`)
-	if code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403 — a guest must sign in before messaging support (body %v)", code, body)
-	}
-	if body["code"] != "guest_restricted" {
-		t.Fatalf("code = %v, want guest_restricted", body["code"])
+	if code != http.StatusOK && code != http.StatusCreated {
+		t.Fatalf("status = %d, want 200/201 — a visitor may message support (body %v)", code, body)
 	}
 	var n int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM chat_messages WHERE thread_id = $1`, thread).Scan(&n); err != nil {
 		t.Fatalf("count: %v", err)
 	}
-	if n != 0 {
-		t.Fatalf("chat_messages has %d rows; the refused guest message must not be stored", n)
+	if n != 1 {
+		t.Fatalf("chat_messages has %d rows, want 1", n)
 	}
 }
 

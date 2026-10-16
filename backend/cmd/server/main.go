@@ -603,8 +603,11 @@ func main() {
 		// route stays public for everyone else: OptionalBearer resolves a
 		// token if present (without requiring one), BlockGuestOptional then
 		// rejects only a resolved GUEST caller.
-		api.GET("/community", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
-		api.GET("/community/", auth.OptionalBearer(tokenStore), auth.BlockGuestOptional(), listingsH.Community)
+		// R2 #16 (client, 2026-10-16): visitors may VIEW the City Directory
+		// (Note #40's guest block on this read is lifted; submitting a place
+		// still needs a full account — see POST /community/submit).
+		api.GET("/community", listingsH.Community)
+		api.GET("/community/", listingsH.Community)
 		// Pre-existing gap found while adding like/comment/share (client note
 		// 2026-09-22): this route carried no auth middleware at all, so
 		// MarriageHandler.Get's own auth.UserFromGin(c) call always saw nil —
@@ -774,7 +777,10 @@ func main() {
 			authed.POST("/chats/request", auth.RequireNotGuest(), chatH.Request)
 			// Support conversations contain user messages, so they require a
 			// full account just like every other chat write path.
-			authed.POST("/chats/support", auth.RequireNotGuest(), chatH.SupportThread) // #45 — direct chat with support/tech
+			// R2 #16 (client, 2026-10-16): visitors may message support. A guest
+			// can open a support thread and use it, and nothing else — see
+			// GuestSupportThreadOnly on the thread routes below.
+			authed.POST("/chats/support", chatH.SupportThread) // #45 — direct chat with support/tech
 			// OPOS #26354 — the READ routes are guarded against guests too,
 			// not only the writes (as the chat groups are, #26347): the server
 			// must not rely on the app hiding these screens from a guest
@@ -787,12 +793,14 @@ func main() {
 			//     session and would show guests a dead-end load error. See
 			//     handlers.GuestGetsEmptyList.
 			//   - The MESSAGES read refuses a guest (403 guest_restricted).
-			authed.GET("/chats", handlers.GuestGetsEmptyList(), chatH.List)
-			authed.GET("/chats/", handlers.GuestGetsEmptyList(), chatH.List)
+			// R2 #16: a guest's list is its own threads, which can only be
+			// support threads (every other way into a chat refuses guests).
+			authed.GET("/chats", chatH.List)
+			authed.GET("/chats/", chatH.List)
 			authed.POST("/chats/:id/accept", auth.RequireNotGuest(), chatH.Accept)
 			authed.POST("/chats/:id/decline", auth.RequireNotGuest(), chatH.Decline)
-			authed.GET("/chats/:id/messages", auth.RequireNotGuest(), chatH.Messages)
-			authed.POST("/chats/:id/messages", auth.RequireNotGuest(), chatH.PostMessage)
+			authed.GET("/chats/:id/messages", chatH.GuestSupportThreadOnly(), chatH.Messages)
+			authed.POST("/chats/:id/messages", chatH.GuestSupportThreadOnly(), chatH.PostMessage)
 
 			// AI Support Assistant (Phase 29).
 			authed.POST("/assistant/chat", auth.RequireNotGuest(), assistantH.Chat)
@@ -815,8 +823,9 @@ func main() {
 			authed.DELETE("/notifications/device/", notificationsH.UnregisterDevice)
 
 			// Phase 3g endpoints
-			authed.POST("/support", auth.RequireNotGuest(), supportH.Post)
-			authed.POST("/support/", auth.RequireNotGuest(), supportH.Post)
+			// R2 #16 (client, 2026-10-16): visitors may send support tickets.
+			authed.POST("/support", supportH.Post)
+			authed.POST("/support/", supportH.Post)
 			// OPOS #26354 — deliberately NO RequireNotGuest on this read. The
 			// owner's decision was "keep guest support": the app's Technical
 			// Support screen loads it for every session, a guest's included,

@@ -3,6 +3,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
+import 'package:flutter_application_1/widgets/dashboard.dart';
 import 'package:get/get.dart';
 
 /// Section 27 — guest-facing versions of the Home and Account tabs, and of the
@@ -85,8 +86,7 @@ class GuestHomeSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Browse campaigns, stories, and updates from our community. Sign in to donate, volunteer, or create requests and make an impact.'
-                        .tr,
+                    'Sign in to donate or volunteer.'.tr,
                     style: TextStyle(
                       color: AppThemeConfig.onAccent(
                         context,
@@ -117,6 +117,10 @@ class GuestHomeSection extends StatelessWidget {
                 ],
               ),
             ),
+            // R2 #16 — a visitor sees the real public content too
+            // (categories, campaigns, our work), not just a sign-in card.
+            const SizedBox(height: 24),
+            const GuestBrowseContent(),
           ],
         ),
       ),

@@ -43,6 +43,9 @@ const _userKey = 'User';
 /// language. Otherwise returns the support team's name for a staff reply
 /// ([ChatMessage.isSupport]) and a generic "User" for anyone else, translated.
 String chatSenderName(ChatMessage message) {
+  // A visitor's account is named 'Guest' by the server: show it in the
+  // reader's language (R2 #16).
+  if (message.senderName == 'Guest') return 'Guest'.tr;
   if (message.senderName.isNotEmpty) return message.senderName;
   return (message.isSupport ? _supportKey : _userKey).tr;
 }

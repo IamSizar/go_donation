@@ -354,6 +354,25 @@ func (h *ChatHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}
+	// R2 #16 — a visitor sees only its support threads with staff; anything
+	// else it might somehow be party to never reaches it.
+	if user.IsGuest {
+		allowed, err := h.guestSupportThreadIDs(c, user.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
+			return
+		}
+		kept := items[:0]
+		for _, it := range items {
+			if allowed[it.ID] {
+				kept = append(kept, it)
+			}
+		}
+		items = kept
+	}
+	if items == nil {
+		items = []chat.ThreadView{}
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "items": items})
 }
 

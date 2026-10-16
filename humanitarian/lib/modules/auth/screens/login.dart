@@ -168,10 +168,13 @@ class _LoginFormState extends State<_LoginForm>
     final pendingDigits = pending.startsWith('+')
         ? pending.substring(1)
         : pending;
-    _phoneController.text =
-        pendingDigits.startsWith('964') && pendingDigits.length > 3
+    final local = pendingDigits.startsWith('964') && pendingDigits.length > 3
         ? pendingDigits.substring(3)
         : pending;
+    // Grouped like a typed number ("155 500 0005"), not a raw digit run.
+    _phoneController.text = PhoneSpaceInputFormatter()
+        .formatEditUpdate(TextEditingValue.empty, TextEditingValue(text: local))
+        .text;
     loadCountryList();
   }
 

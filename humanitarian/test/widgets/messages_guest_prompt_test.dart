@@ -1,4 +1,7 @@
-// Pins what a GUEST sees on the Messages tab, OPOS #26423.
+// Pins what a GUEST sees on the Messages tab, OPOS #26423 — updated for
+// R2 #16 (client 2026-10-16): visitors may now message support, so a guest
+// gets the normal thread list (support threads only, enforced server-side)
+// instead of the old sign-in prompt.
 //
 // WHY THIS FILE EXISTS
 // The server gives a guest session an empty GET /api/chats and GET
@@ -127,68 +130,29 @@ void main() {
 
   tearDown(Get.reset);
 
-  group('a guest on Messages', () {
+  group('a guest on Messages (R2 #16: visitors may message support)', () {
     setUp(() async {
       // The real key, 'is_guest'. The wrong key makes every test here pass
       // vacuously, because the screen would simply render the member path.
       await sharedPreferences.setBool(kGuestModePrefsKey, true);
     });
 
-    testWidgets('gets no ChatController and asks for no chats, even after a '
-        'poll interval', (tester) async {
+    testWidgets('gets ChatController and loads its own (support) threads', (
+      tester,
+    ) async {
       final http = FakeHttpOverrides(HttpBehaviour.ok, body: _emptyList);
       var registered = false;
       await withHttp(http, () async {
         await _openMessages(tester, _english);
-        // Past ChatController's 5-second poll, so a poll would have fired.
-        await tester.pump(const Duration(seconds: 6));
         registered = Get.isRegistered<ChatController>();
+        expect(find.text(_promptTitleEn), findsNothing);
         await _closeMessages(tester);
       });
-
+      expect(registered, isTrue);
       expect(
-        registered,
-        isFalse,
-        reason:
-            'a guest has no chats to list; a ChatController polls /chats '
-            'every 5 seconds for an answer that is always empty',
-      );
-      expect(
-        _chatRequests(http),
-        isEmpty,
-        reason: 'the server gives a guest nothing on these routes',
-      );
-    });
-
-    testWidgets('sees a sign-in prompt where the thread list was, and no '
-        'thread-list error or empty state', (tester) async {
-      await withHttp(
-        FakeHttpOverrides(HttpBehaviour.ok, body: _emptyList),
-        () async {
-          await _openMessages(tester, _english);
-
-          expect(find.text(_promptTitleEn), findsOneWidget);
-          expect(find.text(_promptBodyEn), findsOneWidget);
-          expect(
-            find.widgetWithText(ElevatedButton, 'Sign in'),
-            findsOneWidget,
-          );
-          expect(
-            find.byIcon(Icons.forum_outlined),
-            findsOneWidget,
-            reason: 'the prompt carries the same mark as the Messages door',
-          );
-
-          expect(find.text('Unable to load your chats.'.tr), findsNothing);
-          expect(find.text('No conversations yet'.tr), findsNothing);
-          expect(
-            find.byType(RefreshIndicator),
-            findsNothing,
-            reason: 'a guest has nothing to refresh',
-          );
-
-          await _closeMessages(tester);
-        },
+        http.requestUrls.where((u) => u.path.endsWith('/api/chats')),
+        isNotEmpty,
+        reason: 'a visitor lists its support conversations like anyone else',
       );
     });
 
@@ -207,24 +171,6 @@ void main() {
       );
     });
 
-    testWidgets('Sign in leaves guest mode and opens the sign-in route', (
-      tester,
-    ) async {
-      await withHttp(
-        FakeHttpOverrides(HttpBehaviour.ok, body: _emptyList),
-        () async {
-          await _openMessages(tester, _english);
-
-          await tester.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
-          await _settle(tester);
-
-          expect(Get.currentRoute, AppRoutes.authLogin);
-          expect(find.text(_signInStub), findsOneWidget);
-          expect(isGuestMode(), isFalse);
-        },
-      );
-    });
-
     testWidgets('reads in Arabic, right to left, with no layout error', (
       tester,
     ) async {
@@ -232,19 +178,8 @@ void main() {
         FakeHttpOverrides(HttpBehaviour.ok, body: _emptyList),
         () async {
           await _openMessages(tester, _arabic);
-
           expect(tester.takeException(), isNull);
-          expect(find.text(_promptTitleAr), findsOneWidget);
-          expect(find.text(_promptBodyAr), findsOneWidget);
-          expect(
-            find.widgetWithText(ElevatedButton, 'تسجيل الدخول'),
-            findsOneWidget,
-          );
-          expect(
-            Directionality.of(tester.element(find.text(_promptTitleAr))),
-            TextDirection.rtl,
-          );
-
+          expect(find.text(_promptTitleAr), findsNothing);
           await _closeMessages(tester);
         },
       );

@@ -285,10 +285,8 @@ class _AreaPickerState extends State<AreaPicker> {
       ),
       children: [
         TextSpan(text: key.tr),
-        TextSpan(
-          text: '  ${'area_optional'.tr}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
+        // R2 #36 — no «(اختياري)» next to fields; only required ones are
+        // marked (red *). The area_optional key stays for older callers.
       ],
     ),
   );

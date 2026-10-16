@@ -39,6 +39,31 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import '../data/featured_campaigns.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 
+/// R2 #16 — the public part of Home (categories, campaigns, our work) for a
+/// visitor. Everything here reads public endpoints only.
+class GuestBrowseContent extends StatelessWidget {
+  const GuestBrowseContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CaseCategoryCapsules(
+          header: const _SectionLabel(title: 'Browse by category'),
+          selected: null,
+          onSelected: (slug) =>
+              Get.to(() => OrphanFamilyProfilesScreen(initialCategory: slug)),
+        ),
+        const SizedBox(height: 22),
+        const _FeaturedCampaignsSection(),
+        const SizedBox(height: 22),
+        const _NewsStrip(),
+      ],
+    );
+  }
+}
+
 class DashboardHomeSection extends StatelessWidget {
   const DashboardHomeSection({super.key});
 

@@ -198,10 +198,8 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 50));
         }
-        messagesOpened = find
-            .text('Sign in to use Messages')
-            .evaluate()
-            .isNotEmpty;
+        // R2 #16 — Messages opens to the support doors for a visitor.
+        messagesOpened = find.text('chat_support'.tr).evaluate().isNotEmpty;
         registeredAfterOpen = Get.isRegistered<ChatController>();
         Get.back();
         for (var i = 0; i < 10; i++) {
@@ -225,8 +223,8 @@ void main() {
       isTrue,
       reason: 'Messages is still where a guest reaches support from',
     );
-    expect(registeredAfterOpen, isFalse);
-    expect(_chatRequests(http), isEmpty);
+    // R2 #16 — opening Messages now lists the visitor's support threads.
+    expect(registeredAfterOpen, isTrue);
   });
 
   testWidgets('a member dashboard still registers ChatController, which '

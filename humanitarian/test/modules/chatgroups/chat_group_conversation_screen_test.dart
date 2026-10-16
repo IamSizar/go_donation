@@ -154,7 +154,7 @@ void main() {
     ) async {
       await _open(tester, FakeChatGroupsApi());
 
-      expect(find.text('No messages yet. Say hello! 👋'), findsOneWidget);
+      expect(find.text('No messages yet'), findsOneWidget);
       await _close(tester);
     });
 
@@ -167,7 +167,7 @@ void main() {
 
       expect(find.byType(ChatLifecycleNotice), findsOneWidget);
       expect(find.textContaining('Send the first message'), findsNothing);
-      expect(find.text('No messages yet. Say hello! 👋'), findsNothing);
+      expect(find.text('No messages yet'), findsNothing);
       await _close(tester);
     });
 
@@ -183,7 +183,7 @@ void main() {
         find.textContaining('Could not load this conversation.'),
         findsOneWidget,
       );
-      expect(find.text('No messages yet. Say hello! 👋'), findsNothing);
+      expect(find.text('No messages yet'), findsNothing);
 
       api
         ..messagesError = null

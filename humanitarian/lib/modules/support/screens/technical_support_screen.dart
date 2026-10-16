@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
-import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
@@ -129,11 +128,7 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
   }
 
   Future<void> _send() async {
-    // Guest accounts are browse-only. Keep the app honest about the server
-    // rule and take the person to sign-in before a support message is sent.
-    if (!await requireSignIn(context)) return;
-    if (!mounted) return;
-
+    // R2 #16 — visitors may send a support message too (server allows it).
     final subject = _subject.text.trim();
     final message = _message.text.trim();
     // The button is already gated on _canSend, so this only catches a send

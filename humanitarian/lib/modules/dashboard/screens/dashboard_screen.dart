@@ -107,8 +107,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     ),
   ];
 
-  static const int _cityGuideIndex = 3;
-
   // Non-const on purpose: GuestHomeSection reads the guest config (which
   // loads async), so it must rebuild when setState fires after the fetch.
   List<Widget> get _sections => [
@@ -212,15 +210,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _onTabSelected(int index) {
-    // Note #40 — City Directory (this tab) is a hard block for guests: show
-    // the upgrade prompt instead of ever switching to it.
-    if (index == _cityGuideIndex && isGuestMode()) {
-      requireUpgrade(
-        context,
-        reason: 'Full registration is required to view the City Directory.',
-      );
-      return;
-    }
+    // R2 #16 — visitors may view the City Directory now (Note #40's block
+    // was lifted on both the app and the server).
     if (index == _currentIndex) return;
     AppHaptics.selection();
     dashboardTabNotifier.value = index;
@@ -708,7 +699,6 @@ class DashboardTopBar extends StatefulWidget {
   static const int _storeIndex = 1;
   static const int _marriageIndex = 2;
   static const int _cityGuideIndex = 3;
-
   /// Space between the trailing controls.
   ///
   /// Was 8 with five controls; J9 makes it six, so it is 6. The arithmetic on

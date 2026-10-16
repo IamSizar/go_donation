@@ -650,7 +650,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     // account) so the user doesn't retype everything. Skip the auto-generated
     // "User 1234" login fallback (last-4-of-phone) — that's not a real name.
     final storedName = sharedPreferences.getString('name_user') ?? '';
-    _nameController.text = RegExp(r'^User \d+$').hasMatch(storedName)
+    // 'Guest' is the server's placeholder for a visitor who is upgrading
+    // (R2 #17) — not a name to pre-fill.
+    _nameController.text =
+        RegExp(r'^User \d+$').hasMatch(storedName) || storedName == 'Guest'
         ? ''
         : storedName;
     _addressController.text = sharedPreferences.getString('address_user') ?? '';
