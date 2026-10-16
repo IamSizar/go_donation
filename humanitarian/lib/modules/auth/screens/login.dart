@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
@@ -793,7 +794,10 @@ class _LoginFormState extends State<_LoginForm>
           // A16 — shown only where it applies. Signing in no longer involves a
           // code at all, so on that side of the screen this row would offer a
           // choice about something that is not going to happen.
-          if (isSignUp || _loginController.needsPasswordSetup.value) ...[
+          // R2 — a developer switch, not something users should see: the
+          // server already decides real vs demo delivery. Debug builds only.
+          if (kDebugMode &&
+              (isSignUp || _loginController.needsPasswordSetup.value)) ...[
             const SizedBox(height: 20),
             _OtpModeRow(
               value: _otpMode,
