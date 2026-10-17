@@ -17,6 +17,7 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'My statistics': 'My statistics',
     'activity_tap_map': 'Tap the map to mark the place',
     'General user': 'General user',
     'Choose an account type to use this feature.': 'Choose an account type to use this feature.',
@@ -3367,6 +3368,7 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'My statistics': 'إحصاءاتي',
     'activity_tap_map': 'اضغط على الخريطة لتحديد المكان',
     'General user': 'مستخدم عام',
     'Choose an account type to use this feature.': 'اختر نوع حسابك لتتمكن من استخدام هذه الميزة.',

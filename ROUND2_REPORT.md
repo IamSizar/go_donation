@@ -678,13 +678,11 @@ We checked this end to end on a test copy: the suggestion arrived as «قيد ا
 
 **Found:** the card looked broken: a wide empty dark rectangle with the icon at one corner and the number at the opposite one, so it read as an unfinished or non-working section.
 
-**Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. We checked on iPhone and Android.
+**Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. The soft circle behind the icon now sits exactly behind it (it used to stay in the card's corner). The personal numbers under it have their own heading, «إحصاءاتي», so they are no longer read as part of «أثرنا».
 
 If you want the section editable (photos, custom text), that is a new feature, not in the proposal.
 
-| Before (Android) | After (iPhone) | After (Android) |
-|---|---|---|
-| ![](round2_screens/64/before-android.png) | ![](round2_screens/64/after-ios.png) | ![](round2_screens/64/after-android.png) |
+![](round2_screens/64/after-ios-glow-centered.png)
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
@@ -693,7 +691,7 @@ If you want the section editable (photos, custom text), that is a new feature, n
 **Found:** tapping a product opens a sheet that covered most of the screen and could only be dismissed by swiping it down or tapping the dim strip above it. Nothing on it said so: no close button. After «إضافة» the sheet stayed open, and it hid the cart bar behind it, so the cart only showed up once the sheet was finally dismissed. That matches «selecting a product froze the page, cancel didn't respond, the cart only appeared after several tries». Logging out and back in doesn't help because it is not a stuck state, just a sheet with no visible exit.
 
 **Fixed:**
-- A visible **✕** in the sheet's header (we checked on iPhone and Android).
+- A visible **✕** in the sheet's header (we checked on iPhone).
 - Once the product is in the cart the sheet shows **«عرض السلة · N عنصر»**, which closes it and opens the cart.
 - After closing, the cart bar («1 عنصر · 15,000 د.ع») is visible immediately.
 
@@ -701,11 +699,9 @@ If you want the section editable (photos, custom text), that is a new feature, n
 
 Payment was not touched.
 
-| Before | After |
-|---|---|
-| ![](round2_screens/65/before-sheet-no-exit.png) | ![](round2_screens/65/after-sheet-close-and-cart.png) |
-
-Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/after-android-closed-cart-bar.png)
+| Before: no way out | After: ✕ | After: view cart | After: cart bar |
+|---|---|---|---|
+| ![](round2_screens/65/iphone-before-sheet-no-exit.png) | ![](round2_screens/65/iphone-after-sheet-close.png) | ![](round2_screens/65/iphone-after-sheet-view-cart.png) | ![](round2_screens/65/iphone-after-closed-cart-bar.png) |
 
 ## 66. Store: no payment options, only cash? (needs e-payment).
 

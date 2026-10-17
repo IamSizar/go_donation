@@ -333,6 +333,10 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 18),
         const ImpactStatsSlider(),
         const SizedBox(height: 20),
+        // Personal numbers, set apart from the organization-wide «أثرنا» above
+        // so the two are not read as one block.
+        const _SectionLabel(title: 'My statistics'),
+        const SizedBox(height: 12),
         _StatPanel(
           items: [
             _StatItem(
@@ -545,6 +549,10 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 20),
+        // Personal numbers, set apart from the organization-wide «أثرنا» above
+        // so the two are not read as one block.
+        const _SectionLabel(title: 'My statistics'),
+        const SizedBox(height: 12),
         _StatPanel(
           items: [
             _StatItem(
@@ -719,6 +727,10 @@ class DashboardHomeSection extends StatelessWidget {
         const SizedBox(height: 20),
         const _FeaturedCampaignsSection(),
         const SizedBox(height: 20),
+        // Personal numbers, set apart from the organization-wide «أثرنا» above
+        // so the two are not read as one block.
+        const _SectionLabel(title: 'My statistics'),
+        const SizedBox(height: 12),
         _StatPanel(
           items: [
             _StatItem(

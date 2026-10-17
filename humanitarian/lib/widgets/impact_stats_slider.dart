@@ -219,87 +219,103 @@ class _ImpactCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          // Decorative translucent circle for depth.
-          Positioned(
-            right: -26,
-            top: -26,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppThemeConfig.onAccent(context).withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            // R2 #64 — the old layout pinned the icon to one corner and the
-            // number to the opposite one in a wide card, leaving most of it
-            // empty, so the card looked unfinished. Icon and text now sit
-            // together, vertically centred.
-            child: Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppThemeConfig.onAccent(
-                      context,
-                    ).withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              // R2 #64 — the old layout pinned the icon to one corner and the
+              // number to the opposite one in a wide card, leaving most of it
+              // empty, so the card looked unfinished. Icon and text now sit
+              // together, vertically centred.
+              child: Row(
+                children: [
+                  // The soft translucent circle sits exactly behind the icon (it
+                  // used to be pinned to the card's corner, so it ended up off
+                  // to one side once the icon moved to the middle).
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: -32,
+                          top: -32,
+                          width: 120,
+                          height: 120,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppThemeConfig.onAccent(
+                                context,
+                              ).withValues(alpha: 0.10),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppThemeConfig.onAccent(
+                              context,
+                            ).withValues(alpha: 0.20),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            slide.icon,
+                            color: AppThemeConfig.onAccent(context),
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Icon(
-                    slide.icon,
-                    color: AppThemeConfig.onAccent(context),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: slide.value),
-                        duration: const Duration(milliseconds: 900),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, v, _) => Text(
-                          slide.format(v),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: slide.value),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, v, _) => Text(
+                            slide.format(v),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppThemeConfig.onAccent(context),
+                              fontSize: 34,
+                              height: 1.1,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          slide.label.tr,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: AppThemeConfig.onAccent(context),
-                            fontSize: 34,
-                            height: 1.1,
-                            fontWeight: FontWeight.w900,
+                            color: AppThemeConfig.onAccent(
+                              context,
+                            ).withValues(alpha: 0.92),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        slide.label.tr,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppThemeConfig.onAccent(
-                            context,
-                          ).withValues(alpha: 0.92),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
