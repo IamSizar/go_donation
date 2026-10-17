@@ -550,9 +550,13 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ✅ Partly
+**Status:** ✅ Partly · ➕ the rest is an addition — not in the original scope (put aside)
 
-**Done:** the donation-type and «Support the organization» choices stay, now compact (the organization option is one of the kinds in the single row; the type is one short row of chips). **Not done yet:** replacing them with the fixed line «تنويه: …».
+**Scope:** the proposal does not include a percentage deduction or operating-cost fee on donations. It only lists donations dedicated to the organization's operational sustainability (§9), which is the «التبرع لمؤسسة» option. Fees appear only for the marriage service (§16).
+
+**Done:** the donation-type choice and the «Support the organization» option stay, now compact: the organization option is one of the kinds in the single row, and the type is one short row of options.
+
+**Not done:** replacing them with the fixed line «تنويه: يتم استقطاع نسبة بسيطة…». That line announces a deduction the system does not make, so showing it would tell donors something untrue. Adding it means building the deduction itself — the percentage, how it is taken from each donation, and how it appears in the financial reports — which is a new feature outside the proposal, put aside.
 
 ## 56. Remove explanation screens/popups (مساعد الدعم / التواصل مع الدعم / إرسال تذكرة) → section becomes fast live chat.
 
