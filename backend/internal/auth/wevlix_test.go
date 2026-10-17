@@ -99,3 +99,34 @@ func TestFreeFormSMSIsReportedUnsupported(t *testing.T) {
 		t.Fatalf("err = %v, want ErrOTPUnsupported", err)
 	}
 }
+
+// The project may have no approved Arabic authentication template (production
+// did not): Wevlix answers 404 for locale "ar". Sign-in must still work, by
+// letting Wevlix choose a template instead.
+func TestSendVerificationFallsBackWhenArabicTemplateIsMissing(t *testing.T) {
+	var locales []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var b map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		loc, _ := b["locale"].(string)
+		locales = append(locales, loc)
+		w.Header().Set("Content-Type", "application/json")
+		if loc == "ar" {
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"error":{"message":"No approved or Meta-pending authentication template available for locale ar on this WhatsApp account"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"messageId":"m-2","status":"queued"}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("WEVLIX_API_KEY", "wvlx_test")
+	t.Setenv("WEVLIX_BASE_URL", srv.URL)
+
+	res, err := NewOTPClient().SendVerification(context.Background(), "9647501234567", "123456")
+	if err != nil || res.SmsID != "m-2" {
+		t.Fatalf("res=%v err=%v, want the fallback send to succeed", res, err)
+	}
+	if len(locales) != 2 || locales[0] != "ar" || locales[1] != "" {
+		t.Errorf("locales tried = %q, want [ar, <none>]", locales)
+	}
+}

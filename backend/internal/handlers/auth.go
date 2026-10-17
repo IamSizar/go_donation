@@ -721,6 +721,7 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 	}
 	send, err := h.OTPGateway.SendVerification(ctx, phone, code)
 	if err != nil {
+		log.Printf("[otp] delivery failed phone_hint=%s: %v", maskPhone(phone), err)
 		// Clean up the stored code so the user can request a fresh one
 		// immediately without the resend-cooldown blocking them.
 		_ = h.OTPs.ClearRecord(ctx, phone)

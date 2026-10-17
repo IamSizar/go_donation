@@ -113,12 +113,37 @@ func (c *OTPClient) SendVerification(ctx context.Context, phone, code string) (*
 		return nil, fmt.Errorf("%w: code must be 4 or 6 digits", ErrOTPUpstreamFailed)
 	}
 
+	// Wevlix picks the WhatsApp template by locale and answers 404 when the
+	// project has no approved authentication template for the one asked for. The
+	// Arabic template is preferred (the users read Arabic), but a missing one
+	// must not stop sign-in: fall back to "let Wevlix choose", then to English.
+	var lastErr error
+	for _, locale := range []string{wevlixLocale, "", "en"} {
+		res, err := c.sendOnce(ctx, digits, code, locale)
+		if err == nil {
+			return res, nil
+		}
+		lastErr = err
+		if !errors.Is(err, errWevlixNoTemplate) {
+			return nil, err
+		}
+	}
+	return nil, fmt.Errorf("%w: %v", ErrOTPUpstreamFailed, lastErr)
+}
+
+// errWevlixNoTemplate marks Wevlix's 404 "no approved authentication template".
+var errWevlixNoTemplate = errors.New("no approved WhatsApp authentication template")
+
+// sendOnce performs one POST /v1/otp/send. An empty locale omits the field.
+func (c *OTPClient) sendOnce(ctx context.Context, digits, code, locale string) (*SendResult, error) {
 	body := map[string]any{
 		"to":              "+" + digits,
 		"otpMode":         "provided",
 		"code":            code,
-		"locale":          wevlixLocale,
 		"clientMessageId": newClientMessageID(),
+	}
+	if locale != "" {
+		body["locale"] = locale
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -155,6 +180,13 @@ func (c *OTPClient) SendVerification(ctx context.Context, phone, code string) (*
 			id = parsed.Data.MessageID
 		}
 		return &SendResult{SmsID: id, CanCover: true}, nil
+
+	case http.StatusNotFound:
+		msg := extractMessage(respBody)
+		if strings.Contains(strings.ToLower(msg), "template") {
+			return nil, fmt.Errorf("%w: %s", errWevlixNoTemplate, msg)
+		}
+		return nil, fmt.Errorf("%w (404): %s", ErrOTPUpstreamFailed, msg)
 
 	case http.StatusBadRequest:
 		msg := extractMessage(respBody)
