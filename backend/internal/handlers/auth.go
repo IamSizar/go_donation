@@ -698,9 +698,8 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		return
 	}
 
-	// Phase 19 — REAL mode: send via OTPGateway. Provider = "whatsapp-sms" so
-	// WhatsApp is attempted first and SMS is the fallback (product decision).
-	// If WEVLIX_API_KEY isn't configured, we surface 502 the same way the
+	// Phase 19 — REAL mode: send via OTPGateway (Wevlix, over WhatsApp, with the
+	// code this server generated and stores). If WEVLIX_API_KEY isn't configured, we surface 502 the same way the
 	// old PHP code did.
 	if h.OTPGateway == nil {
 		c.JSON(http.StatusBadGateway, gin.H{

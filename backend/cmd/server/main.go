@@ -228,7 +228,7 @@ func main() {
 	// for demo (see demoDeliveryActive), and OTP_STAFF_DEMO_CODE stops mattering.
 	otpGW := auth.NewOTPClient()
 	if otpGW != nil {
-		log.Printf("[otp] Wevlix enabled (provider=whatsapp-sms by default) — all OTP delivery is real; demo mode is off")
+		log.Printf("[otp] Wevlix enabled (WhatsApp) — all OTP delivery is real; demo mode is off")
 	} else {
 		log.Printf("[otp] Wevlix disabled (WEVLIX_API_KEY not set) — demo delivery in use, demo_enabled=%t", auth.DemoEnabled())
 		// Staff cannot spend the public demo code (it is printed in the request
