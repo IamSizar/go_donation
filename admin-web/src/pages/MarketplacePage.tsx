@@ -17,6 +17,7 @@ import BulkBar from '../components/BulkBar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
+import { usePendingCounts } from '../lib/pendingCounts'
 import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import { HighlightBanner } from '../lib/HighlightBanner'
@@ -150,6 +151,8 @@ function formatAmount(s: string | number): string {
 export default function MarketplacePage() {
   const [tab, setTab] = useUrlTab<Tab>(['products', 'orders'], 'products')
   const { t } = useI18n()
+  // Same pending-orders number the sidebar shows, repeated on the tab that holds them.
+  const { counts } = usePendingCounts()
   return (
     <div className="stack">
       <PageHead>
@@ -162,6 +165,9 @@ export default function MarketplacePage() {
           </button>
           <button className={tab === 'orders' ? '' : 'secondary'} onClick={() => setTab('orders')}>
             {t('page.marketplace.tab_orders')}
+            {counts.marketplace > 0 && (
+              <span className="nav-badge" style={{ marginInlineStart: 8 }}>{counts.marketplace}</span>
+            )}
           </button>
         </div>
       </PageHead>

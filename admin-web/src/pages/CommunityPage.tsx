@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
+import BulkBar from '../components/BulkBar'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -8,6 +10,7 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel } from '../lib/i18n'
+import { useSelection } from '../lib/useSelection'
 import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
@@ -25,6 +28,7 @@ const COMMUNITY_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
   { header: 'phone', get: (e) => e.phone },
   { header: 'email', get: (e) => e.email },
   { header: 'website', get: (e) => e.website },
+  { header: 'created_at', get: (e) => e.created_at ?? '' },
 ]
 
 type Resp = { success: true; items: CommunityEntry[] }
@@ -65,21 +69,24 @@ export default function CommunityPage() {
   const toast = useToast()
   const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
+  const sel = useSelection<CommunityEntry>((e) => e.id)
 
   // Every dependency of the fetch effect below, so the page reads as loading
   // from the render that changes any of them.
-  const requestKey = `${city}|${category}|${q}|${refreshTick}`
+  // The admin list is fetched whole and filtered here: the public /api/community
+  // omits the creation time the date column needs, and has no admin-only data.
+  const requestKey = `${refreshTick}`
   const loading = loadedKey !== requestKey
 
   useEffect(() => {
     let cancelled = false
     api
-      .get<Resp>('/api/community', { params: { city: city || undefined, category: category || undefined, q: q || undefined, limit: 100 } })
+      .get<Resp>('/api/admin/community', { params: { status: 'approved', limit: 200 } })
       .then((res) => { if (!cancelled) { setResp(res.data); setErr(null) } })
       .catch((e) => { if (!cancelled) setErr(describeError(e)) })
       .finally(() => { if (!cancelled) setLoadedKey(requestKey) })
     return () => { cancelled = true }
-  }, [city, category, q, refreshTick, requestKey])
+  }, [refreshTick, requestKey])
 
   const handleSave = useCallback(
     async (id: number, patch: Record<string, unknown>) => {
@@ -113,9 +120,24 @@ export default function CommunityPage() {
     [toast],
   )
 
-  const items = resp?.items ?? []
-  const cities = Array.from(new Set(items.map(i => i.city).filter(Boolean) as string[])).sort()
-  const categories = Array.from(new Set(items.map(i => i.category))).sort()
+  const all = resp?.items ?? []
+  const cities = Array.from(new Set(all.map(i => i.city).filter(Boolean) as string[])).sort()
+  const categories = Array.from(new Set(all.map(i => i.category))).sort()
+  const needle = q.trim().toLowerCase()
+  const items = all.filter((e) =>
+    (!city || e.city === city) &&
+    (!category || e.category === category) &&
+    (!needle ||
+      [e.name, e.name_ar, e.address, e.phone, e.category].some((v) => (v ?? '').toLowerCase().includes(needle))),
+  )
+  const applyBulkDelete = async () => {
+    const ids = [...sel.selected]
+    const results = await Promise.allSettled(ids.map((id) => api.delete(`/api/admin/community/${id}`)))
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((n) => n + 1)
+    return { ok, fail: results.length - ok }
+  }
 
   const columns: Column<CommunityEntry>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
@@ -134,6 +156,7 @@ export default function CommunityPage() {
       key: 'web', header: t('col.website'),
       cell: (e) => e.website ? <a href={e.website} target="_blank" rel="noreferrer">{t('cityGuide.open_link')} ↗</a> : <span className="muted">—</span>,
     },
+    { key: 'created', header: t('col.created'), cell: (e) => <DateCell value={e.created_at} /> },
     {
       key: 'actions', header: t('common.actions'), width: '170px',
       cell: (e) => (
@@ -157,17 +180,17 @@ export default function CommunityPage() {
           <input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); sel.clear() }}
             placeholder={t('page.community.search_placeholder')}
             style={{ width: '200px' }}
           />
-          <select value={category} onChange={e => setCategory(e.target.value)} style={{ width: 'auto' }}>
+          <select value={category} onChange={e => { setCategory(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_categories')}</option>
             {/* The option VALUE stays the raw slug (it is the filter query);
                 only the visible label is localized. */}
             {categories.map(c => <option key={c} value={c}>{statusLabel(c)}</option>)}
           </select>
-          <select value={city} onChange={e => setCity(e.target.value)} style={{ width: 'auto' }}>
+          <select value={city} onChange={e => { setCity(e.target.value); sel.clear() }} style={{ width: 'auto' }}>
             <option value="">{t('filter.all_cities')}</option>
             {cities.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -184,7 +207,8 @@ export default function CommunityPage() {
       {/* Hidden while a newer request is in flight, which is what clearing the
           error at the top of the fetch effect used to achieve. */}
       {!loading && err && <div className="error-box">{err}</div>}
-      <Table<CommunityEntry> rows={items} columns={columns} rowKey={(e) => e.id} loading={loading} empty={t('empty.community')} />
+      <Table<CommunityEntry> rows={items} columns={columns} rowKey={(e) => e.id} loading={loading} empty={t('empty.community')} selectable={sel.forRows(items)} />
+      <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.community_entry')} />
       <EditModal
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}

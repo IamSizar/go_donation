@@ -25,10 +25,12 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 
 type Props = {
   count: number
-  allowed: readonly string[] | string[]
+  // Omit `allowed` and `onApply` for a delete-only bar (lists with no status
+  // to set): the status select and Apply button are then not rendered.
+  allowed?: readonly string[] | string[]
   // onApply runs the status mutation for all selected ids. It must NOT throw —
   // wrap individual row calls in Promise.allSettled and return {ok, fail}.
-  onApply: (status: string) => Promise<{ ok: number; fail: number }>
+  onApply?: (status: string) => Promise<{ ok: number; fail: number }>
   onClear: () => void
   // Optional bulk-delete: if provided, a red "Delete N" button is rendered
   // alongside the Apply button. Same contract — returns {ok, fail} after
@@ -38,7 +40,7 @@ type Props = {
   noun?: string
 }
 
-export default function BulkBar({ count, allowed, onApply, onClear, onDelete, noun = 'rows' }: Props) {
+export default function BulkBar({ count, allowed = [], onApply, onClear, onDelete, noun = 'rows' }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const [status, setStatus] = useState<string>(allowed[0] ?? '')
@@ -50,7 +52,7 @@ export default function BulkBar({ count, allowed, onApply, onClear, onDelete, no
   // plays when the selection drops to zero.
 
   async function apply() {
-    if (!status || busy) return
+    if (!onApply || !status || busy) return
     setBusy(true)
     try {
       const { ok, fail } = await onApply(status)
@@ -99,12 +101,16 @@ export default function BulkBar({ count, allowed, onApply, onClear, onDelete, no
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
       >
         <span><strong>{count}</strong> {noun} {t('common.selected')}</span>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={busy} style={{ width: 'auto' }}>
-          {allowed.map((s) => (
-            <option key={s} value={s}>{statusLabel(s)}</option>
-          ))}
-        </select>
-        <button onClick={apply} disabled={busy || !status}>{busy ? t('common.applying') : t('common.apply')}</button>
+        {onApply && (
+          <>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={busy} style={{ width: 'auto' }}>
+              {allowed.map((s) => (
+                <option key={s} value={s}>{statusLabel(s)}</option>
+              ))}
+            </select>
+            <button onClick={apply} disabled={busy || !status}>{busy ? t('common.applying') : t('common.apply')}</button>
+          </>
+        )}
         {onDelete && (
           <button className="danger" onClick={() => setConfirmDelete(true)} disabled={busy}>
             {t('common.delete')} {count}

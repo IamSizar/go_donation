@@ -56,7 +56,9 @@ func (h *UsersAdminHandler) List(c *gin.Context) {
 	// ?staff=1 → staff accounts only (the Staff page), ?staff=0 → everyone
 	// else (the Users page); absent → both, as before.
 	// ?role_id=1 → donors only (the Donors page); absent → every role.
-	res, err := h.Users.PaginatedListByRole(c.Request.Context(), page, perPage, c.Query("q"), c.Query("status"), hideGuests, c.Query("staff"), c.Query("role_id"))
+	// ?guests=1 → guest (visitor) accounts only; a ?role_id list never
+	// contains guests (account-list separation, client #81).
+	res, err := h.Users.PaginatedListScoped(c.Request.Context(), page, perPage, c.Query("q"), c.Query("status"), hideGuests, c.Query("staff"), c.Query("role_id"), c.Query("guests"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users."})
 		return

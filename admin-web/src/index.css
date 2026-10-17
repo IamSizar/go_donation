@@ -4147,6 +4147,12 @@ html[dir='rtl'] .data-table th {
   z-index: 1;
 }
 .data-table th.col-sticky-end { background: var(--color-surface-2); }
+/* The pinned header must out-rank the other header cells. Those are
+   `position: relative; z-index: 2` (see "Pinned table header" below), so at the
+   td's z-index of 1 they slid OVER the pinned «إجراءات» header whenever a
+   narrow screen / zoom made the table scroll sideways, and the header seemed to
+   vanish while the columns beside it shifted into its place. */
+.data-table thead th.col-sticky-end { z-index: 3; }
 .data-table td.col-sticky-end { background: var(--color-surface); }
 .data-table tbody tr:hover td.col-sticky-end {
   background: linear-gradient(rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.05)), var(--color-surface);
@@ -4169,12 +4175,12 @@ html[dir='rtl'] .data-table th {
 [dir="rtl"] .table-wrap.is-overflowing .data-table .col-sticky-end {
   box-shadow: inset -10px 0 12px -10px rgba(0, 0, 0, 0.45);
 }
-/* Phones: the table becomes stacked cards (see the 720px block above) —
-   nothing scrolls sideways, so nothing needs pinning. */
-@media (max-width: 720px) {
-  .data-table th.col-sticky-end,
-  .data-table td.col-sticky-end { position: static; box-shadow: none !important; border-inline-start: 0; background: transparent; }
-}
+/* There is no phone card layout any more (it was removed — see "Data tables"
+   above): below 720px the table still scrolls sideways inside .table-wrap, so
+   the actions column stays pinned at EVERY width. The old override here set it
+   back to `position: static` with a transparent background, which left the
+   header cell see-through and un-pinned exactly when zoom / tablet / phone
+   widths needed it. */
 
 
 /* ---------- Pinned table header (lib/stickyTableHeaders.ts) ----------
@@ -4187,4 +4193,56 @@ html[dir='rtl'] .data-table th {
 .data-table thead th.is-stuck {
   z-index: 6;
   box-shadow: inset 0 -1px 0 var(--color-border), 0 6px 10px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* ===== Unified page head + single-row toolbar (client #76, #84) =====
+   One look for every section's header: title + count on the inline START,
+   the controls (search, selects, dates, export, "new") on the inline END,
+   all one control height (--btn-h-lg), in one row. Logical properties only,
+   so Arabic/Kurdish mirror with no extra rules; colours come from tokens, so
+   light and dark need nothing. Below 721px the existing stacked mobile
+   layout (.page-head column, above) takes over and wrapping is allowed.
+   `.toolbar-row` is the same row for toolbars that sit in the page body. */
+.page-head { align-items: center; min-height: calc(var(--btn-h-lg) + var(--space-2)); }
+.page-head h1 { font-size: var(--text-xl); line-height: 1.25; margin: 0; }
+.page-head > div:first-child > .muted { font-size: var(--text-xs); margin: 0; }
+.toolbar-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+@media (min-width: 721px) {
+  .page-head .row,
+  .toolbar-row,
+  .filter-row,
+  .page-actions-slot,
+  .bar-secondary-slot > .row { flex-wrap: nowrap; min-width: 0; }
+  .page-head .row,
+  .toolbar-row { align-items: center; }
+  .page-head .row { margin-inline-start: auto; }
+  /* The search box takes the free space (inline widths become the basis). */
+  .page-head .row > input[type='search'],
+  .toolbar-row > input[type='search'],
+  .filter-row > input[type='search'],
+  .filter-row .filter-field:has(> input[type='search']),
+  .page-actions-slot > input[type='search'] {
+    flex: 1 1 200px;
+    min-width: 130px;
+    max-width: 320px;
+    width: auto;
+  }
+  .page-head .row > select,
+  .toolbar-row > select,
+  .page-actions-slot > select,
+  .bar-secondary-slot > .row > select { flex: 0 0 auto; min-width: 0; max-width: 220px; width: auto; }
+  .page-head .row > input[type='date'],
+  .toolbar-row > input[type='date'],
+  .page-actions-slot > input[type='date'] { flex: 0 0 auto; width: auto; }
+  .page-head .row > button,
+  .toolbar-row > button,
+  .page-actions-slot > button { flex: 0 0 auto; white-space: nowrap; }
+}
+
+/* Mid-width screens cannot fit title + every control on one line without
+   squeezing the search box to nothing, so the controls wrap onto a second
+   line there (still one tidy row each) instead of clipping. */
+@media (min-width: 721px) and (max-width: 1279px) {
+  .page-head .row,
+  .toolbar-row { flex-wrap: wrap; }
 }

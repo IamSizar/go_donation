@@ -16,6 +16,8 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
 import ActionsMenu from '../components/ActionsMenu'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
+import BulkBar from '../components/BulkBar'
 import { api, describeError } from '../lib/api'
 import { useLivePoll } from '../lib/useLivePoll'
 import type { AdminMission, AdminPageResp } from '../lib/api-types'
@@ -76,6 +78,7 @@ const CSV_COLUMNS: CsvColumn<AdminMission>[] = [
   { header: 'status', get: (m) => m.status },
   { header: 'accepted_volunteers', get: (m) => m.accepted_volunteers },
   { header: 'pending_volunteers', get: (m) => m.pending_volunteers },
+  { header: 'created_at', get: (m) => m.created_at ?? '' },
 ]
 
 // progressLabel renders "5 / 8" when needed_volunteers is set, else just "5".
@@ -201,6 +204,15 @@ export default function MissionsPage() {
     [toast],
   )
 
+  const applyBulkDelete = useCallback(async () => {
+    const ids = [...sel.selected]
+    const results = await Promise.allSettled(ids.map((id) => api.delete(`/api/admin/missions/${id}`)))
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((t) => t + 1)
+    return { ok, fail: results.length - ok }
+  }, [sel])
+
   // Quick-status change without opening the full edit modal — useful for
   // "open this draft" or "close this mission" workflows.
   const handleQuickStatus = useCallback(
@@ -311,6 +323,7 @@ export default function MissionsPage() {
         />
       ),
     },
+    { key: 'created', header: t('col.created'), cell: (m) => <DateCell value={m.created_at} /> },
     {
       key: 'actions',
       header: t('common.actions'),
@@ -383,6 +396,7 @@ export default function MissionsPage() {
         rowKey={(m) => m.id}
         loading={loading}
         empty={t('empty.missions')}
+        selectable={sel.forRows(resp?.items ?? [])}
         rowProps={(m) => ({
           className: [
             highlight.isHighlighted(m.id) ? 'is-highlighted' : '',
@@ -394,9 +408,10 @@ export default function MissionsPage() {
       <Pagination
         page={page}
         totalPages={resp?.total_pages ?? 1}
-        onPageChange={setPage}
+        onPageChange={(p) => { setPage(p); sel.clear() }}
         disabled={loading}
       />
+      <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.mission')} />
       <EditModal
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}

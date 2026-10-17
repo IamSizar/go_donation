@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
 import { api, describeError, assetUrl } from '../lib/api'
 import type { Partner } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
@@ -63,6 +64,7 @@ const CSV_COLUMNS: CsvColumn<Partner>[] = [
   { header: 'contact_phone', get: (p) => p.contact_phone },
   { header: 'website', get: (p) => p.website },
   { header: 'status', get: (p) => p.status },
+  { header: 'created_at', get: (p) => p.created_at ?? '' },
 ]
 
 export default function PartnersPage() {
@@ -221,6 +223,7 @@ export default function PartnersPage() {
         />
       ),
     },
+    { key: 'created', header: t('col.created'), cell: (p) => <DateCell value={p.created_at} /> },
     {
       key: 'actions',
       header: t('common.actions'),

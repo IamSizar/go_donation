@@ -33,12 +33,16 @@ type aidReceipt struct {
 	DeliveredBy     *string  `json:"delivered_by"`
 	Photos          []string `json:"photos"`
 	Notes           *string  `json:"notes"`
+	// CreatedAt — when the receipt was recorded (delivered_at is the delivery
+	// day, a date only).
+	CreatedAt *string `json:"created_at"`
 }
 
 func (h *AidReceiptsHandler) scanList(c *gin.Context, where string, args ...any) {
 	rows, err := h.Pool.Query(c.Request.Context(),
 		`SELECT id, receipt_code, recipient_user_id, recipient_name, items,
-		        to_char(delivered_at, 'YYYY-MM-DD'), delivered_by, photos, notes
+		        to_char(delivered_at, 'YYYY-MM-DD'), delivered_by, photos, notes,
+		        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		   FROM aid_receipts `+where+` ORDER BY id DESC LIMIT 200`, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
@@ -49,7 +53,7 @@ func (h *AidReceiptsHandler) scanList(c *gin.Context, where string, args ...any)
 	for rows.Next() {
 		var r aidReceipt
 		if err := rows.Scan(&r.ID, &r.ReceiptCode, &r.RecipientUserID, &r.RecipientName, &r.Items,
-			&r.DeliveredAt, &r.DeliveredBy, &r.Photos, &r.Notes); err != nil {
+			&r.DeliveredAt, &r.DeliveredBy, &r.Photos, &r.Notes, &r.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error."})
 			return
 		}

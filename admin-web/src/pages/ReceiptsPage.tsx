@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import { fetchAllUsers } from '../lib/fetchAllUsers'
 import Table, { type Column } from '../components/Table'
+import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
+import { type CsvColumn } from '../lib/csv'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import { useToast } from '../lib/toast'
 import { useI18n } from '../lib/i18n'
@@ -20,7 +23,21 @@ type Receipt = {
   delivered_by: string | null
   photos: string[] | null
   notes: string | null
+  /** When the receipt was recorded (ISO); delivered_at is the delivery day only. */
+  created_at?: string | null
 }
+
+const RECEIPT_CSV_COLUMNS: CsvColumn<Receipt>[] = [
+  { header: 'receipt_code', get: (r) => r.receipt_code },
+  { header: 'recipient_name', get: (r) => r.recipient_name ?? '' },
+  { header: 'recipient_user_id', get: (r) => r.recipient_user_id ?? '' },
+  { header: 'items', get: (r) => r.items ?? '' },
+  { header: 'delivered_at', get: (r) => r.delivered_at ?? '' },
+  { header: 'delivered_by', get: (r) => r.delivered_by ?? '' },
+  { header: 'photos', get: (r) => r.photos?.length ?? 0 },
+  { header: 'notes', get: (r) => r.notes ?? '' },
+  { header: 'created_at', get: (r) => r.created_at ?? '' },
+]
 
 // Minimal shape of a user from /api/admin/users, for the recipient/deliverer
 // dropdowns.
@@ -103,6 +120,7 @@ export default function ReceiptsPage() {
     { key: 'items', header: t('receipts.items'), cell: (r) => r.items || '—' },
     { key: 'delivered_at', header: t('receipts.delivered_at'), cell: (r) => r.delivered_at || '—' },
     { key: 'photos', header: t('receipts.photos'), cell: (r) => (r.photos?.length ?? 0).toString() },
+    { key: 'created', header: t('col.created'), cell: (r) => <DateCell value={r.created_at} /> },
   ]
 
   return (
@@ -112,7 +130,16 @@ export default function ReceiptsPage() {
           <h1>{t('receipts.title')}</h1>
           <p className="muted">{t('receipts.subtitle')}</p>
         </div>
-        <button onClick={() => setCreating(true)}>{t('receipts.new')}</button>
+        <div className="row">
+          <ExportCsvButton
+            rows={items}
+            columns={RECEIPT_CSV_COLUMNS}
+            filenameBase="aid-receipts"
+            title={t('receipts.title')}
+            module="receipts"
+          />
+          <button onClick={() => setCreating(true)}>{t('receipts.new')}</button>
+        </div>
       </PageHead>
 
       {err && <div className="error-box">{err}</div>}

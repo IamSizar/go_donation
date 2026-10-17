@@ -34,6 +34,8 @@ const PUSH_RESULT_CSV_COLUMNS: CsvColumn<PushSendResultRow>[] = [
   { header: 'error', get: (r) => r.error ?? '' },
 ]
 
+const LANG_LABEL: Record<TemplateLang, string> = { en: 'EN', ar: 'عربي', ckb: 'سۆرانی', kmr: 'بادینی' }
+
 // Delivery channel. 'inapp' writes a row to every user's Alerts tab (works
 // without FCM, reaches every account). 'push' fires an OS banner via FCM
 // (needs the service-account key + a real device).
@@ -101,6 +103,11 @@ export default function PushNotificationsPage() {
   // Highlights the last-applied template card so the admin sees what they
   // picked. Cleared when they edit a title/body field by hand.
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null)
+  // Languages (besides the required English) with no title and no text yet —
+  // their users get the English text (in-app) — see the helper under the tabs.
+  const emptyLangs = (['ar', 'ckb', 'kmr'] as const).filter(
+    (l) => !titleDraft[l].trim() && !bodyDraft[l].trim(),
+  )
 
   function applyTemplate(id: string) {
     const tpl = PUSH_TEMPLATES.find((t) => t.id === id)
@@ -366,11 +373,29 @@ export default function PushNotificationsPage() {
                     transition: 'background .15s ease, color .15s ease, box-shadow .15s ease',
                   }}
                 >
-                  {lang === 'en' ? 'EN' : lang === 'ar' ? 'عربي' : lang === 'ckb' ? 'سۆرانی' : 'بادینی'}
+                  {LANG_LABEL[lang]}
+                  {/* Which tabs still have no text (English is required, so it
+                      is never flagged here). */}
+                  {lang !== 'en' && !titleDraft[lang].trim() && !bodyDraft[lang].trim() && (
+                    <span style={{ opacity: 0.65, fontWeight: 500, marginInlineStart: 6 }}>· {t('page.push.lang_empty')}</span>
+                  )}
                 </button>
               )
             })}
           </div>
+        </div>
+
+        {/* What the language tabs are for, and what happens to an empty one. */}
+        <div className="stack" style={{ gap: 4 }}>
+          <span className="hint">{t('page.push.lang_helper')} {t('page.push.lang_no_auto')}</span>
+          {channel === 'inapp' && emptyLangs.length > 0 && (
+            <span className="hint">
+              {t('page.push.lang_fallback', { langs: emptyLangs.map((l) => LANG_LABEL[l]).join('، ') })}
+            </span>
+          )}
+          {channel === 'push' && (
+            <span className="hint">{t('page.push.lang_push_one', { lang: LANG_LABEL[templateLang] })}</span>
+          )}
         </div>
 
         <div

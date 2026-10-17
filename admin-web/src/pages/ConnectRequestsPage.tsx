@@ -107,7 +107,7 @@ function StatusFilter({ value, onChange }: { value: ConnectRequestStatus; onChan
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   return (
-    <div className="row" role="group" aria-label={t('chat_groups.inbox.filter_aria')} style={{ marginBlockEnd: 'var(--space-4)' }}>
+    <div className="row toolbar-row" role="group" aria-label={t('chat_groups.inbox.filter_aria')} style={{ marginBlockEnd: 'var(--space-4)' }}>
       {CONNECT_REQUEST_FILTERS.map((status) => (
         <button
           key={status}

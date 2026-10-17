@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
 import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
+import BulkBar from '../components/BulkBar'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { AdminCampaign, AdminPageResp, CampaignStatus } from '../lib/api-types'
@@ -102,6 +104,7 @@ const CSV_COLUMNS: CsvColumn<AdminCampaign>[] = [
   { header: 'status', get: (c) => c.status },
   { header: 'owner_user_id', get: (c) => c.owner_user_id ?? '' },
   { header: 'owner_name', get: (c) => c.owner_name ?? '' },
+  { header: 'created_at', get: (c) => c.created_at ?? '' },
   { header: 'owner_phone', get: (c) => c.owner_phone ?? '' },
 ]
 
@@ -273,6 +276,7 @@ export default function CampaignsPage() {
         return <span className={`badge tone-${meta.tone}`}>{statusLabel(c.status)}</span>
       },
     },
+    { key: 'created', header: t('col.created'), cell: (c) => <DateCell value={c.created_at} /> },
     {
       key: 'actions',
       header: t('common.actions'),
@@ -328,26 +332,11 @@ export default function CampaignsPage() {
       <Pagination
         page={page}
         totalPages={resp?.total_pages ?? 1}
-        onPageChange={setPage}
+        onPageChange={(p) => { setPage(p); sel.clear() }}
         disabled={loading}
       />
-      {/* Bulk bar shows only the Delete N button (no status column). */}
-      {sel.count > 0 && (
-        <div className="bulk-bar" role="region" aria-label={t('common.bulk_actions')}>
-          <span><strong>{sel.count}</strong> {t('noun.campaign')} {t('common.selected')}</span>
-          <button
-            className="danger"
-            onClick={async () => {
-              const { ok, fail } = await applyBulkDelete()
-              if (fail === 0) toast.success(t('bulk.deleted', { ok, noun: t('noun.campaign') }))
-              else toast.info(t('bulk.del_mixed', { ok, fail }))
-            }}
-          >
-            {t('common.delete')} {sel.count}
-          </button>
-          <button className="secondary" onClick={sel.clear}>{t('common.clear')}</button>
-        </div>
-      )}
+      {/* Delete-only bar (campaigns have no bulk status); it asks for confirmation. */}
+      <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.campaign')} />
       <EditModal
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}

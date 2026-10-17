@@ -11,6 +11,8 @@ import { useI18n, useStatusLabel } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
 import DateCell from '../components/DateCell'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 
@@ -30,6 +32,19 @@ type MeetingRequest = {
   created_at: string
   decided_at: string | null
 }
+
+const MEETING_CSV_COLUMNS: CsvColumn<MeetingRequest>[] = [
+  { header: 'id', get: (r) => r.id },
+  { header: 'from_name', get: (r) => r.from_name ?? '' },
+  { header: 'from_user_id', get: (r) => r.from_user_id },
+  { header: 'profile_code', get: (r) => r.profile_code },
+  { header: 'owner_name', get: (r) => r.owner_name ?? '' },
+  { header: 'owner_user_id', get: (r) => r.owner_user_id },
+  { header: 'message', get: (r) => r.message ?? '' },
+  { header: 'status', get: (r) => r.status },
+  { header: 'created_at', get: (r) => r.created_at },
+  { header: 'decided_at', get: (r) => r.decided_at ?? '' },
+]
 
 function name(n: string | null, id: number, t: (key: string, vars?: Record<string, string | number>) => string): string {
   return n && n.trim() ? n : t('common.user_ref', { id })
@@ -137,6 +152,13 @@ export default function MarriageMeetingRequestsPage() {
           <h1>{t('nav.marriage_requests')}</h1>
           <p className="muted">{t('page.marriage_requests.subtitle')}</p>
         </div>
+        <ExportCsvButton
+          rows={items}
+          columns={MEETING_CSV_COLUMNS}
+          filenameBase="marriage-meeting-requests"
+          title={t('nav.marriage_requests')}
+          module="marriage"
+        />
       </PageHead>
       {err && <div className="error-box">{err}</div>}
       <Table<MeetingRequest>

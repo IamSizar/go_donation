@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, describeError } from '../lib/api'
 import Table, { type Column } from '../components/Table'
 import DateCell from '../components/DateCell'
+import ExportCsvButton from '../components/ExportCsvButton'
+import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import ActionsMenu from '../components/ActionsMenu'
 import { useToast } from '../lib/toast'
@@ -27,6 +29,21 @@ type ChangeRequest = {
   decided_by_name?: string
   decide_note?: string
 }
+
+const CHANGE_CSV_COLUMNS: CsvColumn<ChangeRequest>[] = [
+  { header: 'id', get: (r) => r.id },
+  { header: 'user_id', get: (r) => r.user_id },
+  { header: 'user_name', get: (r) => r.user_name },
+  { header: 'user_phone', get: (r) => r.user_phone },
+  { header: 'field', get: (r) => r.field },
+  { header: 'old_value', get: (r) => r.old_value },
+  { header: 'new_value', get: (r) => r.new_value },
+  { header: 'status', get: (r) => r.status },
+  { header: 'created_at', get: (r) => r.created_at },
+  { header: 'decided_at', get: (r) => r.decided_at ?? '' },
+  { header: 'decided_by', get: (r) => r.decided_by_name ?? '' },
+  { header: 'decide_note', get: (r) => r.decide_note ?? '' },
+]
 
 export default function ProfileChangesPage() {
   const { t } = useI18n()
@@ -234,6 +251,13 @@ export default function ProfileChangesPage() {
             <option value="rejected">{t('status.rejected')}</option>
             <option value="all">{t('filter.all_statuses')}</option>
           </select>
+          <ExportCsvButton
+            rows={items}
+            columns={CHANGE_CSV_COLUMNS}
+            filenameBase="profile-changes"
+            title={t('nav.profile_changes')}
+            module="profile_changes"
+          />
         </div>
       </PageHead>
 

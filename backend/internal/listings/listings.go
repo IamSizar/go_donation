@@ -55,6 +55,8 @@ type Partner struct {
 	// Free-text justification staff write alongside the assessed level.
 	AdminRatingNote string `json:"admin_rating_note"`
 	MyRating        int    `json:"my_rating"`
+	// CreatedAt — when the partner was added (dashboard date column).
+	CreatedAt *string `json:"created_at"`
 }
 
 // ListPartners returns partners. status="" → no filter. Public default is
@@ -90,7 +92,8 @@ func (s *Store) ListPartners(ctx context.Context, status, q string, limit int, u
 	               p.admin_rating::float8, p.score_activities, p.score_donations,
 	               p.score_cooperation, p.score_continuity, p.admin_rating_note,
 	               COALESCE((SELECT stars FROM partner_ratings pr
-	                          WHERE pr.partner_id = p.id AND pr.user_id = $` + uidIdx + `), 0)
+	                          WHERE pr.partner_id = p.id AND pr.user_id = $` + uidIdx + `), 0),
+	               to_char(p.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 	          FROM partners p` + whereSQL + ` ORDER BY p.name ASC LIMIT ` + itoa(limit)
 
 	rows, err := s.Pool.Query(ctx, sql, args...)
@@ -113,7 +116,7 @@ func (s *Store) ListPartners(ctx context.Context, status, q string, limit int, u
 			&p.AvgRating, &p.RatingCount,
 			&p.AdminRating, &p.ScoreActivities, &p.ScoreDonations,
 			&p.ScoreCooperation, &p.ScoreContinuity, &p.AdminRatingNote,
-			&p.MyRating,
+			&p.MyRating, &p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

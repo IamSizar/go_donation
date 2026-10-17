@@ -129,3 +129,56 @@ func TestIsGuestIsNotNullable(t *testing.T) {
 		)
 	}
 }
+
+// Client #81 — account-list separation. A role-scoped list (Donors) must not
+// carry a guest or a staff row; the guests list carries guests only.
+func TestPaginatedListScopedSeparatesLists(t *testing.T) {
+	pool := newAuthTestPool(t)
+	store := users.NewStore(pool)
+	ctx := context.Background()
+
+	donor := insertAccount(t, pool, "user", "")       // role 1, not staff, not guest
+	staff := insertAccount(t, pool, "supervisor", "") // role 1 but staff
+	guestID := insertGuest(t, pool, "guest_scope_test_1")
+	// A guest that happens to carry the donor role must still stay out of the
+	// donor list.
+	if _, err := pool.Exec(ctx, `UPDATE users SET role_id = 1 WHERE id = $1`, guestID); err != nil {
+		t.Fatalf("give the guest role 1: %v", err)
+	}
+
+	has := func(res *users.PageUsers, id int64) bool {
+		for _, u := range res.Items {
+			if u.UserID == id {
+				return true
+			}
+		}
+		return false
+	}
+
+	donors, err := store.PaginatedListScoped(ctx, 1, 100, "", "all", false, "0", "1", "")
+	if err != nil {
+		t.Fatalf("donors: %v", err)
+	}
+	if !has(donors, donor.id) {
+		t.Error("donor list lost the donor")
+	}
+	if has(donors, guestID) {
+		t.Error("donor list leaked a guest account")
+	}
+	if has(donors, staff.id) {
+		t.Error("donor list leaked a staff account")
+	}
+
+	guests, err := store.PaginatedListScoped(ctx, 1, 100, "", "all", false, "0", "1", "1")
+	if err != nil {
+		t.Fatalf("guests: %v", err)
+	}
+	if !has(guests, guestID) {
+		t.Error("guests list lost the guest")
+	}
+	for _, u := range guests.Items {
+		if u.UserID == donor.id || u.UserID == staff.id {
+			t.Errorf("guests list contains non-guest account %d", u.UserID)
+		}
+	}
+}

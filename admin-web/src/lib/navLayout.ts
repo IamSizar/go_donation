@@ -119,7 +119,25 @@ export const navByTo = new Map(NAV.map((n) => [n.to, n]))
  * make it jump between them instead of sliding once. */
 export function isNavPathActive(path: string, to: string): boolean {
   if (to === '/') return path === '/'
-  return path === to || path.startsWith(to + '/')
+  if (!(path === to || path.startsWith(to + '/'))) return false
+  // A deeper nav item that also matches owns the path: '/chat-groups' must
+  // not stay lit while '/chat-groups/connect-requests' is the open page.
+  return !NAV.some(
+    (o) => o.to !== to && o.to.length > to.length && o.to.startsWith(to + '/') && isNavPathActive(path, o.to),
+  )
+}
+
+/** True when another nav item's route lives under `to` (so NavLink must match
+ * `to` exactly, or both rows would get aria-current). */
+export function navHasChildRoute(to: string): boolean {
+  return to !== '/' && NAV.some((o) => o.to !== to && o.to.startsWith(to + '/'))
+}
+
+/** The number shown on a nav row. Volunteers also carries the mission-signup
+ * count: that tab's own badge reads it, and the section total includes it. */
+export function navItemCount(n: NavItem, counts: PendingCounts): number {
+  if (!n.countKey) return 0
+  return counts[n.countKey] + (n.to === '/volunteers' ? counts.mission_signups : 0)
 }
 
 export type NavSection =

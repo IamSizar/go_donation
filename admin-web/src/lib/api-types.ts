@@ -181,6 +181,8 @@ export type AdminCampaign = {
   owner_user_id: number | null
   owner_phone: string | null
   owner_name: string | null
+  /** NULL for campaigns that predate backend migration 141. */
+  created_at?: string | null
 }
 
 export type CampaignStatus = 'active' | 'hidden' | 'finished'
@@ -430,6 +432,8 @@ export type Partner = {
   // #27 — rating aggregate.
   avg_rating: number | null
   rating_count: number
+  /** When the partner was added (ISO). Optional: older servers omit it. */
+  created_at?: string | null
 }
 
 export type MediaPost = {

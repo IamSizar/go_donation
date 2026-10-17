@@ -11,7 +11,7 @@ import { useUnreadNotificationsCount } from '../lib/useUnreadNotifications'
 import { formatPhone } from '../lib/phone'
 import { RESOURCE_LABELS } from '../lib/resourceLabels'
 import { useToast } from '../lib/toast'
-import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, type NavItem, type NavSection } from '../lib/navLayout'
+import { navByTo, DEFAULT_NAV_SECTIONS, reconcileNavSections, isNavPathActive, navHasChildRoute, navItemCount, type NavItem, type NavSection } from '../lib/navLayout'
 import InstallAppButton from './InstallAppButton'
 import SoundMenu from './SoundMenu'
 import ConfirmDialog from './ConfirmDialog'
@@ -50,7 +50,7 @@ function NavItemLink({ n, nested }: { n: NavItem; nested?: boolean }) {
     ? RESOURCE_LABELS[location.pathname.split('/')[2]]?.list ?? location.pathname
     : location.pathname
   const isActive = isNavPathActive(sectionMatchPath, n.to)
-  const rawCount = isNotifications ? unreadNotifications : n.countKey ? counts[n.countKey] : 0
+  const rawCount = isNotifications ? unreadNotifications : navItemCount(n, counts)
   const badge = formatBadge(rawCount)
   // "N pending" reads wrong for a notification row (nothing there is
   // "pending" — it's unread), so this row gets its own aria/title copy
@@ -66,7 +66,7 @@ function NavItemLink({ n, nested }: { n: NavItem; nested?: boolean }) {
   return (
     <NavLink
       to={n.to}
-      end={n.to === '/'}
+      end={n.to === '/' || navHasChildRoute(n.to)}
       className={`nav-item${nested ? ' nav-item-nested' : ''}`}
       aria-label={ariaLabel}
     >
@@ -417,7 +417,7 @@ export default function AppShell() {
             const override = groupOverrides[section.key]
             const open = override ?? hasActiveItem
             const groupCount = items.reduce(
-              (sum, n) => sum + (n.countKey ? counts[n.countKey] : 0), 0,
+              (sum, n) => sum + navItemCount(n, counts), 0,
             )
             const groupBadge = formatBadge(groupCount)
             return (

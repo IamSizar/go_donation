@@ -1013,6 +1013,29 @@ func (s *Store) PaginatedListFiltered(ctx context.Context, page, perPage int, q,
 // only the general Users page. The value is parsed to an integer here, so it
 // can never reach the SQL as text.
 func (s *Store) PaginatedListByRole(ctx context.Context, page, perPage int, q, status string, hideGuests bool, staff, role string) (*PageUsers, error) {
+	return s.PaginatedListScoped(ctx, page, perPage, q, status, hideGuests, staff, role, "")
+}
+
+// PaginatedListScoped is PaginatedListByRole plus the account-list separation
+// rules (client #81):
+//   - guests="1" → one-tap guest accounts ONLY (the Visitors list); the role
+//     filter is ignored there, because a guest's role is not what makes it one.
+//   - a list scoped to a role (role>0) never contains guests, whatever the
+//     caller passed for hideGuests — guests are their own list, and a donor
+//     list that includes a visitor row is exactly the leak that was reported.
+func (s *Store) PaginatedListScoped(ctx context.Context, page, perPage int, q, status string, hideGuests bool, staff, role, guests string) (*PageUsers, error) {
+	guestsOnly := strings.TrimSpace(guests) == "1"
+	roleScoped := false
+	if rid, err := strconv.Atoi(strings.TrimSpace(role)); err == nil && rid > 0 {
+		roleScoped = true
+	}
+	if guestsOnly {
+		role = ""
+		roleScoped = false
+		hideGuests = false
+	} else if roleScoped {
+		hideGuests = true
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -1055,6 +1078,9 @@ func (s *Store) PaginatedListByRole(ctx context.Context, page, perPage int, q, s
 	if hideGuests {
 		conds = append(conds, "COALESCE(u.is_guest, FALSE) = FALSE")
 	}
+	if guestsOnly {
+		conds = append(conds, "COALESCE(u.is_guest, FALSE) = TRUE")
+	}
 	// Same definition of "staff" as the dashboard's isStaffAccount (A15).
 	switch strings.TrimSpace(staff) {
 	case "1":
@@ -1062,7 +1088,7 @@ func (s *Store) PaginatedListByRole(ctx context.Context, page, perPage int, q, s
 	case "0":
 		conds = append(conds, "COALESCE(NULLIF(u.staff_tier, ''), 'user') = 'user'")
 	}
-	if roleID, err := strconv.Atoi(strings.TrimSpace(role)); err == nil && roleID > 0 {
+	if roleID, err := strconv.Atoi(strings.TrimSpace(role)); roleScoped && err == nil && roleID > 0 {
 		args = append(args, roleID)
 		conds = append(conds, "u.role_id = $"+strconv.Itoa(len(args)))
 	}

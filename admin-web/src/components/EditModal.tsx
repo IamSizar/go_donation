@@ -172,6 +172,13 @@ type Props = {
    * which is every other caller's existing behavior.
    */
   isFieldRequired?: (field: FieldSpec, values: Record<string, string>) => boolean
+  /**
+   * A clearly separated danger action drawn at the bottom of the form body
+   * (e.g. "Delete account"), under a rule, outside the field grid. Shown only
+   * once the form has loaded. Its own confirmation flow belongs to the caller;
+   * the modal just hosts it.
+   */
+  dangerZone?: ReactNode
 }
 
 function toInputValue(v: unknown): string {
@@ -188,7 +195,7 @@ function cleanFieldValue(f: FieldSpec, raw: string): string {
   return canonicalPhone(raw) || stripped
 }
 
-export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry, renderFieldExtra, isFieldVisible, isFieldRequired }: Props) {
+export default function EditModal({ open, title, initial, fields: declaredFields, onSave, onClose, mode = 'edit', saveLabel, loading = false, loadError = null, onRetry, renderFieldExtra, isFieldVisible, isFieldRequired, dangerZone }: Props) {
   const { t } = useI18n()
   const statusLabel = useStatusLabel()
   const fieldLabel = useFieldLabel()
@@ -600,6 +607,14 @@ export default function EditModal({ open, title, initial, fields: declaredFields
               )
             })}
           </div>
+          )}
+          {dangerZone && !loading && !loadError && (
+            <div
+              className="danger-zone"
+              style={{ marginBlockStart: 24, paddingBlockStart: 16, borderBlockStart: '1px solid var(--danger)' }}
+            >
+              {dangerZone}
+            </div>
           )}
         </div>
         <div className="modal-foot">

@@ -635,6 +635,8 @@ type adminCampaign struct {
 	OwnerUserID *int64  `json:"owner_user_id"`
 	OwnerPhone  *string `json:"owner_phone"`
 	OwnerName   *string `json:"owner_name"`
+	// CreatedAt — NULL for campaigns that predate migration 141.
+	CreatedAt *string `json:"created_at"`
 }
 
 func (h *AdminListsHandler) Campaigns(c *gin.Context) {
@@ -669,7 +671,8 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 		       c.description, c.description_ar, c.description_sorani, c.description_badini,
 		       c.address, c.beneficiaries, c.goal_amount::text, c.raised_amount::text,
 		       c.is_active, c.status,
-		       c.owner_user_id, u.phone, up.full_name
+		       c.owner_user_id, u.phone, up.full_name,
+		       to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		  FROM campaigns c
 		  LEFT JOIN users u ON u.id = c.owner_user_id
 		  -- OPOS #26603: user_profiles.user_id has no UNIQUE constraint, so an
@@ -694,7 +697,7 @@ func (h *AdminListsHandler) Campaigns(c *gin.Context) {
 		if err := rows.Scan(&cm.ID, &cm.Title, &cm.TitleAr, &cm.TitleSorani, &cm.TitleBadini,
 			&cm.Description, &cm.DescriptionAr, &cm.DescriptionSorani, &cm.DescriptionBadini,
 			&cm.Address, &cm.Beneficiaries, &cm.GoalAmount, &cm.RaisedAmount, &cm.IsActive, &cm.Status,
-			&cm.OwnerUserID, &cm.OwnerPhone, &cm.OwnerName); err != nil {
+			&cm.OwnerUserID, &cm.OwnerPhone, &cm.OwnerName, &cm.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 			return
 		}

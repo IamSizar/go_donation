@@ -12,6 +12,10 @@ import { useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 import { useToast } from '../lib/toast'
 import Table, { type Column } from '../components/Table'
+import ExportCsvButton from '../components/ExportCsvButton'
+import DateCell from '../components/DateCell'
+import { useSelection } from '../lib/useSelection'
+import { type CsvColumn } from '../lib/csv'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 
@@ -121,6 +125,14 @@ function previewOf(payload: Record<string, unknown>, locale: string): string {
   return ''
 }
 
+const TRASH_CSV_COLUMNS: CsvColumn<TrashItem>[] = [
+  { header: 'id', get: (it) => it.id },
+  { header: 'source_table', get: (it) => it.source_table },
+  { header: 'row_id', get: (it) => it.row_id },
+  { header: 'deleted_by', get: (it) => it.deleted_by_name ?? '' },
+  { header: 'deleted_at', get: (it) => it.deleted_at },
+]
+
 export default function TrashPage() {
   const { user } = useAuth()
   const { t, locale } = useI18n()
@@ -129,7 +141,8 @@ export default function TrashPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
-  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const sel = useSelection<TrashItem>((it) => it.id)
+  const selected = sel.selected
 
   // Whether this screen opens is the permission matrix's decision, not the
   // export helper's.
@@ -222,16 +235,6 @@ export default function TrashPage() {
     }
   }
 
-  const toggle = (id: number) =>
-    setSelected((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-  const toggleAll = () =>
-    setSelected((s) => (s.size === items.length ? new Set() : new Set(items.map((it) => it.id))))
-
   // Bulk permanent purge (super-admin) — one PIN prompt, then purge each selected.
   const purgeSelected = async () => {
     if (selected.size === 0 || busyId) return
@@ -254,7 +257,7 @@ export default function TrashPage() {
       }
     }
     toast.success(t('page.trash.purged_n', { n: ok }))
-    setSelected(new Set())
+    sel.clear()
     await load()
   }
 
@@ -266,20 +269,7 @@ export default function TrashPage() {
     )
   }
 
-  const selectCol: Column<TrashItem> = {
-    key: 'sel', header: '', width: '38px',
-    cell: (it) => (
-      <input
-        type="checkbox"
-        checked={selected.has(it.id)}
-        onChange={() => toggle(it.id)}
-        aria-label={t('common.select_row')}
-      />
-    ),
-  }
-
   const columns: Column<TrashItem>[] = [
-    ...(canPurge ? [selectCol] : []),
     { key: 'module', header: t('page.trash.col_module'), cell: (it) => (
       MODULE_TKEY[it.source_table]
         ? <strong>{t(MODULE_TKEY[it.source_table])}</strong>
@@ -292,7 +282,7 @@ export default function TrashPage() {
       </div>
     ) },
     { key: 'by', header: t('page.trash.col_deleted_by'), cell: (it) => it.deleted_by_name || <span className="muted">—</span> },
-    { key: 'at', header: t('page.trash.col_deleted_at'), cell: (it) => <span className="muted">{it.deleted_at?.slice(0, 16).replace('T', ' ')}</span> },
+    { key: 'at', header: t('page.trash.col_deleted_at'), cell: (it) => <DateCell value={it.deleted_at} /> },
     {
       // Note #26 — the header text was left-aligned by default while the
       // button group inside the cell was pushed to the right via flexbox
@@ -324,16 +314,17 @@ export default function TrashPage() {
             {loading ? t('common.loading') : t('page.trash.subtitle', { n: items.length })}
           </p>
         </div>
+        <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+          <ExportCsvButton
+            rows={items}
+            columns={TRASH_CSV_COLUMNS}
+            filenameBase="trash"
+            title={t('nav.trash')}
+            module="trash"
+          />
+        </div>
         {canPurge && items.length > 0 && (
           <div className="row" style={{ gap: 12, alignItems: 'center' }}>
-            <label className="row" style={{ gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={selected.size === items.length}
-                onChange={toggleAll}
-              />
-              <span className="muted">{t('page.trash.select_all')}</span>
-            </label>
             <button className="danger" disabled={selected.size === 0} onClick={purgeSelected}>
               {t('page.trash.purge_selected', { n: selected.size })}
             </button>
@@ -347,6 +338,7 @@ export default function TrashPage() {
         rowKey={(it) => it.id}
         loading={loading}
         empty={t('page.trash.empty')}
+        selectable={canPurge ? sel.forRows(items) : undefined}
       />
     </div>
   )

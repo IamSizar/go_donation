@@ -9,9 +9,14 @@
  * (/api/community, /api/admin/community/:id) because both features share
  * the city_directory_entries table.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LocalizedCell from '../components/LocalizedCell'
 import DateCell from '../components/DateCell'
+import ExportCsvButton from '../components/ExportCsvButton'
+import BulkBar from '../components/BulkBar'
+import { useSelection } from '../lib/useSelection'
+import { type CsvColumn } from '../lib/csv'
+import { hasValidCoords } from '../lib/cityCoords'
 import { Link } from 'react-router-dom'
 import { api, describeError } from '../lib/api'
 import type { CommunityEntry, CitySector } from '../lib/api-types'
@@ -20,11 +25,28 @@ import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
 import { useI18n, useStatusLabel, type Locale } from '../lib/i18n'
-import PageHead, { PageActions, BarSecondary } from '../components/PageHead'
+import PageHead, { PageActions } from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import RowActionsMenu from '../components/RowActionsMenu'
 
 type Resp = { success: true; items: CommunityEntry[] }
+
+const CITY_GUIDE_CSV_COLUMNS: CsvColumn<CommunityEntry>[] = [
+  { header: 'id', get: (e) => e.id },
+  { header: 'name', get: (e) => e.name },
+  { header: 'name_ar', get: (e) => e.name_ar },
+  { header: 'category', get: (e) => e.category },
+  { header: 'sector', get: (e) => e.sectors?.[0] ?? '' },
+  { header: 'sector_type', get: (e) => e.sector_type },
+  { header: 'city', get: (e) => e.city },
+  { header: 'address', get: (e) => e.address },
+  { header: 'latitude', get: (e) => e.latitude },
+  { header: 'longitude', get: (e) => e.longitude },
+  { header: 'phone', get: (e) => e.phone },
+  { header: 'website', get: (e) => e.website },
+  { header: 'status', get: (e) => e.status },
+  { header: 'created_at', get: (e) => e.created_at ?? '' },
+]
 
 // Note #19 (Arabization-safe naming) — same pattern as MediaPage/MarketplacePage:
 // each sector already carries its own translated name from the API, so use
@@ -93,11 +115,16 @@ export default function CityGuidePage() {
   // Guide filters (the admin list is already fetched in full, limit=200).
   const [sectorFilter, setSectorFilter] = useState('')
   const [sectorTypeFilter, setSectorTypeFilter] = useState('')
+  // Set by clicking the missing-coordinates banner: keep only the places that
+  // would not show on the app map.
+  const [onlyMissingCoords, setOnlyMissingCoords] = useState(false)
+  const tableRef = useRef<HTMLDivElement | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [sectors, setSectors] = useState<CitySector[]>([])
   const toast = useToast()
   const { t, locale } = useI18n()
   const statusLabel = useStatusLabel()
+  const sel = useSelection<CommunityEntry>((e) => e.id)
 
   // Every dependency of the fetch effect below, so the page reads as loading
   // from the render that changes either of them.
@@ -218,11 +245,20 @@ export default function CityGuidePage() {
     [toast, t],
   )
 
+  const applyBulkDelete = useCallback(async () => {
+    const ids = [...sel.selected]
+    const results = await Promise.allSettled(ids.map((id) => api.delete(`/api/admin/community/${id}`)))
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((n) => n + 1)
+    return { ok, fail: results.length - ok }
+  }, [sel])
+
   const modalOpen = editing !== null || creating
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const query = q.trim().toLowerCase()
-  const items = (resp?.items ?? []).filter((e) =>
+  const matching = (resp?.items ?? []).filter((e) =>
     (!query ||
       e.name.toLowerCase().includes(query) ||
       (e.name_ar ?? '').toLowerCase().includes(query) ||
@@ -231,11 +267,22 @@ export default function CityGuidePage() {
     (!sectorFilter || (e.sectors ?? []).includes(sectorFilter)) &&
     (!sectorTypeFilter || e.sector_type === sectorTypeFilter),
   )
+  const withCoords = matching.filter(hasValidCoords)
+  const missingCount = matching.length - withCoords.length
+  // The "show only missing" filter is dropped by itself once nothing is missing
+  // (e.g. the last offending place was just fixed), so the table never sits
+  // empty behind a banner that is no longer there.
+  const showingMissing = onlyMissingCoords && missingCount > 0
+  const items = showingMissing ? matching.filter((e) => !hasValidCoords(e)) : matching
   const pendingCount = (resp?.items ?? []).filter((e) => e.status === 'pending').length
-  const withCoords = items.filter(
-    (e) => e.latitude !== null && e.latitude !== undefined && e.latitude !== '' &&
-           e.longitude !== null && e.longitude !== undefined && e.longitude !== '',
-  )
+
+  const showMissing = () => {
+    setOnlyMissingCoords(true)
+    sel.clear()
+    // Wait a frame so the filtered table is what scrolls into view.
+    requestAnimationFrame(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+  const showAll = () => { setOnlyMissingCoords(false); sel.clear() }
 
   const columns: Column<CommunityEntry>[] = [
     { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
@@ -264,7 +311,7 @@ export default function CityGuidePage() {
     { key: 'city', header: t('col.city'),    cell: (e) => e.city ?? <span className="muted">—</span> },
     {
       key: 'coords', header: t('cityGuide.col_coordinates'),
-      cell: (e) => (e.latitude && e.longitude)
+      cell: (e) => hasValidCoords(e)
         ? <code style={{ fontSize: '11px' }}>{Number(e.latitude).toFixed(4)}, {Number(e.longitude).toFixed(4)}</code>
         : <span className="muted" style={{ color: '#e57373' }}>⚠ {t('cityGuide.no_coords')}</span>,
     },
@@ -334,22 +381,39 @@ export default function CityGuidePage() {
           <input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); sel.clear() }}
             placeholder={t('common.city_search')}
             style={{ width: '200px' }}
           />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 130 }}>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); sel.clear() }} style={{ width: 130 }}>
             <option value="">{t('cityGuide.filter_all')}</option>
             <option value="pending">{t('cityGuide.filter_pending')}{pendingCount ? ` (${pendingCount})` : ''}</option>
             <option value="approved">{t('cityGuide.filter_approved')}</option>
           </select>
           {/* Note #19 — filter by the 5-sector taxonomy and Sector Type. */}
-          <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} style={{ width: 190 }}>
+          <select value={sectorFilter} onChange={(e) => { setSectorFilter(e.target.value); sel.clear() }} style={{ width: 160 }}>
             <option value="">{t('field.sector')}: {t('cityGuide.filter_all')}</option>
             {sectors.map((s) => (
               <option key={s.slug} value={s.slug}>{sectorName(s, locale)}</option>
             ))}
           </select>
+          <select
+            value={sectorTypeFilter}
+            onChange={(e) => { setSectorTypeFilter(e.target.value); sel.clear() }}
+            style={{ width: 160 }}
+          >
+            <option value="">{t('field.sector_type')}: {t('cityGuide.filter_all')}</option>
+            <option value="government">{t('cityGuide.sector_type_government')}</option>
+            <option value="private">{t('cityGuide.sector_type_private')}</option>
+          </select>
+          <ExportCsvButton
+            rows={items}
+            columns={CITY_GUIDE_CSV_COLUMNS}
+            filenameBase="city-guide"
+            title={t('nav.city_guide')}
+            module="community"
+          />
+          <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
         </div>
       </PageHead>
 
@@ -359,26 +423,15 @@ export default function CityGuidePage() {
         <button onClick={() => setCreating(true)}>{t('common.city_add_place')}</button>
       </PageActions>
 
-      {/* City Guide has more filters than any other page. The last one and the
-          sectors link drop to the bar's own second line, which starts under
-          Back — that keeps the first line from squeezing the search box. */}
-      <BarSecondary>
-        <select
-          value={sectorTypeFilter}
-          onChange={(e) => setSectorTypeFilter(e.target.value)}
-          style={{ width: 190 }}
-        >
-          <option value="">{t('field.sector_type')}: {t('cityGuide.filter_all')}</option>
-          <option value="government">{t('cityGuide.sector_type_government')}</option>
-          <option value="private">{t('cityGuide.sector_type_private')}</option>
-        </select>
-        <Link className="row-edit-btn" to="/city-sectors">{t('citySectors.manage_link')}</Link>
-      </BarSecondary>
 
       {/* ── coord warning ───────────────────────────────────────────────── */}
-      {!loading && items.length > 0 && withCoords.length < items.length && (
+      {!loading && missingCount > 0 && (
         <div
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
             padding: '10px 16px',
             background: 'rgba(229,115,115,0.1)',
             border: '1px solid rgba(229,115,115,0.3)',
@@ -387,7 +440,32 @@ export default function CityGuidePage() {
             color: '#e57373',
           }}
         >
-          ⚠ {t('cityGuide.missing_coords_warning', { n: items.length - withCoords.length })}
+          {/* A real button: keyboard-reachable, announces what it does. */}
+          <button
+            type="button"
+            className="link-btn"
+            onClick={showMissing}
+            aria-pressed={showingMissing}
+            title={t('cityGuide.missing_coords_show')}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              color: 'inherit',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+              flex: '1 1 auto',
+            }}
+          >
+            ⚠ {t('cityGuide.missing_coords_warning', { n: missingCount })}
+          </button>
+          {showingMissing && (
+            <>
+              <span className="muted">{t('cityGuide.missing_coords_showing')}</span>
+              <button type="button" className="secondary" onClick={showAll}>
+                {t('cityGuide.missing_coords_show_all')}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -395,13 +473,17 @@ export default function CityGuidePage() {
           error at the top of the fetch effect used to achieve. */}
       {!loading && err && <div className="error-box">{err}</div>}
 
-      <Table<CommunityEntry>
-        rows={items}
-        columns={columns}
-        rowKey={(e) => e.id}
-        loading={loading}
-        empty={t('common.city_empty')}
-      />
+      <div ref={tableRef} style={{ scrollMarginTop: 'var(--space-4)' }}>
+        <Table<CommunityEntry>
+          rows={items}
+          columns={columns}
+          rowKey={(e) => e.id}
+          loading={loading}
+          empty={t('common.city_empty')}
+          selectable={sel.forRows(items)}
+        />
+      </div>
+      <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.place')} />
 
       <EditModal
         open={modalOpen}

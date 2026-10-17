@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
@@ -1477,6 +1478,13 @@ type userPasswordReq struct {
 	// entirely for every target that is not a super_admin. Also decoded by
 	// VerifyPassword, which shares this struct and simply never reads it.
 	ConfirmationCode string `json:"confirmation_code"`
+	// Username — optional dashboard sign-in name, set in the same request as the
+	// password. AdminLogin finds the account BY username, so a password on an
+	// account with no username signs in nowhere; the Edit screen used to offer
+	// the password box without the username box (client report #79/#87).
+	// Absent/blank leaves the current username untouched. Ignored by
+	// VerifyPassword, which shares this struct.
+	Username *string `json:"username"`
 }
 
 // POST /api/admin/users/:id/password — body {password}. Sets (or clears when
@@ -1502,6 +1510,11 @@ func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
 		return
 	}
 	pw := strings.TrimSpace(req.Password)
+	username, uerr := normalizeUsername(req.Username)
+	if uerr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "username_invalid", "error": clientMessage(uerr)})
+		return
+	}
 	var arg any = nil // empty password clears the hash (back to phone/OTP login)
 	if pw != "" {
 		if len(pw) < 4 {
@@ -1514,10 +1527,43 @@ func (h *AdminStatusHandler) UserPassword(c *gin.Context) {
 			return
 		}
 		arg = string(hash)
+		// A staff account is only reachable through AdminLogin, which looks the
+		// row up by username. Giving it a password while it has no username
+		// would "succeed" and then fail every sign-in — refuse with a message
+		// that says what is missing.
+		if username == "" {
+			var tier, existing *string
+			if err := h.Pool.QueryRow(c.Request.Context(),
+				"SELECT staff_tier, username FROM users WHERE id = $1", id).Scan(&tier, &existing); err == nil {
+				isStaff := tier != nil && permissions.TierFrom(*tier) != permissions.TierUser
+				if isStaff && (existing == nil || strings.TrimSpace(*existing) == "") {
+					c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "username_required",
+						"error": "This is a staff account with no username yet. Set a username together with the password so it can sign in to the dashboard."})
+					return
+				}
+			}
+		}
 	}
-	ct, err := h.Pool.Exec(c.Request.Context(),
-		"UPDATE users SET password_hash = $1 WHERE id = $2", arg, id)
+	var ct pgconn.CommandTag
+	var err error
+	switch {
+	case pw == "" && username != "":
+		// Username only: do NOT clear the password.
+		ct, err = h.Pool.Exec(c.Request.Context(),
+			"UPDATE users SET username = $1 WHERE id = $2", username, id)
+	case username != "":
+		ct, err = h.Pool.Exec(c.Request.Context(),
+			"UPDATE users SET password_hash = $1, username = $2 WHERE id = $3", arg, username, id)
+	default:
+		ct, err = h.Pool.Exec(c.Request.Context(),
+			"UPDATE users SET password_hash = $1 WHERE id = $2", arg, id)
+	}
 	if err != nil {
+		if strings.Contains(err.Error(), "idx_users_username") {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "code": "username_taken",
+				"error": "This username is already taken."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})
 		return
 	}

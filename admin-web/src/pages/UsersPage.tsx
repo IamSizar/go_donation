@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ActionsMenu from '../components/ActionsMenu'
 import DateCell from '../components/DateCell'
@@ -11,7 +11,10 @@ import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
 import StatusCell from '../components/StatusCell'
 import EditModal from '../components/EditModal'
-import { buildEditUserFields, buildNewUserFields, flattenForEdit, NEW_USER_CORE_KEYS } from '../lib/userEditFields'
+import { BACK_PHOTO_RULE_KEY, buildEditUserFields, buildNewUserFields, credentialsBody, flattenForEdit, isProfileFieldShown, NEW_USER_CORE_KEYS, splitAccountPatch } from '../lib/userEditFields'
+import { usersListParams, type UsersKind } from '../lib/usersListParams'
+import { useSelection } from '../lib/useSelection'
+import BulkBar from '../components/BulkBar'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../lib/toast'
@@ -22,7 +25,6 @@ import { usePermission } from '../lib/permissions'
 import { isStaffAccount } from '../lib/staffAccounts'
 import { useFieldRules } from '../lib/fieldRules'
 import { rulePrefixForRole, useUserFieldRules } from '../lib/fieldRuleColumns'
-import { isCollectedForRole } from '../lib/userProfileFields'
 import FieldRuleCell from '../components/FieldRuleCell'
 import type { FieldSpec } from '../components/EditModal'
 import PageHead from '../components/PageHead'
@@ -71,14 +73,6 @@ function roleLabelToId(label: string): number {
   return 0
 }
 
-// A card's back photo has no rule of its own: it is governed by the front
-// column's rule (the app shows/requires both sides under one key).
-const BACK_PHOTO_RULE_KEY: Record<string, string> = {
-  id_photo_back_path: 'id_photo_path',
-  residence_card_photo_back_path: 'residence_card_photo_path',
-  ration_card_photo_back_path: 'ration_card_photo_path',
-}
-
 // roleId narrows the list to one role — the Donors page is this page with
 // roleId=1 (the same accounts, actions and edit form, just donors only).
 export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = {}) {
@@ -93,6 +87,9 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
   // existing view changes for anyone.
   const [hideGuests, setHideGuests] = useState(false)
   const [q, setQ] = useState('')
+  // In-page "type" filter of the general list (donors / volunteers / ... / guests).
+  const [kind, setKind] = useState<UsersKind>('')
+  const sel = useSelection<UserAccount>((u) => u.user_id)
   const [resp, setResp] = useState<UsersListResp | null>(null)
   // Which request last came back. `loading` is derived from it below
   // rather than set at the top of the fetch effect, which costs a second
@@ -149,7 +146,7 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
   const editFields = useMemo(() => {
     const roleId = editing?.role_id != null ? Number(editing.role_id) : undefined
     const usable = !editFieldRules.loading && !editFieldRules.error && rulePrefixForRole(roleId) !== null
-    return buildEditUserFields(editFieldRules.rulesFor(roleId), usable)
+    return buildEditUserFields(editFieldRules.rulesFor(roleId), usable, roleId)
   }, [editing, editFieldRules])
   // Note #4 — Archive is the reversible, non-destructive alternative to
   // Delete; a Super Admin decides per-tier (Permissions page) who besides
@@ -171,17 +168,18 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
+    return pin
   }
 
   // Every dependency of the fetch effect below, so the page reads as loading
   // from the render that changes any of them.
-  const requestKey = `${page}|${q}|${refreshTick}|${statusView}|${hideGuests}|${onlyRoleId ?? ''}`
+  const requestKey = `${page}|${q}|${refreshTick}|${statusView}|${hideGuests}|${onlyRoleId ?? ''}|${kind}`
   const loading = loadedKey !== requestKey
 
   useEffect(() => {
     let cancelled = false
     api
-      .get<UsersListResp>('/api/admin/users', { params: { page, per_page: PER_PAGE, q: q || undefined, status: statusView || undefined, hide_guests: hideGuests ? 1 : undefined, staff: 0, role_id: onlyRoleId } })
+      .get<UsersListResp>('/api/admin/users', { params: usersListParams({ page, perPage: PER_PAGE, q, status: statusView, hideGuests, roleId: onlyRoleId, kind }) })
       .then((res) => {
         if (!cancelled) { setResp(res.data); setErr(null) }
       })
@@ -194,7 +192,7 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
     return () => {
       cancelled = true
     }
-  }, [page, q, refreshTick, statusView, hideGuests, onlyRoleId, requestKey])
+  }, [page, q, refreshTick, statusView, hideGuests, onlyRoleId, kind, requestKey])
 
   // Staff relocation — staff accounts (staff_tier set to anything besides the
   // default 'user') are managed on the Staff page under System Settings
@@ -244,8 +242,10 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
 
   const handleSave = useCallback(
     async (u: UserAccount, patch: Record<string, unknown>) => {
-      const { password, ...profilePatch } = patch
-      const settingPassword = typeof password === 'string' && password.trim() !== ''
+      // Username + password travel together (client #79/#87): the dashboard
+      // finds an account BY username, so a password alone signs in nowhere.
+      const { profilePatch, credentials } = splitAccountPatch(patch)
+      const settingPassword = !!credentials?.password
       if (settingPassword && !(await confirmPasswordSet(u))) {
         throw new Error(t('page.users.password_cancelled'))
       }
@@ -267,10 +267,10 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
           api.patch(`/api/admin/users/${u.user_id}`, { ...profilePatch, ...extra }),
         )
       }
-      if (settingPassword) {
+      if (credentials) {
         await withMainAdminConfirmation((extra) =>
           api.post(`/api/admin/users/${u.user_id}/password`, {
-            password: (password as string).trim(),
+            ...credentialsBody(credentials),
             ...extra,
           }),
         )
@@ -281,9 +281,16 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
     [toast, t, confirmPasswordSet],
   )
 
+  // The password the operator just typed for the step-up. The server wants it
+  // again on the DELETE itself (delete_password.go); passing it along means one
+  // prompt per delete, not two. Held only between the step-up and the confirm.
+  const deletePin = useRef<string | null>(null)
+
   const handleDelete = useCallback(
     async (id: number) => {
-      await api.delete(`/api/admin/users/${id}`)
+      const pin = deletePin.current
+      deletePin.current = null
+      await api.delete(`/api/admin/users/${id}`, pin ? { data: { password: pin } } : undefined)
       toast.success(t('toast.deleted', { noun: `${t('noun.user')} #${id}` }))
       setDeleting(null)
       setRefreshTick((t) => t + 1)
@@ -298,7 +305,7 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
   const requestDelete = useCallback(
     async (u: UserAccount) => {
       try {
-        await verifyPin()
+        deletePin.current = await verifyPin()
         setDeleting(u)
       } catch (e) {
         toast.error(describeError(e))
@@ -306,6 +313,22 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
     },
     [toast],
   )
+
+  // Bulk delete (client #82): ONE password step-up for the whole batch, then
+  // every DELETE carries that password. Super-Admin only, like the single
+  // delete (the server enforces it per request as well).
+  const applyBulkDelete = useCallback(async () => {
+    const ids = [...sel.selected]
+    const pin = await verifyPin()
+    const results = await Promise.allSettled(
+      ids.map((id) => api.delete(`/api/admin/users/${id}`, { data: { password: pin } })),
+    )
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((n) => n + 1)
+    return { ok, fail: results.length - ok }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel])
 
   const handleArchiveToggle = useCallback(
     async (u: UserAccount) => {
@@ -457,7 +480,8 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
       // logout/Delete) that wrapped and cluttered the row. Now one "Actions"
       // menu. Delete is hard-restricted to amSuper (Super Admin / Primary
       // Administrator) with a password step-up before the confirm dialog
-      // even opens (requestDelete); Archive is the reversible alternative
+      // even opens (requestDelete, reached from the danger zone inside the Edit
+      // modal — not from this menu); Archive is the reversible alternative
       // available to whichever tier has been granted the "archive"
       // permission (defaults to Supervisor+, configurable on Permissions).
       key: 'actions', header: t('common.actions'), width: '110px',
@@ -545,20 +569,6 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
                           toast.error(describeError(e))
                         }
                       },
-                    },
-                  ]
-                : []),
-              // Delete — Super-Admin only (both here and enforced server-side
-              // via RequireSuperAdmin, not the overridable permission flag),
-              // password-confirmed via requestDelete before the "are you
-              // sure?" dialog opens.
-              ...(amSuper
-                ? [
-                    {
-                      key: 'delete',
-                      label: t('common.delete'),
-                      danger: true,
-                      onClick: () => requestDelete(u),
                     },
                   ]
                 : []),
@@ -665,28 +675,15 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
    */
   const isNewUserFieldVisible = useCallback(
     (f: FieldSpec, values: Record<string, string>) => {
-      if (!f.labelField) return true
-      // Migration 057's own `user_` rule already decided whether this box
-      // shows at all (buildNewUserFields' isHidden filter, above) — full_name
-      // and address in particular have NO grantor_/recipient_/volunteer_ row
-      // of their own to consult (see NEW_USER_CORE_KEYS), so gating them by
-      // role here would hide them for every role, not just the wrong ones.
-      if (NEW_USER_CORE_KEYS.has(f.key)) return true
+      // Same rule as the Edit form (isProfileFieldShown) — one source, so the
+      // two modals show the same boxes for the same role. Migration 057's
+      // `user_` core keys and the account-level boxes are exempt inside it;
+      // before a role is picked, or for a role with no registration form of
+      // its own (employee), New User hides every profile box.
       const picked = roleLabelToId(values.role ?? '')
       const roleId = picked === 0 ? undefined : picked
-      if (rulePrefixForRole(roleId) === null) return false
       const usable = !editFieldRules.loading && !editFieldRules.error
-      // id_photo_back_path shares ONE rule with id_photo_path in both the app
-      // (registration_form.dart shows/hides front+back together under a
-      // single `_unlessHidden('grantor_id_photo', ...)`) and the backend
-      // (field_rule_columns.go's `_photo` → `_photo_path` mapping never
-      // touches the `_back_path` twin — confirmed against that file directly,
-      // it is not an oversight I'm inferring). Looking up "id_photo_back_path"
-      // itself finds no rule at all and reads as ungoverned → hidden, which
-      // would silently drop the back photo the client specifically asked for
-      // ("صورة هوية وجه وظهر" — front AND back). Reuse the front column's rule.
-      const ruleKey = BACK_PHOTO_RULE_KEY[f.key] ?? f.key
-      return isCollectedForRole(ruleKey, roleId, usable ? editFieldRules.rulesFor(roleId) : undefined)
+      return isProfileFieldShown(f, roleId, usable ? editFieldRules.rulesFor(roleId) : undefined, false)
     },
     [editFieldRules],
   )
@@ -729,9 +726,25 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
           </p>
         </div>
         <div className="row">
+          {onlyRoleId === undefined && (
+            <select
+              value={kind}
+              onChange={(e) => { setKind(e.target.value as UsersKind); setPage(1); sel.clear() }}
+              style={{ width: 'auto' }}
+              aria-label={t('col.role')}
+            >
+              <option value="">{t('page.users.kind_all')}</option>
+              <option value="donor">{t('nav.donors')}</option>
+              <option value="beneficiary">{t('page.users.kind_beneficiary')}</option>
+              <option value="volunteer">{t('page.users.kind_volunteer')}</option>
+              <option value="employee">{t('page.users.kind_employee')}</option>
+              <option value="marriage">{t('page.users.kind_marriage')}</option>
+              <option value="guest">{t('page.users.kind_guest')}</option>
+            </select>
+          )}
           <select
             value={statusView}
-            onChange={(e) => { setStatusView(e.target.value); setPage(1) }}
+            onChange={(e) => { setStatusView(e.target.value); setPage(1); sel.clear() }}
             style={{ width: 'auto' }}
           >
             <option value="">{t('page.users.view_active')}</option>
@@ -742,14 +755,14 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
             <input
               type="checkbox"
               checked={hideGuests}
-              onChange={(e) => { setHideGuests(e.target.checked); setPage(1) }}
+              onChange={(e) => { setHideGuests(e.target.checked); setPage(1); sel.clear() }}
             />
             {t('page.users.hide_guests')}
           </label>
           <input
             type="search"
             value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1) }}
+            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
             placeholder={t('page.users.search_placeholder')}
             style={{ width: '220px' }}
           />
@@ -774,13 +787,22 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
         rowKey={(u) => u.user_id}
         loading={loading}
         empty={onlyRoleId === 1 ? t('empty.donors') : t('empty.users')}
+        selectable={amSuper ? sel.forRows(visibleRows) : undefined}
       />
       <Pagination
         page={page}
         totalPages={resp?.pagination.total_pages ?? 1}
-        onPageChange={setPage}
+        onPageChange={(n) => { sel.clear(); setPage(n) }}
         disabled={loading}
       />
+      {amSuper && (
+        <BulkBar
+          count={sel.count}
+          onDelete={applyBulkDelete}
+          onClear={sel.clear}
+          noun={t('noun.user')}
+        />
+      )}
       <EditModal
         open={editing !== null}
         title={editing ? t('common.modal_edit', { noun: t('noun.user'), id: editing.user_id }) : ''}
@@ -794,6 +816,27 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
         renderFieldExtra={renderRuleFor(
           editing?.role_id != null ? Number(editing.role_id) : undefined,
         )}
+        dangerZone={
+          amSuper && editing ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <h3 style={{ margin: 0, color: 'var(--danger)' }}>{t('page.users.danger_zone')}</h3>
+              <p className="muted" style={{ margin: 0 }}>{t('page.users.danger_zone_hint')}</p>
+              <div>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => {
+                    const target = editing
+                    setEditing(null)
+                    void requestDelete(target)
+                  }}
+                >
+                  {t('page.users.delete_account')}
+                </button>
+              </div>
+            </div>
+          ) : null
+        }
       />
       <EditModal
         open={creating}

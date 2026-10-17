@@ -12,7 +12,7 @@
 // own row), and askForText's in-app dialog (the prompt()-free fallback,
 // commit 518f850) for the PIN/OTP/password prompts. Nothing about what a role
 // is ALLOWED to do changed — only where the controls that do it live.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ActionsMenu from '../components/ActionsMenu'
 import DateCell from '../components/DateCell'
 import { api, describeError, isAdminLevel, isSuperAdmin, withMainAdminConfirmation } from '../lib/api'
@@ -30,7 +30,9 @@ import { usePermission } from '../lib/permissions'
 import PageHead from '../components/PageHead'
 import { fmtId } from '../lib/formatId'
 import { isStaffAccount } from '../lib/staffAccounts'
-import { USER_FIELDS, flattenForEdit } from '../lib/userEditFields'
+import { USER_FIELDS, credentialsBody, flattenForEdit, splitAccountPatch } from '../lib/userEditFields'
+import { useSelection } from '../lib/useSelection'
+import BulkBar from '../components/BulkBar'
 import { useUserEditProfile } from '../lib/useUserEditProfile'
 import { fetchAllUsers } from '../lib/fetchAllUsers'
 import { SUPPORT_SECTIONS, useSupportSectionLabel } from '../lib/supportSections'
@@ -69,6 +71,7 @@ export default function StaffPage() {
   } = useUserEditProfile(editing?.user_id ?? null)
   const [deleting, setDeleting] = useState<UserAccount | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const sel = useSelection<UserAccount>((u) => u.user_id)
   const toast = useToast()
   const { t } = useI18n()
   // Same label source StatusCell uses internally for the tier cell below
@@ -101,6 +104,7 @@ export default function StaffPage() {
     if (pin == null || !pin.trim()) throw new Error(t('export.pin_required'))
     const { data } = await api.post('/api/admin/verify-password', { password: pin })
     if (!data?.ok) throw new Error(data?.error || t('export.pin_incorrect'))
+    return pin
   }
 
   // Every dependency of the fetch effect below, so the page reads as loading
@@ -129,8 +133,10 @@ export default function StaffPage() {
 
   const handleSave = useCallback(
     async (u: UserAccount, patch: Record<string, unknown>) => {
-      const { password, ...profilePatch } = patch
-      const settingPassword = typeof password === 'string' && password.trim() !== ''
+      // Username + password travel together (client #79/#87): the dashboard
+      // signs a staff member in BY username, so a password alone is useless.
+      const { profilePatch, credentials } = splitAccountPatch(patch)
+      const settingPassword = !!credentials?.password
       // Note #9's bootstrap exception, unchanged: no existing password_hash
       // means verify-password would 403 forever, so skip the PIN only for a
       // FIRST password on an account that has none yet.
@@ -142,10 +148,10 @@ export default function StaffPage() {
           api.patch(`/api/admin/users/${u.user_id}`, { ...profilePatch, ...extra }),
         )
       }
-      if (settingPassword) {
+      if (credentials) {
         await withMainAdminConfirmation((extra) =>
           api.post(`/api/admin/users/${u.user_id}/password`, {
-            password: (password as string).trim(),
+            ...credentialsBody(credentials),
             ...extra,
           }),
         )
@@ -156,9 +162,14 @@ export default function StaffPage() {
     [toast, t],
   )
 
+  // The step-up password, passed on to the DELETE so it asks once, not twice.
+  const deletePin = useRef<string | null>(null)
+
   const handleDelete = useCallback(
     async (id: number) => {
-      await api.delete(`/api/admin/users/${id}`)
+      const pin = deletePin.current
+      deletePin.current = null
+      await api.delete(`/api/admin/users/${id}`, pin ? { data: { password: pin } } : undefined)
       toast.success(t('toast.deleted', { noun: `${t('noun.staff')} #${id}` }))
       setDeleting(null)
       setRefreshTick((n) => n + 1)
@@ -169,7 +180,7 @@ export default function StaffPage() {
   const requestDelete = useCallback(
     async (u: UserAccount) => {
       try {
-        await verifyPin()
+        deletePin.current = await verifyPin()
         setDeleting(u)
       } catch (e) {
         toast.error(describeError(e))
@@ -177,6 +188,20 @@ export default function StaffPage() {
     },
     [toast],
   )
+
+  // Bulk delete: one password step-up for the batch, Super-Admin only.
+  const applyBulkDelete = useCallback(async () => {
+    const ids = [...sel.selected]
+    const pin = await verifyPin()
+    const results = await Promise.allSettled(
+      ids.map((id) => api.delete(`/api/admin/users/${id}`, { data: { password: pin } })),
+    )
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((n) => n + 1)
+    return { ok, fail: results.length - ok }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel])
 
   const handleArchiveToggle = useCallback(
     async (u: UserAccount) => {
@@ -381,16 +406,6 @@ export default function StaffPage() {
                     },
                   ]
                 : []),
-              ...(amSuper
-                ? [
-                    {
-                      key: 'delete',
-                      label: t('common.delete'),
-                      danger: true,
-                      onClick: () => requestDelete(u),
-                    },
-                  ]
-                : []),
             ]}
           />
         )
@@ -408,7 +423,7 @@ export default function StaffPage() {
         <div className="row">
           <select
             value={statusView}
-            onChange={(e) => setStatusView(e.target.value)}
+            onChange={(e) => { setStatusView(e.target.value); sel.clear() }}
             style={{ width: 'auto' }}
           >
             <option value="">{t('page.users.view_active')}</option>
@@ -418,7 +433,7 @@ export default function StaffPage() {
           <input
             type="search"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); sel.clear() }}
             placeholder={t('page.users.search_placeholder')}
             style={{ width: '220px' }}
           />
@@ -468,7 +483,11 @@ export default function StaffPage() {
         rowKey={(u) => u.user_id}
         loading={loading}
         empty={t('page.staff.empty')}
+        selectable={amSuper ? sel.forRows(staffRows) : undefined}
       />
+      {amSuper && (
+        <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.staff')} />
+      )}
 
       <EditModal
         open={editing !== null}
@@ -480,6 +499,27 @@ export default function StaffPage() {
         onRetry={reloadEditProfile}
         onSave={(patch) => handleSave(editing!, patch)}
         onClose={() => setEditing(null)}
+        dangerZone={
+          amSuper && editing ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <h3 style={{ margin: 0, color: 'var(--danger)' }}>{t('page.users.danger_zone')}</h3>
+              <p className="muted" style={{ margin: 0 }}>{t('page.users.danger_zone_hint')}</p>
+              <div>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => {
+                    const target = editing
+                    setEditing(null)
+                    void requestDelete(target)
+                  }}
+                >
+                  {t('page.users.delete_account')}
+                </button>
+              </div>
+            </div>
+          ) : null
+        }
       />
       <ConfirmDialog
         open={deleting !== null}

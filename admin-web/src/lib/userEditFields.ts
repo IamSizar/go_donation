@@ -25,8 +25,9 @@
 
 import type { FieldSpec } from '../components/EditModal'
 import type { FieldRuleState } from './fieldRules'
-import type { ColumnRule } from './fieldRuleColumns'
+import { rulePrefixForRole, type ColumnRule } from './fieldRuleColumns'
 import {
+  isCollectedForRole,
   USER_PROFILE_GROUPS,
   type ProfileField,
   type ProfileGroup,
@@ -110,6 +111,10 @@ export const USER_FIELDS: FieldSpec[] = [
   { key: 'phone', label: 'Phone', labelKey: 'field.phone', type: 'text', required: true, phone: 'login', section: ACCOUNT_SECTION },
   { key: 'email', label: 'Email', labelKey: 'field.email', type: 'text', section: ACCOUNT_SECTION },
   ...PROFILE_EDIT_FIELDS,
+  // Dashboard sign-in name. The dashboard finds an account BY username, so a
+  // new password on an account without one signs in nowhere — the password box
+  // used to be offered alone, which is why "new password does not work" (#79/#87).
+  { key: 'username', label: 'Username', labelKey: 'auth.username', type: 'text', dir: 'ltr', section: ACCOUNT_SECTION },
   {
     key: 'password',
     label: 'New password',
@@ -149,6 +154,41 @@ export const NEW_USER_CORE_KEYS = new Set([
   'housing_status', 'family_size', 'monthly_income', 'availability',
   'experience', 'skills', 'profile_picture',
 ])
+
+
+/**
+ * A card's back photo has no rule of its own: it is governed by the front
+ * column's rule (the app shows/requires both sides under one key).
+ */
+export const BACK_PHOTO_RULE_KEY: Record<string, string> = {
+  id_photo_back_path: 'id_photo_path',
+  residence_card_photo_back_path: 'residence_card_photo_path',
+  ration_card_photo_back_path: 'ration_card_photo_path',
+}
+
+/**
+ * Whether the dashboard should draw this profile box for an account of `roleId`
+ * — the ONE rule behind both New User and Edit User, so the two forms show the
+ * same boxes for the same role (client #78: they had drifted — Edit showed
+ * every ungoverned column, New User only the role's own).
+ *
+ *  - account-level boxes (no labelField) and the `user_` core keys always show;
+ *  - a role with a registration form (donor/beneficiary/volunteer) shows a box
+ *    only when that role's live rule governs it and has not switched it off;
+ *  - a role with NO form: New User hides every profile box (nothing to ask yet),
+ *    Edit shows them all (`noFormShowsAll`) since the account already exists.
+ */
+export function isProfileFieldShown(
+  f: FieldSpec,
+  roleId: number | undefined,
+  rules: Record<string, ColumnRule> | undefined,
+  noFormShowsAll: boolean,
+): boolean {
+  if (!f.labelField) return true
+  if (NEW_USER_CORE_KEYS.has(f.key)) return true
+  if (rulePrefixForRole(roleId) === null) return noFormShowsAll
+  return isCollectedForRole(BACK_PHOTO_RULE_KEY[f.key] ?? f.key, roleId, rules)
+}
 
 /**
  * New User.
@@ -204,10 +244,15 @@ export function buildNewUserFields(state: Record<string, FieldRuleState>): Field
 export function buildEditUserFields(
   rules: Record<string, ColumnRule>,
   hasRules: boolean,
+  roleId?: number,
 ): FieldSpec[] {
   if (!hasRules) return USER_FIELDS
-  const always = new Set(['phone', 'password'])
-  return USER_FIELDS.filter((f) => always.has(f.key) || rules[f.key]?.state !== 'hidden').map((f) => {
+  const always = new Set(['phone', 'username', 'password'])
+  return USER_FIELDS.filter(
+    (f) =>
+      always.has(f.key) ||
+      (rules[f.key]?.state !== 'hidden' && isProfileFieldShown(f, roleId, rules, true)),
+  ).map((f) => {
     if (always.has(f.key)) return f
     // `required` on a FieldSpec is what draws the asterisk and blocks Save;
     // it is set from the rule rather than hardcoded, which is the whole point
@@ -236,4 +281,28 @@ export function flattenForEdit(
     out[f.key] = v === null || v === undefined ? '' : typeof v === 'string' ? v : String(v)
   }
   return out
+}
+
+/**
+ * Splits an Edit-User patch into the profile PATCH and the sign-in credentials
+ * (which the server keeps on POST .../password). Username and password travel
+ * together because the dashboard finds an account BY username: a password on an
+ * account with no username signs in nowhere (client #79/#87).
+ *
+ * `credentials` is null when neither was touched. Blank values are dropped — a
+ * blank password box means "keep", and a username cannot be cleared from here.
+ */
+export function splitAccountPatch(patch: Record<string, unknown>): {
+  profilePatch: Record<string, unknown>
+  credentials: { password: string; username: string } | null
+} {
+  const { password, username, ...profilePatch } = patch
+  const pw = typeof password === 'string' ? password.trim() : ''
+  const un = typeof username === 'string' ? username.trim() : ''
+  return { profilePatch, credentials: pw || un ? { password: pw, username: un } : null }
+}
+
+/** The body of POST /api/admin/users/:id/password for the above. */
+export function credentialsBody(c: { password: string; username: string }): Record<string, string> {
+  return { password: c.password, ...(c.username ? { username: c.username } : {}) }
 }

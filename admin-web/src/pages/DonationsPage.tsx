@@ -10,6 +10,8 @@ import {
 } from '../lib/api-types'
 import Table, { type Column } from '../components/Table'
 import Pagination from '../components/Pagination'
+import BulkBar from '../components/BulkBar'
+import { useSelection } from '../lib/useSelection'
 import StatusCell from '../components/StatusCell'
 import EditModal, { type FieldSpec } from '../components/EditModal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -104,6 +106,7 @@ export default function DonationsPage() {
   // Live-feed click landing: scrolls to and pulses the matching row when the
   // URL has `?highlight=<id>`. No-op for direct visits to /donations.
   const highlight = useHighlightedRow()
+  const sel = useSelection<DonationAdminRow>((d) => d.id)
 
   useEffect(() => {
     let cancelled = false
@@ -183,6 +186,16 @@ export default function DonationsPage() {
     },
     [toast],
   )
+
+  // Bulk delete reuses the single-row DELETE route, one request per row.
+  const applyBulkDelete = useCallback(async () => {
+    const ids = [...sel.selected]
+    const results = await Promise.allSettled(ids.map((id) => api.delete(`/api/admin/donations/${id}`)))
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    sel.clear()
+    setRefreshTick((t) => t + 1)
+    return { ok, fail: results.length - ok }
+  }, [sel])
 
   // Pre-shape the row passed into the modal: payment_status is a number on the
   // row, but the form uses the label.
@@ -336,7 +349,7 @@ export default function DonationsPage() {
           <input
             type="search"
             value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1) }}
+            onChange={(e) => { setQ(e.target.value); setPage(1); sel.clear() }}
             placeholder={t('page.donations.search_placeholder')}
             style={{ width: '220px' }}
           />
@@ -363,6 +376,7 @@ export default function DonationsPage() {
         error={hasRows ? undefined : err}
         onRetry={retry}
         empty={t('empty.donations')}
+        selectable={sel.forRows(resp?.items ?? [])}
         rowProps={(d) => ({
           // is-highlighted triggers the emerald pulse via index.css;
           // data-highlight-id is the anchor useHighlightedRow scrolls to;
@@ -380,9 +394,10 @@ export default function DonationsPage() {
       <Pagination
         page={page}
         totalPages={resp?.total_pages ?? 1}
-        onPageChange={setPage}
+        onPageChange={(p) => { setPage(p); sel.clear() }}
         disabled={loading}
       />
+      <BulkBar count={sel.count} onDelete={applyBulkDelete} onClear={sel.clear} noun={t('noun.donation')} />
       <EditModal
         open={modalOpen}
         mode={creating ? 'create' : 'edit'}
