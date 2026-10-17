@@ -31,7 +31,7 @@ in `schema_migrations`, so later boots are no-ops.
 | Variable | Effect when unset |
 |---|---|
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` | Uploads go to local disk under `UPLOAD_DIR` instead of Cloudflare R2. **A container filesystem is ephemeral — every deploy destroys local uploads.** Setting these five is what makes uploads survive. Partial configuration is a boot failure, deliberately, so a typo cannot look like success. |
-| `OTPIQ_API_KEY` | No real SMS. Sign-in OTP falls back to `OTP_DEMO_CODE` when `OTP_DEMO_ENABLED=1`. |
+| `WEVLIX_API_KEY` | No real OTP delivery (Wevlix, over WhatsApp). Sign-in OTP falls back to `OTP_DEMO_CODE` when `OTP_DEMO_ENABLED=1`. |
 | `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | No email. Main-admin change confirmation refuses (503, fails closed); the permission-change second factor degrades to returning its code in-band. |
 | `SUPPORT_USER_ID` | Support chat returns 503 — the in-app «التواصل مع الدعم» cannot open. An `app_settings` row `support_user_id` takes priority and needs no redeploy. |
 | `ANTHROPIC_API_KEY` | The in-app assistant has no model to call. |

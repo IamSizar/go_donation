@@ -34,7 +34,7 @@ import (
 // newWalletTopUpRouter wires the REAL route exactly as main.go does. Notifier
 // is left nil — AdminTopUp already guards every push send behind
 // `if h.Notifier != nil`, so a nil Notifier exercises the handler's real
-// production nil-safety rather than needing a live FCM/OTPIQ setup for a test
+// production nil-safety rather than needing a live FCM/Wevlix setup for a test
 // that is only about the app_events log row.
 func newWalletTopUpRouter(pool *pgxpool.Pool) *gin.Engine {
 	gin.SetMode(gin.TestMode)

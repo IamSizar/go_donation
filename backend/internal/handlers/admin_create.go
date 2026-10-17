@@ -835,7 +835,7 @@ func (h *AdminCreateHandler) MarketplaceProduct(c *gin.Context) {
 		optStringOrNil(req.CategorySlug), optStringOrNil(req.SKU), // #28 — archived
 		optStringOrNil(req.Specs), productLabels(req.Labels),
 		brand, discount, // K15
-		gallery, // migration 117
+		gallery,   // migration 117
 		sectionID, // store sections overhaul
 	).Scan(&id)
 	if err != nil {

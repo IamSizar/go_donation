@@ -60,11 +60,11 @@ import (
 // with whichever gateways the test supplies. Returns the OTP store so a test
 // can mint the second factor the endpoint will consume.
 func newFactorRouter(
-	pool *pgxpool.Pool, otpiq *auth.OTPIQClient, mailer *auth.Mailer,
+	pool *pgxpool.Pool, otpGW *auth.OTPClient, mailer *auth.Mailer,
 ) (*gin.Engine, *AdminPermissionsHandler) {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
-	h := NewAdminPermissionsHandler(permissions.New(pool), auth.NewOTPStore(pool), otpiq, mailer)
+	h := NewAdminPermissionsHandler(permissions.New(pool), auth.NewOTPStore(pool), otpGW, mailer)
 	r := gin.New()
 	r.POST("/api/admin/permissions",
 		auth.RequireAdmin(tokens), auth.RequireSuperAdmin(), h.SetPermission)

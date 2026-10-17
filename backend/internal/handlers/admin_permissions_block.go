@@ -71,7 +71,7 @@
 //
 // # DEGRADING HONESTLY WHEN NOTHING CAN BE SENT
 //
-// OTPIQ_API_KEY and SMTP_* are empty in every environment the team can reach.
+// WEVLIX_API_KEY and SMTP_* are empty in every environment the team can reach.
 // The rule this file follows:
 //
 //	THE BLOCK MUST NEVER OUTLIVE THE ONLY CHANNEL THAT CAN LIFT IT.

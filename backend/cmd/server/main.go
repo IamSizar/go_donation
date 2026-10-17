@@ -220,17 +220,17 @@ func main() {
 	log.Printf("[uploads] serving legacy /images from %s", uploadDir)
 
 	healthH := handlers.NewHealthHandler(pool)
-	// Phase 19 — OTPIQ delivery for real-mode OTP. Returns nil when
-	// OTPIQ_API_KEY isn't set; the handler then falls back to demo delivery.
+	// Phase 19 — Wevlix delivery for real-mode OTP. Returns nil when
+	// WEVLIX_API_KEY isn't set; the handler then falls back to demo delivery.
 	//
 	// A16 — these three lines are the whole switchover. With a key configured,
 	// every OTP is a real out-of-band code even for the shipped app, which asks
 	// for demo (see demoDeliveryActive), and OTP_STAFF_DEMO_CODE stops mattering.
-	otpiqClient := auth.NewOTPIQClient()
-	if otpiqClient != nil {
-		log.Printf("[otp] OTPIQ enabled (provider=whatsapp-sms by default) — all OTP delivery is real; demo mode is off")
+	otpGW := auth.NewOTPClient()
+	if otpGW != nil {
+		log.Printf("[otp] Wevlix enabled (provider=whatsapp-sms by default) — all OTP delivery is real; demo mode is off")
 	} else {
-		log.Printf("[otp] OTPIQ disabled (OTPIQ_API_KEY not set) — demo delivery in use, demo_enabled=%t", auth.DemoEnabled())
+		log.Printf("[otp] Wevlix disabled (WEVLIX_API_KEY not set) — demo delivery in use, demo_enabled=%t", auth.DemoEnabled())
 		// Staff cannot spend the public demo code (it is printed in the request
 		// response, so it proves nothing). Say plainly at boot whether the
 		// separate staff code is usable, because when it is not, every staff
@@ -262,13 +262,13 @@ func main() {
 			"no email leaves this server; main-admin credential changes (H20) will be REFUSED, not silently half-sent")
 	}
 
-	// #15 — wire the OTPIQ custom-SMS sender into the donation store so a donation
+	// #15 — wire the Wevlix custom-SMS sender into the donation store so a donation
 	// arrival can alert the section's contact (best-effort, nil-safe).
 	donationStore.SendSMS = func(ctx context.Context, phone, message string) error {
-		if otpiqClient == nil {
+		if otpGW == nil {
 			return nil
 		}
-		_, err := otpiqClient.SendMessage(ctx, phone, message)
+		_, err := otpGW.SendMessage(ctx, phone, message)
 		return err
 	}
 	// "Sixth/Seventh: Donations Page" — the same Transaction-Code + section-SMS
@@ -284,7 +284,7 @@ func main() {
 	} else {
 		log.Printf("[assistant] local mode (set ANTHROPIC_API_KEY for full AI; keyword engine active)")
 	}
-	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpiqClient, loginLockStore, notifier)
+	authH := handlers.NewAuthHandler(tokenStore, otpStore, userStore, otpGW, loginLockStore, notifier)
 	// H1 — lets the admin-login second factor reach an email when no SMS
 	// gateway is configured. Nil here means sign-in behaves exactly as before.
 	authH.Mail = mailer
@@ -324,7 +324,7 @@ func main() {
 	// thing on the Edit modal and on the Set-Password action. Wiring it is not
 	// optional in the safety sense: leaving either field nil makes those writes
 	// REFUSE (see admin_main_admin_guard.go), never silently proceed.
-	mainAdminGuard := handlers.NewMainAdminConfirm(pool, otpiqClient, mailer)
+	mainAdminGuard := handlers.NewMainAdminConfirm(pool, otpGW, mailer)
 	adminStatusH.MainAdmin = mainAdminGuard
 	adminEditH.MainAdmin = mainAdminGuard
 	adminCreateH := handlers.NewAdminCreateHandler(pool, notifier)
@@ -353,7 +353,7 @@ func main() {
 	if err := permStore.BackfillChain(ctx); err != nil {
 		log.Printf("[audit] chain backfill failed: %v", err)
 	}
-	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpiqClient, mailer)
+	adminPermsH := handlers.NewAdminPermissionsHandler(permStore, otpStore, otpGW, mailer)
 	adminProfessionsH := handlers.NewAdminProfessionsHandler(professionStore)
 	projectCategoriesH := handlers.NewProjectCategoriesHandler(projectCatStore)
 	sponsorshipTypesH := handlers.NewSponsorshipTypesHandler(sponsorshiptypes.New(pool)) // "Eighth: 4. Scalability"

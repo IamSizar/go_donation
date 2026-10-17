@@ -56,10 +56,10 @@ import (
 // Both gateways are arguments because the whole point of this row is what
 // happens on each of the three deployments that exist: SMS, email, and the one
 // the owner actually runs today, which has neither.
-func newBurstRouter(pool *pgxpool.Pool, otpiq *auth.OTPIQClient, mailer *auth.Mailer) *gin.Engine {
+func newBurstRouter(pool *pgxpool.Pool, otpGW *auth.OTPClient, mailer *auth.Mailer) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
-	h := NewAdminPermissionsHandler(permissions.New(pool), auth.NewOTPStore(pool), otpiq, mailer)
+	h := NewAdminPermissionsHandler(permissions.New(pool), auth.NewOTPStore(pool), otpGW, mailer)
 	r := gin.New()
 	r.POST("/api/admin/permissions",
 		auth.RequireAdmin(tokens), auth.RequireSuperAdmin(), h.SetPermission)
@@ -261,13 +261,13 @@ func TestPermissionBurstUnlocksBySMS(t *testing.T) {
 	t.Setenv("PERM_BURST_MAX", "2")
 	t.Setenv("PERM_BURST_WINDOW_SECONDS", "60")
 
-	stub := newFakeOTPIQ(t)
-	t.Setenv("OTPIQ_API_KEY", "sk_test_fake")
-	t.Setenv("OTPIQ_BASE_URL", stub.server.URL)
+	stub := newFakeWevlix(t)
+	t.Setenv("WEVLIX_API_KEY", "wvlx_test_fake")
+	t.Setenv("WEVLIX_BASE_URL", stub.server.URL)
 
 	actor := insertAccount(t, pool, "super_admin", "TheOwnersPassword1")
 	clearBurstState(t, pool, actor.id)
-	r := newBurstRouter(pool, auth.NewOTPIQClient(), nil)
+	r := newBurstRouter(pool, auth.NewOTPClient(), nil)
 
 	for i := 0; i < 3; i++ {
 		if status, body := changeAs(t, pool, r, actor, "TheOwnersPassword1", burstModules[i], false); status != http.StatusOK {
@@ -443,13 +443,13 @@ func TestPermissionBurstUnlockLetsWorkResume(t *testing.T) {
 	t.Setenv("PERM_BURST_MAX", "2")
 	t.Setenv("PERM_BURST_WINDOW_SECONDS", "3600") // an hour: the burst cannot age out
 
-	stub := newFakeOTPIQ(t)
-	t.Setenv("OTPIQ_API_KEY", "sk_test_fake")
-	t.Setenv("OTPIQ_BASE_URL", stub.server.URL)
+	stub := newFakeWevlix(t)
+	t.Setenv("WEVLIX_API_KEY", "wvlx_test_fake")
+	t.Setenv("WEVLIX_BASE_URL", stub.server.URL)
 
 	actor := insertAccount(t, pool, "super_admin", "TheOwnersPassword1")
 	clearBurstState(t, pool, actor.id)
-	r := newBurstRouter(pool, auth.NewOTPIQClient(), nil)
+	r := newBurstRouter(pool, auth.NewOTPClient(), nil)
 
 	for i := 0; i < 3; i++ {
 		if status, body := changeAs(t, pool, r, actor, "TheOwnersPassword1", burstModules[i], false); status != http.StatusOK {

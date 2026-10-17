@@ -3,7 +3,7 @@
 // # WHY THIS FILE EXISTS
 //
 // The product decision is that phone + OTP is the ONLY way to sign in to the
-// app: a user types a number, receives a code, and is in. Until OTPIQ_API_KEY
+// app: a user types a number, receives a code, and is in. Until WEVLIX_API_KEY
 // is configured there is no SMS/WhatsApp gateway, so the interim is "demo"
 // delivery — a fixed code from OTP_DEMO_CODE which /auth/otp/request returns in
 // its own response body, because that echo is the only way the app learns it
@@ -14,7 +14,7 @@
 // the interim. Two things follow, and they are what this file implements:
 //
 //  1. Demo delivery must not outlive its excuse. It is available only while
-//     there is no real gateway to use, so the day OTPIQ_API_KEY is set the whole
+//     there is no real gateway to use, so the day WEVLIX_API_KEY is set the whole
 //     platform moves to real codes — including the already-shipped app, which
 //     hard-codes `mode: "demo"` in its request and cannot be changed without a
 //     store release. See demoDeliveryActive.
@@ -45,13 +45,13 @@ import (
 // demoDeliveryActive reports whether OTP codes should be served in demo mode.
 //
 // Demo is a FALLBACK, never a preference: it applies only while OTP_DEMO_ENABLED
-// is on AND no OTPIQ client is configured. Deciding it server-side is what makes
+// is on AND no Wevlix client is configured. Deciding it server-side is what makes
 // the switch to real OTP a pure environment change — the deployed app always
 // asks for `mode: "demo"` (it was defaulted that way because real delivery 502s
 // with no key), so leaving the choice to the caller would mean every user kept
-// receiving demo codes long after OTPIQ_API_KEY was set.
-func demoDeliveryActive(otpiq *auth.OTPIQClient) bool {
-	return otpiq == nil && auth.DemoEnabled()
+// receiving demo codes long after WEVLIX_API_KEY was set.
+func demoDeliveryActive(otpGW *auth.OTPClient) bool {
+	return otpGW == nil && auth.DemoEnabled()
 }
 
 // staffPhoneCheck resolves whether phone belongs to a dashboard-capable account.

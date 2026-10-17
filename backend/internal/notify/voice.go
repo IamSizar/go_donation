@@ -15,7 +15,7 @@
 //
 // The SMS leg of these same reminders has never worked in any environment, and
 // nobody noticed for a reason worth writing down: main.go's SMS closure returns
-// `nil` — success — when OTPIQ is unconfigured. Every caller was told the
+// `nil` — success — when Wevlix is unconfigured. Every caller was told the
 // message went out. internal/config's own SMTPConfig comment already states the
 // rule that was broken there: "none of them may report success for a message
 // that never left."

@@ -25,8 +25,8 @@
 // Nothing about the request chain is stubbed: RequireAdmin resolves a genuine
 // token, the handler is the deployed one, and the confirmation row is read back
 // out of Postgres. The only doubles are the two OUTBOUND gateways — a real
-// SMTP conversation against a listener on 127.0.0.1, and OTPIQ pointed at a
-// local HTTP stub through OTPIQ_BASE_URL, which is the seam the repo already
+// SMTP conversation against a listener on 127.0.0.1, and Wevlix pointed at a
+// local HTTP stub through WEVLIX_BASE_URL, which is the seam the repo already
 // uses for exactly this. No message leaves the machine.
 //
 // Needs a throwaway Postgres; skipped unless TEST_DATABASE_URL is set:
@@ -160,33 +160,33 @@ func (s *fakeSMTP) decodedBodies() []string {
 	return out
 }
 
-// fakeOTPIQ stands in for the SMS gateway, recording every verificationCode it
+// fakeWevlix stands in for the OTP gateway, recording every code it
 // is asked to deliver.
-type fakeOTPIQ struct {
+type fakeWevlix struct {
 	server *httptest.Server
 	mu     sync.Mutex
 	codes  []string
 }
 
-func newFakeOTPIQ(t *testing.T) *fakeOTPIQ {
+func newFakeWevlix(t *testing.T) *fakeWevlix {
 	t.Helper()
-	f := &fakeOTPIQ{}
+	f := &fakeWevlix{}
 	f.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			VerificationCode string `json:"verificationCode"`
+			Code string `json:"code"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		f.mu.Lock()
-		f.codes = append(f.codes, body.VerificationCode)
+		f.codes = append(f.codes, body.Code)
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"smsId":"sms-test","cost":1,"remainingCredit":99,"canCover":true}`))
+		_, _ = w.Write([]byte(`{"messageId":"msg-test","status":"queued"}`))
 	}))
 	t.Cleanup(f.server.Close)
 	return f
 }
 
-func (f *fakeOTPIQ) sent() []string {
+func (f *fakeWevlix) sent() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.codes...)
@@ -224,16 +224,16 @@ func storedPhone(t *testing.T, pool *pgxpool.Pool, userID int64) string {
 // it on the whole group.
 //
 // The guard is built from whichever gateways the test supplies. Passing nil for
-// both is the production shape today: no SMTP, no OTPIQ.
+// both is the production shape today: no SMTP, no OTPGateway.
 //
 // Every actor in this file is a super_admin, whom RequirePermission always
 // allows, so the gates change no result here. They are wired so that no test in
 // this file can pass a request production would refuse.
-func newUserWriteRouter(pool *pgxpool.Pool, mailer *auth.Mailer, otpiq *auth.OTPIQClient) *gin.Engine {
+func newUserWriteRouter(pool *pgxpool.Pool, mailer *auth.Mailer, otpGW *auth.OTPClient) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	tokens := auth.NewTokenStore(pool)
 	perms := permissions.New(pool)
-	guard := NewMainAdminConfirm(pool, otpiq, mailer)
+	guard := NewMainAdminConfirm(pool, otpGW, mailer)
 
 	editH := NewAdminEditHandler(pool)
 	editH.MainAdmin = guard
@@ -280,19 +280,19 @@ func userPath(id int64, suffix string) string {
 
 // liveGateways builds a guard whose two channels both reach local stubs, and
 // returns the router plus the stubs so a test can read what was delivered.
-func liveGateways(t *testing.T, pool *pgxpool.Pool) (*gin.Engine, *fakeSMTP, *fakeOTPIQ) {
+func liveGateways(t *testing.T, pool *pgxpool.Pool) (*gin.Engine, *fakeSMTP, *fakeWevlix) {
 	t.Helper()
 	smtpStub := newFakeSMTP(t)
-	otpiqStub := newFakeOTPIQ(t)
-	t.Setenv("OTPIQ_API_KEY", "sk_test_fake")
-	t.Setenv("OTPIQ_BASE_URL", otpiqStub.server.URL)
+	otpiqStub := newFakeWevlix(t)
+	t.Setenv("WEVLIX_API_KEY", "wvlx_test_fake")
+	t.Setenv("WEVLIX_BASE_URL", otpiqStub.server.URL)
 	mailer := auth.NewMailer(auth.MailerConfig{
 		Host: "127.0.0.1", Port: smtpStub.port(), From: "no-reply@test.local",
 	})
 	if mailer == nil {
 		t.Fatal("NewMailer returned nil for a fully configured mailer")
 	}
-	return newUserWriteRouter(pool, mailer, auth.NewOTPIQClient()), smtpStub, otpiqStub
+	return newUserWriteRouter(pool, mailer, auth.NewOTPClient()), smtpStub, otpiqStub
 }
 
 // codeFrom pulls the six-digit code out of a delivered message body.
@@ -311,7 +311,7 @@ func codeFrom(t *testing.T, body string) string {
 // ─── The boundary ───────────────────────────────────────────────────────
 
 // TestMainAdminChangeRefusedWhenEmailUnavailable is the production shape today
-// and the reason this feature exists: SMTP_* unset, OTPIQ_API_KEY unset.
+// and the reason this feature exists: SMTP_* unset, WEVLIX_API_KEY unset.
 //
 // The change must be REFUSED and the row must be untouched. A version of this
 // feature that let the write through "with a warning" would pass every other

@@ -45,7 +45,7 @@
 //
 // There is deliberately NO self-service forgot-password. It is the same flow
 // with the bound removed, and without real delivery it would make every account
-// on the platform permanently seizable rather than once. Until OTPIQ_API_KEY is
+// on the platform permanently seizable rather than once. Until WEVLIX_API_KEY is
 // configured, a forgotten password is reset by staff through the existing
 // POST /api/admin/users/:id/password. This is stated for the owner in the A16
 // notes in CLIENT_NOTES_CHECKLIST.md.

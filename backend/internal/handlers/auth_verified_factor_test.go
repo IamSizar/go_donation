@@ -32,7 +32,7 @@
 // therefore enough to reach /api/admin/*.
 //
 // The second half of the hole is delivery mode. `OTP_DEMO_ENABLED` is ON in
-// production while `OTPIQ_API_KEY` is unset, so demo is the only OTP mode that
+// production while `WEVLIX_API_KEY` is unset, so demo is the only OTP mode that
 // works there — and demo mode returns the code to the caller in the response
 // body. A factor that hands you the factor is not one. These tests therefore
 // run with demo mode ON, exactly as production has it, which is what makes the
@@ -152,24 +152,24 @@ func insertAccount(t *testing.T, pool *pgxpool.Pool, staffTier, password string)
 	return authTestAccount{id: id, phone: phone}
 }
 
-// newAuthRouter wires the real auth routes onto the real handler. OTPIQ is nil
+// newAuthRouter wires the real auth routes onto the real handler. Wevlix is nil
 // and LoginLocks is live — exactly how main.go builds this in production, where
-// OTPIQ_API_KEY is unset.
+// WEVLIX_API_KEY is unset.
 func newAuthRouter(t *testing.T, pool *pgxpool.Pool) *gin.Engine {
 	t.Helper()
-	return newAuthRouterWith(t, pool, nil) // OTPIQ unconfigured, as in production
+	return newAuthRouterWith(t, pool, nil) // Wevlix unconfigured, as in production
 }
 
-// newAuthRouterWith is newAuthRouter with an explicit OTPIQ client, so a test
+// newAuthRouterWith is newAuthRouter with an explicit Wevlix client, so a test
 // can exercise the configured-gateway half of the switch.
-func newAuthRouterWith(t *testing.T, pool *pgxpool.Pool, otpiq *auth.OTPIQClient) *gin.Engine {
+func newAuthRouterWith(t *testing.T, pool *pgxpool.Pool, otpGW *auth.OTPClient) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	h := NewAuthHandler(
 		auth.NewTokenStore(pool),
 		auth.NewOTPStore(pool),
 		users.NewStore(pool),
-		otpiq,
+		otpGW,
 		auth.NewLoginLockStore(pool),
 		nil, // notifier — not exercised here
 	)
@@ -514,7 +514,7 @@ func TestVerifiedFactorOTPSignIn(t *testing.T) {
 
 	// The fix must not lock staff out of the factor that IS real. A code
 	// delivered out-of-band (mode "real") still reaches a staff account, so
-	// configuring OTPIQ restores their route in without another code change.
+	// configuring Wevlix restores their route in without another code change.
 	t.Run("real OTP still reaches a passwordless staff account", func(t *testing.T) {
 		acc := insertAccount(t, pool, "super_admin", "")
 		otps := auth.NewOTPStore(pool)
@@ -787,17 +787,17 @@ func TestStaffDemoCodeMisconfiguration(t *testing.T) {
 }
 
 // TestRealDeliveryTakesOverFromDemo is the switchover proof: setting
-// OTPIQ_API_KEY — and nothing else, no code change, no app release — must move
+// WEVLIX_API_KEY — and nothing else, no code change, no app release — must move
 // every sign-in onto real out-of-band codes.
 //
 // It matters that the request below asks for mode "demo". That is what the
 // SHIPPED app sends, hard-coded, and a build already on people's phones cannot
 // be told otherwise. If the server honoured the caller's choice, configuring
-// OTPIQ would change nothing for the users who are actually out there.
+// Wevlix would change nothing for the users who are actually out there.
 func TestRealDeliveryTakesOverFromDemo(t *testing.T) {
 	pool := newAuthTestPool(t)
 
-	// A stand-in for OTPIQ. Deterministic and offline — it records the code the
+	// A stand-in for OTPGateway. Deterministic and offline — it records the code the
 	// server tried to deliver, which is exactly what must NOT be in the response.
 	var delivered struct {
 		phone string
@@ -805,26 +805,26 @@ func TestRealDeliveryTakesOverFromDemo(t *testing.T) {
 	}
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var sent struct {
-			PhoneNumber      string `json:"phoneNumber"`
-			VerificationCode string `json:"verificationCode"`
+			To   string `json:"to"`
+			Code string `json:"code"`
 		}
 		_ = json.NewDecoder(req.Body).Decode(&sent)
-		delivered.phone, delivered.code = sent.PhoneNumber, sent.VerificationCode
+		delivered.phone, delivered.code = sent.To, sent.Code
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"smsId":"sms-test-1","cost":1,"remainingCredit":99,"canCover":true}`))
+		_, _ = w.Write([]byte(`{"messageId":"msg-test-1","status":"queued"}`))
 	}))
 	t.Cleanup(gateway.Close)
 
 	// Demo is left switched ON, to show the key alone is what settles it.
 	t.Setenv("OTP_DEMO_ENABLED", "1")
 	t.Setenv("OTP_DEMO_CODE", "424242")
-	t.Setenv("OTPIQ_API_KEY", "sk_test_switchover")
-	t.Setenv("OTPIQ_BASE_URL", gateway.URL)
-	otpiq := auth.NewOTPIQClient()
-	if otpiq == nil {
-		t.Fatal("OTPIQ client was nil with OTPIQ_API_KEY set")
+	t.Setenv("WEVLIX_API_KEY", "wvlx_test_switchover")
+	t.Setenv("WEVLIX_BASE_URL", gateway.URL)
+	otpGW := auth.NewOTPClient()
+	if otpGW == nil {
+		t.Fatal("Wevlix client was nil with WEVLIX_API_KEY set")
 	}
-	r := newAuthRouterWith(t, pool, otpiq)
+	r := newAuthRouterWith(t, pool, otpGW)
 
 	// Staff, because they are the accounts the interim locks out. Once delivery
 	// is real, the staff code is irrelevant and they sign in like anyone else.
@@ -850,7 +850,7 @@ func TestRealDeliveryTakesOverFromDemo(t *testing.T) {
 
 	// And the delivered code is the one that works: it authorises the password
 	// this account has never had, which is how a staff member locked out today
-	// gets back in the day OTPIQ is configured — with no staff code involved.
+	// gets back in the day Wevlix is configured — with no staff code involved.
 	status, body = postJSON(t, r, "/api/auth/otp/verify",
 		map[string]any{"phone": acc.phone, "code": delivered.code})
 	if status != http.StatusOK {

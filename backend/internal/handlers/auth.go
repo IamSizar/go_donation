@@ -27,9 +27,9 @@ type AuthHandler struct {
 	// /auth/otp/verify to /auth/password/set. Derived from the OTP store's pool
 	// by NewAuthHandler; see auth_password_setup.go.
 	SetupTickets *auth.SetupTicketStore
-	// Phase 19 — OTPIQ delivery client. nil when OTPIQ_API_KEY is not set;
+	// Phase 19 — Wevlix delivery client. nil when WEVLIX_API_KEY is not set;
 	// the handler then refuses real-mode OTP with a 502 (demo still works).
-	OTPIQ *auth.OTPIQClient
+	OTPGateway *auth.OTPClient
 	// H1 — the email half of "phone or email" on the admin-login second factor.
 	// nil when SMTP_* is unset, which is every environment today; wired late in
 	// main.go like the other optional collaborators. Nil-safe throughout: with
@@ -43,8 +43,8 @@ type AuthHandler struct {
 	Notifier *notify.Notifier
 }
 
-func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpiq *auth.OTPIQClient, ll *auth.LoginLockStore, n *notify.Notifier) *AuthHandler {
-	h := &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPIQ: otpiq, LoginLocks: ll, Notifier: n}
+func NewAuthHandler(t *auth.TokenStore, o *auth.OTPStore, u *users.Store, otpGW *auth.OTPClient, ll *auth.LoginLockStore, n *notify.Notifier) *AuthHandler {
+	h := &AuthHandler{Tokens: t, OTPs: o, Users: u, OTPGateway: otpGW, LoginLocks: ll, Notifier: n}
 	// SetupTickets is DERIVED rather than passed in. It is not an independent
 	// collaborator — it is one more table in the database the OTP store already
 	// holds — and an AuthHandler built without it would accept an OTP it could
@@ -375,7 +375,7 @@ func adminLogin2FAEnabled() bool {
 // real channel is configured this second factor becomes a real out-of-band code
 // with no further code change.
 func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, userID int64, phone string) (mode, demoCode string, err error) {
-	if demoDeliveryActive(h.OTPIQ) && !h.Mail.Configured() {
+	if demoDeliveryActive(h.OTPGateway) && !h.Mail.Configured() {
 		code := auth.DemoCode()
 		if err := h.OTPs.StoreCode(ctx, phone, code, "demo"); err != nil {
 			return "", "", err
@@ -390,7 +390,7 @@ func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, userID int64, phone
 	if h.Mail.Configured() {
 		email, _ = h.Users.GetEmailByID(ctx, userID)
 	}
-	if h.OTPIQ == nil && email == "" {
+	if h.OTPGateway == nil && email == "" {
 		return "", "", errOTPNotConfigured
 	}
 
@@ -403,8 +403,8 @@ func (h *AuthHandler) sendAdminLoginOTP(ctx context.Context, userID int64, phone
 	if err := h.OTPs.StoreCode(ctx, phone, code, "real"); err != nil {
 		return "", "", err
 	}
-	if h.OTPIQ != nil {
-		if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+	if h.OTPGateway != nil {
+		if _, err := h.OTPGateway.SendVerification(ctx, phone, code); err != nil {
 			_ = h.OTPs.ClearRecord(ctx, phone)
 			return "", "", err
 		}
@@ -427,7 +427,7 @@ func adminLoginEmailBody(code string) string {
 		"غيّر كلمة المرور فوراً."
 }
 
-var errOTPNotConfigured = errors.New("OTP delivery is not configured (OTPIQ_API_KEY)")
+var errOTPNotConfigured = errors.New("OTP delivery is not configured (WEVLIX_API_KEY)")
 
 // POST /api/auth/admin/login
 //
@@ -584,7 +584,7 @@ type otpRequestReq struct {
 // POST /api/auth/otp/request
 // Mirrors percentage/api/auth/otp/request/index.php.
 // In Phase 3a, real SMS delivery returns 502 unless an SMS provider is wired up
-// (matches PHP behavior when OTPIQ key is missing). Demo mode is local-dev only.
+// (matches PHP behavior when Wevlix key is missing). Demo mode is local-dev only.
 func (h *AuthHandler) OTPRequest(c *gin.Context) {
 	var req otpRequestReq
 	if !bindFlexibleJSON(c, &req) {
@@ -609,10 +609,10 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 	// The shipped app always asks for "demo" (it was defaulted that way because
 	// real delivery 502s with no gateway configured, and it cannot be changed
 	// without a store release), so honouring the request literally would keep
-	// every user on demo codes long after OTPIQ_API_KEY was set. Upgrading here
+	// every user on demo codes long after WEVLIX_API_KEY was set. Upgrading here
 	// is what makes real OTP a pure environment change.
-	if mode == "demo" && h.OTPIQ != nil {
-		log.Printf("[otp] demo request served as real delivery (OTPIQ configured) phone_hint=%s ip=%s",
+	if mode == "demo" && h.OTPGateway != nil {
+		log.Printf("[otp] demo request served as real delivery (Wevlix configured) phone_hint=%s ip=%s",
 			maskPhone(phone), ip)
 		mode = "real"
 	}
@@ -698,14 +698,14 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		return
 	}
 
-	// Phase 19 — REAL mode: send via OTPIQ. Provider = "whatsapp-sms" so
+	// Phase 19 — REAL mode: send via OTPGateway. Provider = "whatsapp-sms" so
 	// WhatsApp is attempted first and SMS is the fallback (product decision).
-	// If OTPIQ_API_KEY isn't configured, we surface 502 the same way the
+	// If WEVLIX_API_KEY isn't configured, we surface 502 the same way the
 	// old PHP code did.
-	if h.OTPIQ == nil {
+	if h.OTPGateway == nil {
 		c.JSON(http.StatusBadGateway, gin.H{
 			"error":   "Failed to send verification code.",
-			"details": "OTPIQ is not configured (set OTPIQ_API_KEY).",
+			"details": "Wevlix is not configured (set WEVLIX_API_KEY).",
 		})
 		return
 	}
@@ -714,30 +714,30 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate verification code."})
 		return
 	}
-	// Persist BEFORE sending so an OTPIQ flake doesn't accept-but-lose the
+	// Persist BEFORE sending so an Wevlix flake doesn't accept-but-lose the
 	// code; the same flow is used by every major OTP provider.
 	if err := h.OTPs.StoreCode(ctx, phone, code, "real"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store verification code."})
 		return
 	}
-	send, err := h.OTPIQ.SendVerification(ctx, phone, code)
+	send, err := h.OTPGateway.SendVerification(ctx, phone, code)
 	if err != nil {
 		// Clean up the stored code so the user can request a fresh one
 		// immediately without the resend-cooldown blocking them.
 		_ = h.OTPs.ClearRecord(ctx, phone)
 
-		// Map OTPIQ error sentinels to friendly user-facing messages.
+		// Map Wevlix error sentinels to friendly user-facing messages.
 		switch {
-		case errors.Is(err, auth.ErrOTPIQInsufficient):
+		case errors.Is(err, auth.ErrOTPInsufficient):
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"error":   "Verification service is temporarily unavailable.",
 				"details": "Account credit is low — contact support.",
 			})
-		case errors.Is(err, auth.ErrOTPIQBadPhone):
+		case errors.Is(err, auth.ErrOTPBadPhone):
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "Phone number is not in a supported format.",
 			})
-		case errors.Is(err, auth.ErrOTPIQRateLimited):
+		case errors.Is(err, auth.ErrOTPRateLimited):
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Too many verification requests. Try again shortly.",
 			})
@@ -760,7 +760,7 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 		"expires_in": int(auth.OTPTTL.Seconds()),
 	}
 	if send.SmsID != "" {
-		resp["sms_id"] = send.SmsID // for admin debugging / OTPIQ tracking
+		resp["sms_id"] = send.SmsID // for admin debugging / Wevlix tracking
 	}
 	c.JSON(http.StatusOK, resp)
 }
@@ -832,7 +832,7 @@ func (h *AuthHandler) consumeOTPCode(ctx context.Context, phone, code string) (o
 //   - A code can never open an account that already HAS a password. That case
 //     is refused here with `password_required` before anything is issued, which
 //     is what stops the echoed demo code (production runs OTP_DEMO_ENABLED with
-//     no OTPIQ gateway, and demo delivery returns the code in the response body)
+//     no Wevlix gateway, and demo delivery returns the code in the response body)
 //     from bypassing the password of the ten accounts that have one.
 //   - No row is created here any more. The account is created at password-set
 //     time, so an abandoned signup leaves nothing behind.

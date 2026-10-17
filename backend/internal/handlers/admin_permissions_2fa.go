@@ -19,7 +19,7 @@
 // "the PIN (checked separately by the SPA)" — which is exactly the shape of
 // bug this file closes.
 //
-// The OTP half had its own problem. With OTPIQ_API_KEY unset — every
+// The OTP half had its own problem. With WEVLIX_API_KEY unset — every
 // environment today — delivery falls back to demo mode, which returns the code
 // to the CALLER in the response body. That is not a second factor either; it is
 // a formality that renders a padlock.
@@ -103,7 +103,7 @@ type secondFactorDelivery struct {
 func (h *AdminPermissionsHandler) sendSecondFactor(
 	ctx context.Context, phone, email, want string,
 ) (secondFactorDelivery, error) {
-	smsReal := h.OTPIQ != nil
+	smsReal := h.OTPGateway != nil
 	emailReal := h.Mail.Configured() && email != ""
 
 	code, err := auth.GenerateCode()
@@ -127,7 +127,7 @@ func (h *AdminPermissionsHandler) sendSecondFactor(
 			return secondFactorDelivery{}, err
 		}
 		log.Printf("[security] H1: permission-change second factor DEGRADED — no real channel "+
-			"(OTPIQ_API_KEY and SMTP_HOST both unset); code returned in-band for %s", maskPhone(phone))
+			"(WEVLIX_API_KEY and SMTP_HOST both unset); code returned in-band for %s", maskPhone(phone))
 		return secondFactorDelivery{
 			Mode: factorModeInBand, Channel: "phone", Hint: maskPhone(phone),
 			Degraded: true, InBand: code,
@@ -152,7 +152,7 @@ func (h *AdminPermissionsHandler) sendSecondFactor(
 		}, nil
 	}
 
-	if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+	if _, err := h.OTPGateway.SendVerification(ctx, phone, code); err != nil {
 		_ = h.OTPs.ClearRecord(ctx, phone)
 		return secondFactorDelivery{}, err
 	}
@@ -260,5 +260,5 @@ func factorReport(passwordOutcome string, otpDegraded bool) gin.H {
 // handles say. Reported on every successful change so the screen can never show
 // a bare "saved" for a change that only one real factor stood behind.
 func (h *AdminPermissionsHandler) secondFactorDegraded() bool {
-	return h.OTPIQ == nil && !h.Mail.Configured()
+	return h.OTPGateway == nil && !h.Mail.Configured()
 }

@@ -25,7 +25,7 @@ const iraqDialCode = "964"
 // NormalizePhone collapses every way a phone number can be written into ONE
 // canonical form stored in the DB: <country dial code><national number>,
 // digits only, no "+", no leading trunk "0" — e.g. an Iraqi number becomes
-// "9647508582031". This is also exactly the format OTPIQ expects.
+// "9647508582031". This is also exactly the format Wevlix expects.
 //
 // Bare local input (no "+"/dial code) is assumed to be Iraqi, same as
 // before:

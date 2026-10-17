@@ -17,7 +17,7 @@
 // leg has no dedupe at all, so the donor is texted every six hours until the
 // sponsorship ends.
 //
-// That is dormant only because OTPIQ_API_KEY is unset in every environment
+// That is dormant only because WEVLIX_API_KEY is unset in every environment
 // today — the SMS closure in main.go returns nil for a message it never sent.
 // The moment the credential lands, which is exactly what M9 asks for, it
 // becomes a live spam incident. A voice channel added to the same loop would
@@ -171,7 +171,7 @@ func TestReminderSweep_PlacesVoiceCallWhenProviderConfigured(t *testing.T) {
 
 // The failure mode this product has already been bitten by: a channel that
 // reports success for a message it never sent. main.go's SMS closure returns
-// nil when OTPIQ is unconfigured, which is why nobody noticed the SMS leg has
+// nil when Wevlix is unconfigured, which is why nobody noticed the SMS leg has
 // never worked. The voice channel must not repeat it.
 func TestReminderSweep_UnconfiguredVoiceIsNotSilentSuccess(t *testing.T) {
 	if err := notify.PlaceVoiceCall(context.Background(), nil, "9647701234567", "test"); err == nil {

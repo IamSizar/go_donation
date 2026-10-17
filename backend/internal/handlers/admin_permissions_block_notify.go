@@ -86,8 +86,8 @@ func (h *AdminPermissionsHandler) sendUnlockCode(
 
 	// ── SMS first: it is the channel the client asked for by name. ──
 	phone = strings.TrimSpace(phone)
-	if h.OTPIQ != nil && phone != "" {
-		if _, err := h.OTPIQ.SendVerification(ctx, phone, code); err != nil {
+	if h.OTPGateway != nil && phone != "" {
+		if _, err := h.OTPGateway.SendVerification(ctx, phone, code); err != nil {
 			log.Printf("[security] H14: unlock SMS to %s FAILED for actor %d: %v",
 				maskPhone(phone), actorID, err)
 		} else {
@@ -110,9 +110,9 @@ func (h *AdminPermissionsHandler) sendUnlockCode(
 	// Nothing left the server. Said plainly, because the freeze that follows is
 	// deliberately shortened on the strength of this line being true.
 	log.Printf("[security] H14: no unlock code could be delivered for actor %d "+
-		"(OTPIQ configured=%t, SMTP configured=%t, phone set=%t, email set=%t) — "+
+		"(Wevlix configured=%t, SMTP configured=%t, phone set=%t, email set=%t) — "+
 		"the freeze will lapse on its own instead",
-		actorID, h.OTPIQ != nil, h.Mail.Configured(), phone != "", email != "")
+		actorID, h.OTPGateway != nil, h.Mail.Configured(), phone != "", email != "")
 	return unlockDelivery{}
 }
 

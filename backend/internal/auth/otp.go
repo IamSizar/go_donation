@@ -255,7 +255,7 @@ func DemoCode() string {
 // code straight back to the caller in the /auth/otp/request response body, so
 // spending it proves nothing: anyone who knows a phone number can sign in as
 // its owner. The owner has accepted that for app users during the interim
-// before OTPIQ is configured. It is a different proposition for an account that
+// before Wevlix is configured. It is a different proposition for an account that
 // can reach the dashboard, because the app and the dashboard share one token
 // store (A15) — a token minted for a staff phone IS a dashboard token.
 //

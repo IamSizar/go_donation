@@ -25,10 +25,10 @@ import (
 type AdminPermissionsHandler struct {
 	Perms *permissions.Store
 	// Section 24 — second factor for permission changes: a phone OTP sent to
-	// the acting Super Admin. OTPs stores/verifies the code; OTPIQ sends the
-	// real SMS (nil when OTPIQ_API_KEY isn't set — demo mode still works).
-	OTPs  *auth.OTPStore
-	OTPIQ *auth.OTPIQClient
+	// the acting Super Admin. OTPs stores/verifies the code; Wevlix sends the
+	// real SMS (nil when WEVLIX_API_KEY isn't set — demo mode still works).
+	OTPs       *auth.OTPStore
+	OTPGateway *auth.OTPClient
 	// H1 — "phone OR email". The mailer is nil when SMTP_* is unset, which is
 	// every environment today; sendSecondFactor treats that as "email is not a
 	// real channel" and says so rather than pretending otherwise.
@@ -36,9 +36,9 @@ type AdminPermissionsHandler struct {
 }
 
 func NewAdminPermissionsHandler(
-	p *permissions.Store, otps *auth.OTPStore, otpiq *auth.OTPIQClient, mailer *auth.Mailer,
+	p *permissions.Store, otps *auth.OTPStore, otpGW *auth.OTPClient, mailer *auth.Mailer,
 ) *AdminPermissionsHandler {
-	return &AdminPermissionsHandler{Perms: p, OTPs: otps, OTPIQ: otpiq, Mail: mailer}
+	return &AdminPermissionsHandler{Perms: p, OTPs: otps, OTPGateway: otpGW, Mail: mailer}
 }
 
 // GET /api/admin/permissions — the full matrix the UI renders: the axis lists,

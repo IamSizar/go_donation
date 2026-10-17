@@ -4,7 +4,7 @@
 //
 // The client asked for a change to the main-admin account to be confirmed by a
 // code delivered "through BOTH phone and email". The phone half has existed
-// since Phase 19 (otpiq.go). The email half did not exist ANYWHERE in this
+// since Phase 19 (otpGW.go). The email half did not exist ANYWHERE in this
 // system: no SMTP client, no mail provider, no dependency in go.mod. Nothing in
 // the backend had ever sent an email.
 //
@@ -19,7 +19,7 @@
 // SMTP_* is EMPTY in every environment the team can reach. An unconfigured
 // sender therefore has to be the normal case, not the error case, and it must:
 //
-//	NEVER crash        — NewMailer returns nil, exactly like NewOTPIQClient.
+//	NEVER crash        — NewMailer returns nil, exactly like NewOTPClient.
 //	NEVER block        — every dial, handshake and write is under a deadline.
 //	NEVER lie          — Send returns ErrMailNotConfigured. There is no code
 //	                     path in this file that reports success for a message
@@ -54,7 +54,7 @@ import (
 
 // mailDialTimeout bounds the whole conversation — dial, TLS handshake, AUTH,
 // DATA and QUIT. A relay that stops answering must not hold an HTTP handler
-// open; 10s matches the OTPIQ client's budget for the same reason.
+// open; 10s matches the Wevlix client's budget for the same reason.
 const mailDialTimeout = 10 * time.Second
 
 // Errors callers distinguish. ErrMailNotConfigured is the one that matters:
@@ -88,7 +88,7 @@ type Mailer struct {
 // NewMailer returns a ready sender, or nil when the configuration is
 // insufficient to send anything.
 //
-// Returning nil rather than an error is deliberate and copies NewOTPIQClient:
+// Returning nil rather than an error is deliberate and copies NewOTPClient:
 // "no channel configured" is the ordinary state of this system, so it must be
 // representable without every caller handling an error at construction time. A
 // nil *Mailer is safe to call — Send answers ErrMailNotConfigured — so callers

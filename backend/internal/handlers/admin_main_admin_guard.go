@@ -22,7 +22,7 @@
 // # THE DECISION THIS FILE IS BUILT AROUND: FAIL CLOSED
 //
 // SMTP_* is empty in every environment the team can reach, and so is
-// OTPIQ_API_KEY. A confirmation that cannot be delivered on both channels
+// WEVLIX_API_KEY. A confirmation that cannot be delivered on both channels
 // therefore has to mean something, and there were only two honest options:
 //
 //	(1) FAIL CLOSED — refuse the change and say which channel is missing.
@@ -60,7 +60,7 @@
 //
 // # DEMO DELIVERY IS REFUSED, ON PURPOSE
 //
-// The rest of this system falls back to demo OTP when OTPIQ is unset, and demo
+// The rest of this system falls back to demo OTP when Wevlix is unset, and demo
 // mode returns the code to the CALLER in the response body. That is a fallback
 // this gate cannot accept: handing the confirmation code to the very person
 // making the change turns the whole protection into a formality that still
@@ -110,13 +110,13 @@ const statusConfirmationRequired = 428
 // NewMainAdminConfirm and wire it in main.go next to the other optional
 // collaborators.
 type MainAdminConfirm struct {
-	Pool  *pgxpool.Pool
-	OTPIQ *auth.OTPIQClient // nil when OTPIQ_API_KEY is unset
-	Mail  *auth.Mailer      // nil when SMTP_* is unset
+	Pool       *pgxpool.Pool
+	OTPGateway *auth.OTPClient // nil when WEVLIX_API_KEY is unset
+	Mail       *auth.Mailer    // nil when SMTP_* is unset
 }
 
-func NewMainAdminConfirm(pool *pgxpool.Pool, otpiq *auth.OTPIQClient, mailer *auth.Mailer) *MainAdminConfirm {
-	return &MainAdminConfirm{Pool: pool, OTPIQ: otpiq, Mail: mailer}
+func NewMainAdminConfirm(pool *pgxpool.Pool, otpGW *auth.OTPClient, mailer *auth.Mailer) *MainAdminConfirm {
+	return &MainAdminConfirm{Pool: pool, OTPGateway: otpGW, Mail: mailer}
 }
 
 // mainAdminContact is the target account's two delivery channels.
@@ -260,12 +260,12 @@ func (g *MainAdminConfirm) issueChallenge(
 			"Email delivery is not configured on the server (SMTP_HOST), so the confirmation cannot be sent to both channels.", targetID)
 		return true
 	}
-	if g.OTPIQ == nil {
+	if g.OTPGateway == nil {
 		// Demo OTP delivery is NOT accepted here — see the file header.
-		log.Printf("[security] H20: refused %s change to main admin %d — no real SMS channel (OTPIQ_API_KEY unset)",
+		log.Printf("[security] H20: refused %s change to main admin %d — no real SMS channel (WEVLIX_API_KEY unset)",
 			kind, targetID)
 		denyUserWrite(c, http.StatusServiceUnavailable, "main_admin_sms_unavailable",
-			"SMS delivery is not configured on the server (OTPIQ_API_KEY), so the confirmation cannot be sent to both channels.", targetID)
+			"SMS delivery is not configured on the server (WEVLIX_API_KEY), so the confirmation cannot be sent to both channels.", targetID)
 		return true
 	}
 
@@ -290,7 +290,7 @@ func (g *MainAdminConfirm) issueChallenge(
 	}
 
 	// ── Then the phone. ──
-	if _, err := g.OTPIQ.SendVerification(ctx, target.phone, code); err != nil {
+	if _, err := g.OTPGateway.SendVerification(ctx, target.phone, code); err != nil {
 		log.Printf("[security] H20: SMS send failed for main admin %d (%s): %v",
 			targetID, maskPhone(target.phone), err)
 		denyUserWrite(c, http.StatusBadGateway, "main_admin_sms_send_failed",
