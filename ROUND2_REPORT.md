@@ -672,8 +672,25 @@ If the client wants the section editable (photos, custom text), that is a new fe
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (the cause I could reproduce); the "froze for good" case needs your phone to confirm
 
+**Found:** tapping a product opens a sheet that covered most of the screen and could only be dismissed by swiping it down or tapping the dim strip above it. Nothing on it said so: no close button. After «إضافة» the sheet stayed open, and it hid the cart bar behind it, so the cart only showed up once the sheet was finally dismissed. That matches «selecting a product froze the page, cancel didn't respond, the cart only appeared after several tries». Logging out and back in doesn't help because it is not a stuck state, just a sheet with no visible exit.
+
+**Fixed:**
+- A visible **✕** in the sheet's header (checked on iPhone and Android).
+- Once the product is in the cart the sheet shows **«عرض السلة · N عنصر»**, which closes it and opens the cart.
+- After closing, the cart bar («1 عنصر · 15,000 د.ع») is visible immediately.
+- Tests: the ✕ dismisses the sheet; no cart button when the cart is empty; the cart button appears after adding.
+
+**Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on the client's phone, please send the phone model and what was on screen.
+
+Payment was not touched.
+
+| Before | After |
+|---|---|
+| ![](round2_screens/65/before-sheet-no-exit.png) | ![](round2_screens/65/after-sheet-close-and-cart.png) |
+
+Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/after-android-closed-cart-bar.png)
 
 ## 66. Store: no payment options, only cash? (needs e-payment).
 

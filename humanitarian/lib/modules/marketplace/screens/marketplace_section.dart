@@ -245,12 +245,9 @@ class _MarketplaceList extends StatelessWidget {
                                   quantity: controller.quantityFor(
                                     items[i]['id'],
                                   ),
-                                  onAdd: () => controller.addProduct(
-                                    items[i],
-                                  ),
-                                  onRemove: () => controller.removeProduct(
-                                    items[i]['id'],
-                                  ),
+                                  onAdd: () => controller.addProduct(items[i]),
+                                  onRemove: () =>
+                                      controller.removeProduct(items[i]['id']),
                                 ),
                               ),
                             ),
@@ -368,8 +365,7 @@ class MarketplaceProductTile extends StatefulWidget {
   final VoidCallback onRemove;
 
   @override
-  State<MarketplaceProductTile> createState() =>
-      MarketplaceProductTileState();
+  State<MarketplaceProductTile> createState() => MarketplaceProductTileState();
 }
 
 class MarketplaceProductTileState extends State<MarketplaceProductTile> {
@@ -532,7 +528,7 @@ class MarketplaceProductTileState extends State<MarketplaceProductTile> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         _detailsSheetContext = sheetContext;
-        return _ProductDetailsSheet(
+        return ProductDetailsSheet(
           item: widget.item,
           controller: widget.controller,
         );
@@ -551,8 +547,9 @@ class MarketplaceProductTileState extends State<MarketplaceProductTile> {
   }
 }
 
-class _ProductDetailsSheet extends StatelessWidget {
-  const _ProductDetailsSheet({required this.item, required this.controller});
+/// Public only so a widget test can pump it (R2 #65); nothing else builds it.
+class ProductDetailsSheet extends StatelessWidget {
+  const ProductDetailsSheet({required this.item, required this.controller});
 
   final Map<String, dynamic> item;
   final MarketplaceController controller;
@@ -610,19 +607,42 @@ class _ProductDetailsSheet extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppThemeConfig.mutedText(
-                            context,
-                          ).withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
+                    // R2 #65 — the sheet could only be dismissed by swiping it
+                    // down or tapping the dimmed strip above it, and nothing
+                    // on it said so. With no visible way out it read as a
+                    // frozen page. A real close button now sits in the header.
+                    Row(
+                      children: [
+                        const SizedBox(width: 48),
+                        Expanded(
+                          child: Center(
+                            child: Container(
+                              width: 42,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: AppThemeConfig.mutedText(
+                                  context,
+                                ).withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: IconButton(
+                            tooltip: 'Close'.tr,
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: AppThemeConfig.mutedText(context),
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
                     // #41080-adjacent — one scrollable, tap-to-zoom strip
                     // for the cover AND the gallery together; see
                     // product_gallery.dart's header for why this replaced
@@ -697,6 +717,33 @@ class _ProductDetailsSheet extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                    // R2 #65 — once something is in the cart, the way to it is
+                    // right here. The cart bar underneath was hidden by this
+                    // sheet, so it only showed up after the sheet was
+                    // dismissed — "the cart appeared after several tries".
+                    Obx(
+                      () => controller.totalQuantity > 0
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  Get.to(() => const CartScreen());
+                                },
+                                icon: const Icon(
+                                  Icons.shopping_cart_rounded,
+                                  size: 20,
+                                ),
+                                label: Text(
+                                  '${'View cart'.tr} · ${itemCountLabel(controller.totalQuantity)}',
+                                ),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(50),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),

@@ -145,9 +145,7 @@ class _CategoryTile extends StatelessWidget {
                     : AppThemeConfig.softSurface(context),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: active
-                      ? accent
-                      : AppThemeConfig.border(context),
+                  color: active ? accent : AppThemeConfig.border(context),
                   width: active ? 1.5 : 1,
                 ),
               ),

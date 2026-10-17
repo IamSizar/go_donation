@@ -190,7 +190,9 @@ class _ChipState extends State<_Chip> {
     // AnimationController or extra state to manage for a chip that has none.
     final duration = AppMotion.resolve(context, AppMotion.settleDuration);
     const curve = Curves.easeOutCubic;
-    final foreground = widget.active ? Colors.white : AppThemeConfig.text(context);
+    final foreground = widget.active
+        ? Colors.white
+        : AppThemeConfig.text(context);
     // GestureDetector + a press-scale dip, not InkWell's ripple — matches
     // the tab bar's own tap feedback (dashboard_screen.dart's
     // _NavTapTarget) instead of the generic Material splash, now that this

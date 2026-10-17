@@ -446,5 +446,3 @@ String? _cartImageUrl(dynamic value) {
 
   return Uri.parse(publicBaseUrl).resolve(path).toString();
 }
-
-

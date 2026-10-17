@@ -17,6 +17,7 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'View cart': 'View cart',
     'activity_use_my_location': 'Use my location',
     'activity_location_set': 'Location set',
     'activity_remove_location': 'Remove location',
@@ -3354,6 +3355,7 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'View cart': 'عرض السلة',
     'activity_use_my_location': 'تحديد موقعي',
     'activity_location_set': 'تم تحديد الموقع',
     'activity_remove_location': 'إزالة الموقع',

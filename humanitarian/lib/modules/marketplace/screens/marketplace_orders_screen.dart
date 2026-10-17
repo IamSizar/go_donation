@@ -165,5 +165,3 @@ AppStatusTone _statusTone(String status) {
 double _amountFrom(dynamic value) {
   return double.tryParse((value ?? '0').toString()) ?? 0;
 }
-
-

@@ -32,7 +32,8 @@ class SectionProductsScreen extends StatefulWidget {
 class _SectionProductsScreenState extends State<SectionProductsScreen> {
   static const _perPage = 20;
 
-  final MarketplaceController _controller = Get.isRegistered<MarketplaceController>()
+  final MarketplaceController _controller =
+      Get.isRegistered<MarketplaceController>()
       ? Get.find<MarketplaceController>()
       : Get.put(MarketplaceController());
 
@@ -125,7 +126,8 @@ class _SectionProductsScreenState extends State<SectionProductsScreen> {
                           isEmpty: (list) => list.isEmpty,
                           empty: const AppEmpty(
                             title: 'No products yet',
-                            message: 'Nothing has been added to this section yet.',
+                            message:
+                                'Nothing has been added to this section yet.',
                           ),
                           builder: (list) => const SizedBox.shrink(),
                         ),
@@ -140,7 +142,9 @@ class _SectionProductsScreenState extends State<SectionProductsScreen> {
                             child: MarketplaceProductTile(
                               item: _items[i],
                               controller: _controller,
-                              quantity: _controller.quantityFor(_items[i]['id']),
+                              quantity: _controller.quantityFor(
+                                _items[i]['id'],
+                              ),
                               onAdd: () => _controller.addProduct(_items[i]),
                               onRemove: () =>
                                   _controller.removeProduct(_items[i]['id']),
@@ -156,7 +160,9 @@ class _SectionProductsScreenState extends State<SectionProductsScreen> {
                               child: SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             ),
                           ),
