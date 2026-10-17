@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<!-- STALE (2026-09-27): the Xcode bundle ID is now com.tawazzn; this file
-     still registers com.easytech.humanitarianApp. Replace this whole file
-     with the one Firebase generates once com.tawazzn is added as a new iOS
-     app in the console — see the note in lib/firebase_options.dart. -->
 <dict>
 	<key>CLIENT_ID</key>
-	<string>463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k.apps.googleusercontent.com</string>
+	<string>463997425388-tak4i19aclpmsjkdfbn2ba9q0fbpopte.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k</string>
+	<string>com.googleusercontent.apps.463997425388-tak4i19aclpmsjkdfbn2ba9q0fbpopte</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>463997425388-322sk4130d58n99qv6s9f0tslsvqd62b.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyASXDUrFFAQJFESzv3GLpUS2WPCV-lKsdE</string>
 	<key>GCM_SENDER_ID</key>
@@ -17,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.easytech.humanitarianApp</string>
+	<string>com.tawazzn</string>
 	<key>PROJECT_ID</key>
 	<string>human-f1dc6</string>
 	<key>STORAGE_BUCKET</key>
@@ -33,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:463997425388:ios:5a9bbff415dcbfc27ff7c9</string>
+	<string>1:463997425388:ios:f4b608e34c14d8027ff7c9</string>
 </dict>
 </plist>

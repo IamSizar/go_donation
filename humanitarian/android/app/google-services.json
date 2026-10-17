@@ -100,6 +100,42 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:463997425388:android:4dbaae71f55220ad7ff7c9",
+        "android_client_info": {
+          "package_name": "com.tawazzn"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaRrGWR1CsQDY4VGfFaY4OQd22kG2ossE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "463997425388-cerds8ttj89atmq0s3t72tvi8jij0aqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "463997425388-knnvisnn3vrkakiveu87osodnvv4cc9k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.easytech.humanitarianApp"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"
