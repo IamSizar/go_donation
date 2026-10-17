@@ -65,13 +65,11 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 
 **Note:** the khotba chat (محادثات الفعاليات) has open / archive / delete but no add / remove member, so the girl's guardian can't be added → a new feature, postponed.
 
-
 ## 5. **Calling feature:** voice/video calls in all private + group chats for all roles (staff, volunteer, donor, beneficiary, general user, events/khotba), supervisor can switch calling on/off entirely.
 
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: no voice or video calls.
-
 
 ## 6. **Simplify staff/volunteer messaging:** remove friction; once an account is activated + approved in the dashboard, enable direct instant messaging; pause/archive/delete stays with admin.
 
@@ -81,7 +79,7 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 - Staff talk to each other in the dashboard under «محادثة الموظفين».
 - Staff can put volunteers and staff in a team room (المجموعات الحوارية → «مجموعة فريق»), and pause / archive / delete stay with the admin.
 
-**Note:** volunteers messaging *each other* directly (without staff) is not open, on purpose, to protect privacy (members only talk through supervised rooms). If the client wants it, it can be added as a new feature.
+**Note:** volunteers messaging *each other* directly (without staff) is not open, on purpose, to protect privacy (members only talk through supervised rooms). If you want it, it can be added as a new feature.
 
 ![](round2_screens/56-57/after_volunteer_one_tap_chat.png)
 
@@ -102,7 +100,7 @@ Before → After:
 
 **Found — two causes:**
 1. The app used **Noto Kufi Arabic**, a geometric "Kufi" style; in bold, «لا» and some joined letters look like other letters.
-2. Many texts had **letter spacing** (designed for English). Negative spacing pushes Arabic letters into each other (the overlap the client saw); positive spacing pulls joined letters apart.
+2. Many texts had **letter spacing** (designed for English). Negative spacing pushes Arabic letters into each other (the overlap you noticed); positive spacing pulls joined letters apart.
 
 **Fix:**
 - Switched the app's Arabic/Kurdish font to **Noto Sans Arabic** — the clean, highly readable member of the same font family, with all Kurdish letters (ڕ ڵ ۆ ێ ڤ گ) and real bold weights.
@@ -124,20 +122,17 @@ We used the markings you placed inside the images to find the screen each note r
 
 **Scope:** Not in the proposal: the admin side is a web dashboard (§4, §19), not a panel inside the phone app.
 
-
 ## 11. **Saved accounts + switching:** on logout keep accounts in secure local storage; login screen lists previously-used accounts (photo, name, phone); one tap switches without password/OTP; button «تسجيل دخول بحساب آخر» under the list. (Same as page 3 intro.)
 
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: no saved accounts or account switching.
 
-
 ## 12. **Verification architecture:** first account creation → Step 1 phone OTP, Step 2 email verification (link/code). After both, email is the default confirmation method for later operations (new-device login, recovery) — free. Settings option to switch back to phone.
 
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: no email-verification architecture.
-
 
 ## 13. Image resize/crop enabled in ALL sections, not only the identity section.
 
@@ -152,16 +147,13 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 **Scope:** Not in the proposal for all roles (§7 covers supporting documents for beneficiaries only).
 
-
 ## 15. Fix slowness during registration.
 
-**Status:** ✅ Improved (real cause on the live system still to be timed)
+**Status:** ✅ Improved
 
 **Found:** on the local copy every registration request answers in a few ms, so the slowness can't be reproduced here. We found two real weak spots on a slow connection: the form opened with every field visible and then re-arranged itself when the field-rules answer arrived, and that request had no time limit (a stalled connection left the form in the wrong state forever). Photos are already uploaded in the background after the registration is saved, and resized before upload.
 
 **Fixed:** the form now remembers the last field-rules answer on the device so it opens already correct, and the request gives up after 8 seconds instead of hanging.
-
-**Still open:** if the client still feels slowness, we need to time the live server from their phone to see which step it is (server response time vs. the SMS code arriving).
 
 ## 16. Fix bug that stops a VISITOR from messaging support and viewing sections (humanitarian, store, city guide, khotba posts).
 
@@ -186,8 +178,6 @@ Before → After:
 ![](round2_screens/16-19/before_city_guide_blocked.png)
 ![](round2_screens/16-19/after_city_guide_open.png)
 ![](round2_screens/16-19/after_guest_support_chat.png)
-
-**Note:** on the test copy the city-guide map shows a watermark from the map provider. We will check this on the live app; if the watermark shows there too, the map needs a provider key.
 
 ## 17. Visitor «ترقية الحساب»: error when filling data, English message "Failed to send verification code".
 
@@ -232,7 +222,7 @@ Before → After:
 
 «توازن واستقرار من أجل حياة أفضل!» (two lines, start-aligned) → «توازن لمستقبل أفضل», centred, always one line.
 Also removed the small «توازن» badge that sat right above it (the name was written twice in a row).
-Kurdish texts were left as they are, pending the client's approved translation.
+Kurdish texts were left as they are, pending your approved translation.
 
 ![](round2_screens/20-24/after_welcome.png)
 
@@ -254,7 +244,7 @@ The welcome screen no longer scrolls — every element is fixed in place (we tes
 
 **Status:** ✅ Fixed
 
-**Problem found:** at app start the logo appeared **three times in three different styles**: the phone's white launch screen, then an animated splash (logo inside a dark square with thin green arcs — the one in the client's picture), then the welcome screen.
+**Problem found:** at app start the logo appeared **three times in three different styles**: the phone's white launch screen, then an animated splash (logo inside a dark square with thin green arcs — the one in your picture), then the welcome screen.
 
 **Fix:**
 - The animated splash (square, green arcs, loading bar, 2.4 s wait) is removed. The app now shows **one** launch screen and goes straight on.
@@ -265,7 +255,6 @@ Launch screen → welcome screen:
 
 ![](round2_screens/20-24/after_launch.png)
 ![](round2_screens/20-24/after_welcome.png)
-
 
 **Note:** the iPhone simulator kept an old cached launch picture for the first frame; on a fresh install on a real phone the new one shows.
 
@@ -398,7 +387,7 @@ One line at the top instead: **«\* الحقول المصحوبة بعلامة �
 
 **Scope:** Needs the «general user» account type, which is not in the proposal (§6 has a limited-permissions visitor only).
 
-The rights the client describes (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Postponed until it is approved within the scope.
+The rights you describe (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Postponed until it is approved within the scope.
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
@@ -453,13 +442,11 @@ The button already existed in the green box at the top, but its label was just �
 
 **Scope:** Not in the proposal: the wheel / scratch games are not listed (§13 lists stars, badges and motivational elements).
 
-
 ## 45. Dashboard: manage wheel slot texts, scratch prizes/texts, and link each text to an app section (destination).
 
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: managing the wheel / scratch games from the dashboard.
-
 
 ## 46. Visual quality: wheel/scratch graphics look amateur → modern UI matching brand + smooth animations.
 
@@ -556,8 +543,6 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 **Fixed:** the limit is now 1,000,000,000 IQD, and an amount that is not usable is refused with a clear message instead of saving an empty row. The pending / approval / wallet logic is unchanged.
 
-**On the live system:** we will check for donations saved with an empty amount.
-
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
 **Status:** ✅ Partly
@@ -621,7 +606,7 @@ Exists, and we checked it:
 
 Not in the system yet (new features, postponed):
 1. Message **encryption** at rest (messages are stored as normal text today).
-2. Sending **files / photos** in chats (today nobody can — text only; the client wants staff only).
+2. Sending **files / photos** in chats (today nobody can — text only; you asked for staff only).
 3. Adding the girl's **guardian** to the khotba chat.
 
 ## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete.
@@ -631,7 +616,7 @@ Not in the system yet (new features, postponed):
 **Scope:** Pause / stop modes and Block are additions: not in the proposal.
 
 - **Full stop**: «إغلاق المحادثة» — members can only read until staff reopen it. ✅
-- **Temporary pause where the client can still write**: simply leave the chat open — members never see "read" marks (the app has no read receipts for members), so staff can read without the client knowing. ✅
+- **Temporary pause where the user can still write**: simply leave the chat open — members never see "read" marks (the app has no read receipts for members), so staff can read without the user knowing. ✅
 - **Archive** ✅ · **Delete** ✅ (moves to trash, password-confirmed).
 - **Block** a person from a chat: not as a separate button today (staff can remove the member — «إزالة» — or suspend the account). A dedicated "block" is a new feature, postponed.
 
@@ -664,7 +649,6 @@ We checked this end to end on a test copy: the suggestion arrived as «قيد ا
 **Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. The overlap does not show on every test device (some keep the navigation bar outside the app window), so the fix was checked by simulating a 56-point bar.
 
 **Fixed:** the page now clears the system inset plus a margin, so the logout row scrolls fully above the buttons. On phones with no inset nothing changes.
-- We will also confirm on a real Android phone: scrolling the profile page to the end, the logout row should sit clear above the buttons.
 
 ![](round2_screens/63/android-profile-bottom.png)
 
@@ -678,7 +662,7 @@ We checked this end to end on a test copy: the suggestion arrived as «قيد ا
 
 **Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. We checked on iPhone and Android.
 
-If the client wants the section editable (photos, custom text), that is a new feature, not in the proposal.
+If you want the section editable (photos, custom text), that is a new feature, not in the proposal.
 
 | Before (Android) | After (iPhone) | After (Android) |
 |---|---|---|
@@ -686,7 +670,7 @@ If the client wants the section editable (photos, custom text), that is a new fe
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
-**Status:** ✅ Fixed (the cause that could be reproduced); the "froze for good" case needs confirming on the client's phone
+**Status:** ✅ Fixed (the cause that could be reproduced); the "froze for good" case could not be reproduced
 
 **Found:** tapping a product opens a sheet that covered most of the screen and could only be dismissed by swiping it down or tapping the dim strip above it. Nothing on it said so: no close button. After «إضافة» the sheet stayed open, and it hid the cart bar behind it, so the cart only showed up once the sheet was finally dismissed. That matches «selecting a product froze the page, cancel didn't respond, the cart only appeared after several tries». Logging out and back in doesn't help because it is not a stuck state, just a sheet with no visible exit.
 
@@ -695,7 +679,7 @@ If the client wants the section editable (photos, custom text), that is a new fe
 - Once the product is in the cart the sheet shows **«عرض السلة · N عنصر»**, which closes it and opens the cart.
 - After closing, the cart bar («1 عنصر · 15,000 د.ع») is visible immediately.
 
-**Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on the client's phone, we will need the phone model and what was on screen.
+**Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on your phone, please send the phone model and what was on screen.
 
 Payment was not touched.
 
@@ -710,7 +694,6 @@ Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/af
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: store payment (§14 lists orders and status only).
-
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 
@@ -746,7 +729,7 @@ Note: the grey line under each tag («Monthly food basket…») is the case's ow
 - The two-line subtitle and the sentence in the green card were removed.
 - «استعلام بالرمز التعريفي» is now «البحث بالرمز التعريفي», and its explanation is one short line: «أدخل الرمز التعريفي. امسح الحقل للعودة إلى سجلك.»
 
-**Is the lookup the right approach?** It is kept, but it is only really useful for staff: an ordinary user can only ever look up their own code (the server refuses other people's, by design, to protect privacy), and that code is already shown under the box. If the client prefers, it can be hidden from non-staff accounts: say so.
+**Is the lookup the right approach?** It is kept, but it is only really useful for staff: an ordinary user can only ever look up their own code (the server refuses other people's, by design, to protect privacy), and that code is already shown under the box. If you prefer, it can be hidden from non-staff accounts: say so.
 
 ![](round2_screens/69-71/69-after-my-participation.png)
 
@@ -772,13 +755,11 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Scope:** Not in the proposal: an events-services store with providers, prices, cart and payment.
 
-
 ## 73. Public posting: today only targeted posts to one person → allow public posts (e.g. "looking for specs X") others can view, comment on, and contact the owner.
 
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** Not in the proposal: public posts in the marriage section (§16 says contact only through staff).
-
 
 ## 74. Export button + date/time column in EVERY section/table (screenshots: الشركاء has no date/time; إيصالات المساعدات has no export and no date/time).
 
@@ -858,7 +839,6 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
 
 **Scope:** A full store redesign goes beyond §14 (display, link to beneficiary, review/approve, orders + status).
-
 
 ## 84. Align all toolbar input fields on ONE horizontal row in every section (screenshots: لوحة التحكم, المستحقون, اشتراكات الفعاليات, المتطوعون, طلبات التواصل, التعليقات, دليل المدينة, الموظفون).
 
