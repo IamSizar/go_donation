@@ -1722,7 +1722,7 @@ class AppTranslations extends Translations {
     // The standing (not error-triggered) route to the ticket form, offered
     // next to chat_support so the two read as different things: one is a
     // live conversation, the other files a tracked request.
-    'support_request_form': 'Submit a support request',
+    'support_request_form': 'Send a request',
     'support_request_form_desc':
         'File a ticket and track its status — no live chat required.',
     'helped_by': 'Helped by @name',
@@ -2923,7 +2923,7 @@ class AppTranslations extends Translations {
     'Approved': 'Approved',
     'Ask questions and get guidance': 'Ask questions and get guidance',
     'Assistant': 'Assistant',
-    'Support Assistant': 'Support Assistant',
+    'Support Assistant': 'Assistant',
     'Ask me anything — I\'ll guide you through the app':
         'Ask me anything — I\'ll guide you through the app',
     'Availability notes (optional)': 'Availability notes (optional)',
@@ -4839,7 +4839,7 @@ class AppTranslations extends Translations {
         'سيراجعه فريقنا قريبًا. يمكنك متابعته من «طلبات التواصل الخاصة بي» '
         'في تبويب «الرسائل».',
     'error_connect_request_submit_failed': 'تعذّر إرسال طلبك.',
-    'support_request_form': 'إرسال طلب دعم',
+    'support_request_form': 'إرسال طلب',
     'support_request_form_desc':
         'قدّم تذكرة وتابع حالتها — دون الحاجة لمحادثة مباشرة.',
     'helped_by': 'يساعدك @name',
@@ -5965,7 +5965,7 @@ class AppTranslations extends Translations {
     'Approved': 'تمت الموافقة',
     'Ask questions and get guidance': 'اطرح الأسئلة واحصل على التوجيه',
     'Assistant': 'المساعد',
-    'Support Assistant': 'مساعد الدعم',
+    'Support Assistant': 'المساعد الذكي',
     'Ask me anything — I\'ll guide you through the app':
         'اسألني عن أي شيء — سأرشدك خلال التطبيق',
     'Availability notes (optional)': 'ملاحظات التوفر (اختياري)',

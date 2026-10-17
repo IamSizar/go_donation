@@ -993,4 +993,8 @@ While checking your screenshot we also fixed the wording of the approval notific
 
 **Fixed:** the names are now «Events support» and «Volunteers support». The card title is shortened to «Send a message» and the question to «Which team?», so «support» is not repeated on the same screen.
 
+On the «Messages» screen three cards in a row repeated the word «support» («Support Assistant», «Contact support», «Submit a support request»); they are now «Assistant», «Contact support» and «Send a request».
+
+![](round2_screens/95/iphone-messages-tiles.png)
+
 ![](round2_screens/95/iphone-support-form.png)
