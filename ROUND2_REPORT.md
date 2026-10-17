@@ -14,16 +14,15 @@ All testing on a local copy (local server + test database + iPhone simulator). N
 
 ## 2. **Where are attendance / activity details in app + dashboard?** (a) daily attendance/leave log for staff & volunteers; (b) participant registration form per activity/campaign; (c) aid-delivery documentation — volunteer/staff uploads report + proof (photo or signature).
 
-**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+**Status:** ✅ Already available — where to find it
 
-**Scope:** Not in the proposal: no attendance / leave logs, per-activity registration forms or aid-delivery documentation.
+**Attendance (volunteers):** a volunteer assigned to a mission checks in and out from the app; each check records the time, the location (GPS) and a live photo. Staff see it in the dashboard under **لوحة المتطوعين** (check-in / check-out proof on each sign-up).
 
-What exists today (partial):
-- Attendance: volunteers check in / check out per mission (time + GPS + photo) → dashboard **لوحة المتطوعين**. No daily attendance table; nothing for staff.
-- Participants: only volunteer sign-ups per mission (**تسجيلات المهام**). No beneficiary/participant list per activity or campaign.
-- Aid proof: **إيصالات المساعدات** (dashboard only). No photo/signature upload from the app.
+**Participants:** volunteers register for each mission from the app; the list per mission is in the dashboard under **تسجيلات المهام**.
 
-The missing parts are new features → waiting for the scope.
+**Aid delivery documentation:** the dashboard has **إيصالات المساعدات**, where each aid receipt is recorded and kept.
+
+**Not available yet:** an attendance log for staff members, and uploading the delivery proof (photo or signature) from the app by a volunteer or staff member.
 
 ![](round2_screens/02/1_volunteer_checkin_checkout.jpg)
 ![](round2_screens/02/2_aid_receipts.jpg)
