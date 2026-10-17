@@ -21,6 +21,8 @@ When all points are done: give the owner **the same notes file the client sent**
   - **ANDROID CANNOT BUILD:** `android/app/google-services.json` only has `com.easytech.humanitarian` and `com.example.humanitarian`; the app id is `com.tawazzn`. Needs the real Firebase file for com.tawazzn (owner/Firebase console). I used a TEMPORARY local patch (never commit; restore with `git checkout -- humanitarian/android/app/google-services.json`). Emulator: sc_pixel_6 (`$S/a.sh` wraps adb -s emulator-5554), JAVA_HOME = Android Studio jbr.
   - 4 old failing app tests still to look at: translating_widget_literals, featured_campaign_card_size, marriage_hub_events_grid ×2 (may hide real layout bugs).
 
+- **#67 wallet: owner said the wallet system is complete — DO NOT change it (2026-10-17).** Recorded in the report; ask the client how their test wallet got a balance.
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged
@@ -35,7 +37,7 @@ each point with ✅ / ⏳ / ❌, how it was fixed, screenshots below, notes. Hel
 branch `round2-fixes` (NOT pushed, NOT deployed).
 **OPOS per point (owner):** create the task BEFORE touching it → in_progress while working → done when finished.
 Done so far: #2 ⏳, #3 ✅, #4 ✅ (96172), #20–23 ✅ (96177), #24 ✅ (96178), #25–26 ✅ (96180), #27–28 ✅ (96182), #29–33 ✅ (96181), #16–19 ✅ (96184: guest home/city guide/support chat+tickets opened; server GuestSupportThreadOnly), #56–57 + #6/#58 ✅ (96190), #59–61 answered (partly ⏳), #7 ✅ (96196), #8 + #86 ✅ (96197: Noto Sans Arabic app+dashboard, zero tracking), #34 ✅ #35 partly ✅ (general user ⏳) #36 ✅ #37 ⏳ #38 ⏳ (96183), #13 ✅ (already there), #15 ❌ (not reproducible locally), #39–43 ✅ (97611: count tiles = read filter, centred clear button, linked dropdowns, newest first, «تحديد الكل كمقروء»), #46 ✅ (97612: brand wheel + ticket coupon with 3D flip, Arabic wheel labels fixed).
-NEXT TODO (in order): #47–55, #62–65, #67 (ASK owner first: payment/wallet) #68–71, #74–85, #87–91, then #1 summary.
+NEXT TODO (in order): #47–55, #62–65, #68–71, #74–85, #87–91, then #1 summary.
 Local server must run with OTP_DEMO_ENABLED=1 (scratchpad run-server.sh); demo code 123456.
 Found+fixed on the way: static splash never navigated for logged-in users (scheduleFrame).
 Pre-existing failing app tests (not ours): translating_widget_literals, featured_campaign_card_size, marriage_hub_events_grid ×2. Backend guest tests run with TEST_DATABASE_URL=postgres://localhost/r2test.

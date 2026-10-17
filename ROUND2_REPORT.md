@@ -701,8 +701,13 @@ Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/af
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 
-**Status:** ⬜ not done yet
+**Status:** ⏳ No change — owner decision (wallet / top-up system stays as is)
 
+Owner (2026-10-17): the wallet system is complete and is not to be changed. Nothing was built or modified.
+
+For the record, what I saw in the code: users cannot add money to their own wallet. Money is added only by an admin from the dashboard (permission «المستخدمون – تعديل», logged), plus automatic refunds when a payment fails. I did not find, in this code, the user-side request form (code / account / proof) that the owner describes. If that exists elsewhere, or the client's test account was credited by an admin, that would explain what the client saw. Worth confirming with the client how their wallet got a balance.
+
+The balance showing 0 is correct for an empty wallet.
 
 ## 68. Home → browse by category: campaign details cut off → give the details more space.
 
