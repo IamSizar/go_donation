@@ -114,9 +114,9 @@ Before (left) → After (right):
 
 ## 9. (Info only) Images: some have red markers; some notes are explained in text without a picture.
 
-**Status:** ℹ️ Info only
+**Status:** ℹ️ For information
 
-Noted: the red markers in the client's PDF were used to find the screen for each note; points explained only in text were matched to the screen by name. No change needed.
+We used the markings you placed inside the images to find the screen each note refers to; for the notes explained in text only, we identified the screen from your description. No action is needed from you.
 
 ## 10. **In-App Admin Panel** (staff manage from the phone, isolated permissions): Khotba staff → khotba files, approvals, their chats only; Volunteers staff → volunteers, activities, chats, attendance; Store staff → products + purchase requests; Beneficiaries staff → beneficiary data, approvals, forms, their messages.
 
