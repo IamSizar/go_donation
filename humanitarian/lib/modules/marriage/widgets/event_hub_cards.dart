@@ -178,8 +178,11 @@ class EventHubCard extends StatelessWidget {
               // bleed into the subtitle without this.
               ClipRect(
                 child: SizedBox(
-                  height:
-                      _reservedTextHeight(context, titleStyle, titleMaxLines),
+                  height: _reservedTextHeight(
+                    context,
+                    titleStyle,
+                    titleMaxLines,
+                  ),
                   child: Align(
                     alignment: AlignmentDirectional.topStart,
                     child: Text(
@@ -286,7 +289,11 @@ class CardGrid extends StatelessWidget {
 /// so every grid on this screen honours Reduce Motion identically: no delay,
 /// no slide, the card is simply present on the first frame.
 class StaggeredEntrance extends StatefulWidget {
-  const StaggeredEntrance({super.key, required this.index, required this.child});
+  const StaggeredEntrance({
+    super.key,
+    required this.index,
+    required this.child,
+  });
 
   final int index;
   final Widget child;

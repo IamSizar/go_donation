@@ -53,6 +53,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/widgets/settings_section.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The three priority tiers a category collapses into, in display order.
 /// Kept as an ordered list (not a Set) so the sections always render in the
@@ -236,7 +237,7 @@ class _NotificationCategoriesScreenState
           ..addAll(previous);
       });
       debugPrint('setNotificationCategories failed: $e');
-      Get.snackbar(
+      appSnackbar(
         'Settings'.tr,
         'Could not save that preference. Please try again.'.tr,
       );

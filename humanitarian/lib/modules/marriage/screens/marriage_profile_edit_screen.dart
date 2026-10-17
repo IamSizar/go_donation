@@ -39,6 +39,7 @@ import 'package:flutter_application_1/modules/marriage/controllers/marriage_my_p
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_edit_fields.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The option sets, shared with the submission form so both write the same
 /// vocabulary. `const` lists rather than a lookup: they are the endpoint's
@@ -284,7 +285,7 @@ class _MarriageProfileEditScreenState extends State<MarriageProfileEditScreen> {
     // The controller already refreshed the list and played the success haptic,
     // so the card behind this screen is up to date before it is uncovered.
     Get.back<bool>(result: true);
-    Get.snackbar('marriage_my_profile'.tr, 'Saved'.tr);
+    appSnackbar('marriage_my_profile'.tr, 'Saved'.tr);
   }
 
   // ─── UI ─────────────────────────────────────────────────────────────────

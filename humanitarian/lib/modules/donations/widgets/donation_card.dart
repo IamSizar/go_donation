@@ -16,8 +16,8 @@ class DonationCard extends StatelessWidget {
       child: ListTile(
         title: Text(donation.title.tr),
         subtitle: Text(
-        '${donation.amount.toStringAsFixed(2)} ${localizedCurrency('IQD')}',
-      ),
+          '${donation.amount.toStringAsFixed(2)} ${localizedCurrency('IQD')}',
+        ),
       ),
     );
   }

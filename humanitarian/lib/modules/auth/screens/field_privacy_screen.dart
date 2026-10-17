@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Placeholder bones shaped like one privacy switch row: a label line, a
 /// state line, and the block the switch itself occupies. Extracted so the
@@ -214,10 +215,10 @@ class _FieldPrivacyScreenState extends State<FieldPrivacyScreen> {
         instagram: _instagramController.text.trim(),
         telegram: _telegramController.text.trim(),
       );
-      Get.snackbar('Saved'.tr, 'privacy_extras_saved'.tr);
+      appSnackbar('Saved'.tr, 'privacy_extras_saved'.tr);
     } catch (e) {
       debugPrint('setPrivacyExtras failed: $e');
-      Get.snackbar(
+      appSnackbar(
         'Error'.tr,
         failureMessage(e, 'error_privacy_settings_save_failed'),
       );

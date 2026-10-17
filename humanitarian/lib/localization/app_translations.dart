@@ -14,6 +14,7 @@
 // that line are unaffected by that pass.
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
@@ -507,7 +508,7 @@ class AppTranslations extends Translations {
         'You were signed out because your session expired. Please sign in '
         'again to continue.',
     // ─── Write failures: what happened, and what to do next ───
-    // The seventeen `Get.snackbar('Error'.tr, e.toString())` sites used to put
+    // The seventeen `appSnackbar('Error'.tr, e.toString())` sites used to put
     // the raw Dart exception — often the backend's English sentence, once a
     // literal Postgres error — in front of the user. Each site now names its
     // own operation from this list, and `failureMessage` (see
@@ -920,7 +921,7 @@ class AppTranslations extends Translations {
     'Track campaigns, community updates, and your impact from one place.':
         'Track campaigns, community updates, and your impact from one place.',
     'Giving analytics': 'Giving analytics',
-    'Welcome back, @name': 'Welcome back, @name',
+    'Welcome back, @name': 'Welcome, @name',
     'Your giving is supporting families, clean water access, and volunteer programs with live updates.':
         'Your giving is supporting families, clean water access, and volunteer programs with live updates.',
     'Explore causes': 'Explore causes',
@@ -4120,7 +4121,7 @@ class AppTranslations extends Translations {
     'Track campaigns, community updates, and your impact from one place.':
         'تابع الحملات وتحديثات المجتمع وأثرك من مكان واحد.',
     'Giving analytics': 'تحليلات العطاء',
-    'Welcome back, @name': 'أهلا بعودتك، @name',
+    'Welcome back, @name': 'أهلاً بك، @name',
     'Your giving is supporting families, clean water access, and volunteer programs with live updates.':
         'عطاؤك يدعم الأسر ويوفر المياه النظيفة ويعزز برامج التطوع مع تحديثات مباشرة.',
     'Explore causes': 'استكشف القضايا',

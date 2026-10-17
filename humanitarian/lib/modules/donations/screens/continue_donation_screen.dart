@@ -26,6 +26,8 @@ import 'package:get/get.dart';
 // formatters from it.
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
+import 'package:flutter_application_1/core/phone_format.dart';
 
 class ContinueDonationScreen extends StatefulWidget {
   const ContinueDonationScreen({
@@ -398,7 +400,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     }
 
     if (err != null) {
-      Get.snackbar(
+      appSnackbar(
         'Donation failed'.tr,
         err,
         snackPosition: SnackPosition.BOTTOM,
@@ -436,7 +438,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
     if (acct.isEmpty) return;
     Clipboard.setData(ClipboardData(text: acct));
     AppHaptics.gentle();
-    Get.snackbar(
+    appSnackbar(
       'Copied'.tr,
       'Account number copied to clipboard.'.tr,
       snackPosition: SnackPosition.BOTTOM,
@@ -493,7 +495,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                             // quiet line instead of two boxes plus a note.
                             _DonorLine(
                               name: _accountName,
-                              phone: _accountPhone,
+                              phone: formatPhoneForDisplay(_accountPhone),
                             ),
                             const SizedBox(height: 14),
                             _CheckoutTextField(

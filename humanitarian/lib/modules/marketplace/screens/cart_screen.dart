@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The cart, as its own screen. Previously a floating panel over the
 /// product list — once payment method, totals, and actions all had to fit
@@ -573,7 +574,7 @@ class _CartAccountCard extends StatelessWidget {
           IconButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: method.accountNumber));
-              Get.snackbar(
+              appSnackbar(
                 'Copied'.tr,
                 'Account number copied to clipboard.'.tr,
                 snackPosition: SnackPosition.BOTTOM,

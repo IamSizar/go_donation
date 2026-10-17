@@ -9,6 +9,7 @@ import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 import 'marriage_event_group_screen.dart';
 import '../widgets/event_hub_cards.dart';
@@ -160,7 +161,7 @@ class _MarriageHubScreenState extends State<MarriageHubScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => wasSaved ? _saved.add(id) : _saved.remove(id));
-      Get.snackbar('Saved'.tr, 'marriage_saved_toggle_failed'.tr);
+      appSnackbar('Saved'.tr, 'marriage_saved_toggle_failed'.tr);
     }
   }
 
@@ -194,11 +195,17 @@ class _MarriageHubScreenState extends State<MarriageHubScreen> {
     }
   }
 
-  Future<void> _share(BuildContext context, Map<String, dynamic> profile) async {
+  Future<void> _share(
+    BuildContext context,
+    Map<String, dynamic> profile,
+  ) async {
     final id = int.tryParse('${profile['id']}') ?? 0;
     final code = (profile['profile_code'] ?? '').toString();
     final summary = (profile['social_summary'] ?? '').toString();
-    final parts = <String>[if (code.isNotEmpty) code, if (summary.trim().isNotEmpty) summary];
+    final parts = <String>[
+      if (code.isNotEmpty) code,
+      if (summary.trim().isNotEmpty) summary,
+    ];
     await Share.share(
       withEntityLink(
         parts.isEmpty ? 'marriage_posts_title'.tr : parts.join('\n\n'),
@@ -316,7 +323,10 @@ class _MarriageHubScreenState extends State<MarriageHubScreen> {
                 hasScrollBody: false,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AppErrorState(message: _error!, onRetry: _loadFirstPage),
+                  child: AppErrorState(
+                    message: _error!,
+                    onRetry: _loadFirstPage,
+                  ),
                 ),
               )
             else if (_items.isEmpty)

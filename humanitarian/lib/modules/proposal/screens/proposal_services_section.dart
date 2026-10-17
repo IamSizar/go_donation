@@ -21,6 +21,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class ProposalServicesSection extends StatelessWidget {
   const ProposalServicesSection({super.key});
@@ -588,7 +589,7 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
 
   Future<void> _submit() async {
     if (!_hasSignedInUser()) {
-      Get.snackbar('Error'.tr, 'Please sign in again before submitting.'.tr);
+      appSnackbar('Error'.tr, 'Please sign in again before submitting.'.tr);
       return;
     }
 
@@ -600,20 +601,20 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
     final firstError =
         titleError ?? nameError ?? phoneError ?? cityError ?? needsError;
     if (firstError != null) {
-      Get.snackbar('Error'.tr, firstError);
+      appSnackbar('Error'.tr, firstError);
       return;
     }
 
     final familyCount = int.tryParse(_familyCount.text.trim());
     if (_familyCount.text.trim().isNotEmpty &&
         (familyCount == null || familyCount < 0)) {
-      Get.snackbar('Error'.tr, 'Enter a valid family member count.'.tr);
+      appSnackbar('Error'.tr, 'Enter a valid family member count.'.tr);
       return;
     }
 
     final income = double.tryParse(_income.text.trim());
     if (_income.text.trim().isNotEmpty && (income == null || income < 0)) {
-      Get.snackbar('Error'.tr, 'Enter a valid income amount.'.tr);
+      appSnackbar('Error'.tr, 'Enter a valid income amount.'.tr);
       return;
     }
 
@@ -643,11 +644,11 @@ class _BeneficiaryCaseFormScreenState extends State<BeneficiaryCaseFormScreen> {
         await Get.find<MyBeneficiaryCasesController>().fetchCases();
       }
       Get.back<void>();
-      Get.snackbar('Submitted'.tr, 'Beneficiary case saved for review.'.tr);
+      appSnackbar('Submitted'.tr, 'Beneficiary case saved for review.'.tr);
     } catch (e) {
       debugPrint('beneficiary case submit failed: $e');
       if (mounted) {
-        Get.snackbar('Error'.tr, failureMessage(e, 'error_case_submit_failed'));
+        appSnackbar('Error'.tr, failureMessage(e, 'error_case_submit_failed'));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -736,7 +737,7 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
   Future<void> _submit() async {
     final amount = int.tryParse(_amount.text.trim());
     if (amount == null || amount <= 0) {
-      Get.snackbar('Error'.tr, 'Enter a valid monthly amount.'.tr);
+      appSnackbar('Error'.tr, 'Enter a valid monthly amount.'.tr);
       return;
     }
     if (!await requireUpgrade(context)) return;
@@ -759,14 +760,14 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
         await Get.find<NotificationsController>().refreshNotifications();
       }
       Get.back<void>();
-      Get.snackbar(
+      appSnackbar(
         'Submitted'.tr,
         'Sponsorship request saved for admin review.'.tr,
       );
     } catch (e) {
       debugPrint('sponsorship submit failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_sponsorship_submit_failed'),
         );
@@ -908,11 +909,11 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
       });
       if (!mounted) return;
       Get.back<void>();
-      Get.snackbar('Submitted'.tr, 'In-kind donation saved.'.tr);
+      appSnackbar('Submitted'.tr, 'In-kind donation saved.'.tr);
     } catch (e) {
       debugPrint('in-kind donation submit failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_in_kind_submit_failed'),
         );
@@ -945,7 +946,7 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
 // It was a second, worse support screen: the same POST to the same endpoint
 // with the same two fields, but no ticket history, no staff reply, no
 // escalation, no validation and no submit gating — plus
-// `catch (e) => Get.snackbar('Error', e.toString())`, i.e. a raw exception in
+// `catch (e) => appSnackbar('Error', e.toString())`, i.e. a raw exception in
 // front of the user. Submitting it empty was a silent no-op.
 //
 // It was checked for a state TechnicalSupportScreen does not serve, because

@@ -67,7 +67,8 @@ void main() {
 
     // Donor details are one line, with no explanatory note beneath them.
     expect(find.text('Test Donor'), findsOneWidget);
-    expect(find.text('9641555000005'), findsOneWidget);
+    // Shown the way the rest of the app shows an Iraqi number: 0155 500 0005.
+    expect(find.text('0155 500 0005'), findsOneWidget);
     expect(find.textContaining('come from your verified'), findsNothing);
     // The hero card and the summary panel repeated the amount and the title.
     expect(find.text('Contribution summary'), findsNothing);

@@ -13,6 +13,7 @@ import 'package:flutter_application_1/core/app_event_firestore.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// What POST /auth/otp/verify decided, under the A16 design where a code buys
 /// a password setup rather than a session.
@@ -282,7 +283,7 @@ class LoginController extends GetxController {
       final demoCode = body?['demo_code']?.toString();
       if (demoCode != null && demoCode.isNotEmpty) {
         _pendingOtp = demoCode; // also stashed for legacy local code
-        Get.snackbar(
+        appSnackbar(
           'OTP ready'.tr,
           'Demo OTP: @code'.trParams({'code': demoCode}),
           snackPosition: SnackPosition.BOTTOM,
@@ -290,7 +291,7 @@ class LoginController extends GetxController {
         );
       } else {
         _pendingOtp = null;
-        Get.snackbar(
+        appSnackbar(
           'OTP sent'.tr,
           'Check WhatsApp first — SMS arrives if WhatsApp delivery fails.'.tr,
           snackPosition: SnackPosition.BOTTOM,

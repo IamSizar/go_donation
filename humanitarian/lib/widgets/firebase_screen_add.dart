@@ -77,9 +77,7 @@ class _FirebaseScreenAddState extends State<FirebaseScreenAdd> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Add to Firebase Firestore'.tr),
-      ),
+      appBar: AppBar(title: Text('Add to Firebase Firestore'.tr)),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(

@@ -77,10 +77,14 @@ class _OtpBoxesState extends State<OtpBoxes> {
                   color: AppThemeConfig.surface(context),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _focus.hasFocus && i == code.length.clamp(0, widget.length - 1)
+                    color:
+                        _focus.hasFocus &&
+                            i == code.length.clamp(0, widget.length - 1)
                         ? accent
                         : border,
-                    width: _focus.hasFocus && i == code.length.clamp(0, widget.length - 1)
+                    width:
+                        _focus.hasFocus &&
+                            i == code.length.clamp(0, widget.length - 1)
                         ? 2
                         : 1,
                   ),

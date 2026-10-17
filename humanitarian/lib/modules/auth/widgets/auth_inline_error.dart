@@ -68,8 +68,9 @@ class AuthInlineError extends StatelessWidget {
       padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment:
-            centered ? MainAxisAlignment.center : MainAxisAlignment.start,
+        mainAxisAlignment: centered
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
         children: [
           // The glyph is what makes the state readable without colour vision;
           // red text alone says "error" only to people who can see the red.

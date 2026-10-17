@@ -32,7 +32,8 @@ class ControlSettingsScreen extends StatelessWidget {
             title: 'Account Information and Editing',
             subtitle: 'Update your name, photo, and other account details.',
             color: Colors.teal,
-            onTap: () => Get.to<bool>(() => const RegistrationFormPage(editMode: true)),
+            onTap: () =>
+                Get.to<bool>(() => const RegistrationFormPage(editMode: true)),
           ),
           const SizedBox(height: 12),
           _ControlOptionTile(

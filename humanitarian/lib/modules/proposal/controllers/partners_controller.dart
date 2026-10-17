@@ -1,6 +1,7 @@
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class PartnersController extends GetxController {
   final partners = <Map<String, dynamic>>[].obs;
@@ -91,9 +92,9 @@ class PartnersController extends GetxController {
       partner['avg_rating'] = (res['avg_rating'] as num?)?.toDouble();
       partner['rating_count'] = (res['rating_count'] as num?)?.toInt() ?? 0;
       partners.refresh();
-      Get.snackbar('Thanks'.tr, 'Your rating was saved.'.tr);
+      appSnackbar('Thanks'.tr, 'Your rating was saved.'.tr);
     } catch (_) {
-      Get.snackbar('Error'.tr, 'Could not save your rating.'.tr);
+      appSnackbar('Error'.tr, 'Could not save your rating.'.tr);
     }
   }
 }

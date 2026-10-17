@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Simple request form for the event-services tiles on the Events hub (Hall
 /// booking, Photographer, Wedding stage setup, Decorations, Tents &
@@ -63,7 +64,7 @@ class _EventServiceRequestScreenState extends State<EventServiceRequestScreen> {
   Future<void> _submit() async {
     final service = _serviceController.text.trim();
     if (service.isEmpty || _nameController.text.trim().isEmpty) {
-      Get.snackbar(
+      appSnackbar(
         'Missing details'.tr,
         'Please fill in the service and your name.'.tr,
         snackPosition: SnackPosition.BOTTOM,
@@ -86,11 +87,11 @@ class _EventServiceRequestScreenState extends State<EventServiceRequestScreen> {
       });
       if (!mounted) return;
       Get.back<void>();
-      Get.snackbar('Submitted'.tr, 'Your request was sent to our team.'.tr);
+      appSnackbar('Submitted'.tr, 'Your request was sent to our team.'.tr);
     } catch (e) {
       debugPrint('event service request failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_service_request_failed'),
         );

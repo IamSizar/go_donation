@@ -118,6 +118,7 @@ class ChatThreadController extends GetxController {
   final isLoading = false.obs;
   final isSending = false.obs;
   final status = 'active'.obs;
+
   /// Migration 117 — the staff-controlled lifecycle: open | paused | ended.
   /// Defaults to `open` so an older server, or a response we could not read,
   /// leaves the chat working rather than silently locking a healthy one.
@@ -157,7 +158,9 @@ class ChatThreadController extends GetxController {
       status.value = (res['status'] ?? 'active').toString();
       lifecycle.value = (res['lifecycle'] ?? ChatLifecycle.open).toString();
       final reason = res['lifecycle_reason']?.toString().trim();
-      lifecycleReason.value = (reason == null || reason.isEmpty) ? null : reason;
+      lifecycleReason.value = (reason == null || reason.isEmpty)
+          ? null
+          : reason;
       final items = res['items'];
       final list = items is List
           ? items

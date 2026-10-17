@@ -73,7 +73,8 @@ class AreaLists {
   LocationArea? cityFor(String text) =>
       cities.where((c) => c.matches(text)).firstOrNull;
 
-  List<LocationArea> childrenOf(LocationArea? parent, String level) => parent == null
+  List<LocationArea> childrenOf(LocationArea? parent, String level) =>
+      parent == null
       ? const []
       : _all.where((a) => a.level == level && a.parentId == parent.id).toList();
 }
@@ -308,8 +309,7 @@ class _AreaPickerState extends State<AreaPicker> {
       hint: Text(hint),
       items: [
         // An optional level can be un-picked again.
-        if (optional)
-          DropdownMenuItem(value: '', child: Text('area_none'.tr)),
+        if (optional) DropdownMenuItem(value: '', child: Text('area_none'.tr)),
         for (final o in options)
           DropdownMenuItem(value: o.value, child: Text(o.label)),
       ],

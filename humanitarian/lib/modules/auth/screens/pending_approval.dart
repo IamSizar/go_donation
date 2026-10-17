@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Shown to a user whose registration is awaiting (or was refused by) admin
 /// review. They cannot enter the app from here — only re-check status, edit &
@@ -48,7 +49,7 @@ class _PendingApprovalPageState extends State<PendingApprovalPage> {
     }
     if (!silent) {
       if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
-      Get.snackbar(
+      appSnackbar(
         'Pending approval'.tr,
         'Still waiting for approval. Please check back soon.'.tr,
         snackPosition: SnackPosition.BOTTOM,

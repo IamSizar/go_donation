@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 import '../models/app_notification_model.dart';
 
@@ -74,7 +75,11 @@ class _NotificationDetailDialog extends StatelessWidget {
                 _Pill(label: n.categoryLabel.tr),
                 if (created != null)
                   Text(
-                    DateFormat('yyyy-MM-dd · HH:mm').format(created.toLocal()),
+                    latinDigits(
+                      DateFormat(
+                        'yyyy-MM-dd · HH:mm',
+                      ).format(created.toLocal()),
+                    ),
                     style: TextStyle(
                       color: AppThemeConfig.mutedText(context),
                       fontSize: 12.5,

@@ -98,7 +98,8 @@ class _WheelOfFortuneScreenState extends State<WheelOfFortuneScreen>
         setState(() => _spinning = false);
         AppHaptics.success();
         _showResult(targetIndex);
-      });    AppHaptics.gentle();
+      });
+    AppHaptics.gentle();
   }
 
   void _showResult(int index) {
@@ -416,10 +417,15 @@ class _WheelPainter extends CustomPainter {
       center,
       radius,
       Paint()
-        ..shader = ui.Gradient.radial(center, radius, [
-          Colors.black.withValues(alpha: 0.0),
-          Colors.black.withValues(alpha: 0.10),
-        ], const [0.75, 1.0]),
+        ..shader = ui.Gradient.radial(
+          center,
+          radius,
+          [
+            Colors.black.withValues(alpha: 0.0),
+            Colors.black.withValues(alpha: 0.10),
+          ],
+          const [0.75, 1.0],
+        ),
     );
 
     // Dividers and the rim's studs, one per boundary.
@@ -522,7 +528,11 @@ class _PointerPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5,
     );
-    canvas.drawCircle(Offset(w / 2, r), r * 0.32, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      Offset(w / 2, r),
+      r * 0.32,
+      Paint()..color = Colors.white,
+    );
   }
 
   @override

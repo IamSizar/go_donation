@@ -29,6 +29,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/modules/marriage/controllers/marriage_my_profile_controller.dart';
 import 'package:flutter_application_1/modules/marriage/screens/marriage_profile_edit_screen.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The statuses an owner may pause FROM.
 ///
@@ -146,7 +147,7 @@ class MarriageOwnerActions extends StatelessWidget {
     AppHaptics.selection();
     final failure = await action;
     if (failure == null) return;
-    Get.snackbar(
+    appSnackbar(
       'marriage_my_profile'.tr,
       failure,
       snackPosition: SnackPosition.BOTTOM,
@@ -189,7 +190,7 @@ class MarriageOwnerActions extends StatelessWidget {
     if (confirmed != true) return;
 
     final failure = await controller.deleteProfile(id);
-    Get.snackbar(
+    appSnackbar(
       'marriage_my_profile'.tr,
       // Success says what happened to it, because the card is now gone from
       // the list and a silent disappearance is indistinguishable from a bug.

@@ -3,6 +3,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The three ways the spec lets a user ask to be put in touch with a profile:
 /// an in-person meeting, contact handled by a staff member, or a visit
@@ -78,8 +79,8 @@ Future<void> startMarriageMeetingRequest(
     final type = await pickMarriageRequestType(context);
     if (type == null) return;
     await api.requestMarriageMeeting(profileId, '', requestType: type);
-    Get.snackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
+    appSnackbar('marriage_posts_title'.tr, 'meeting_requested'.tr);
   } catch (_) {
-    Get.snackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);
+    appSnackbar('marriage_posts_title'.tr, 'meeting_request_failed'.tr);
   }
 }

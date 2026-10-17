@@ -35,6 +35,7 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Placeholder bones shaped like one switch row, so the controls fill in
 /// rather than pop in over a spinner.
@@ -165,7 +166,7 @@ class _MarriageFieldPrivacyScreenState
       // flips back with no word reads as broken rather than as a save that
       // failed.
       debugPrint('setMarriageFieldPrivacy(${widget.profileId}) failed: $e');
-      Get.snackbar(
+      appSnackbar(
         'Field privacy'.tr,
         'Could not save that preference. Please try again.'.tr,
       );

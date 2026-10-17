@@ -35,11 +35,7 @@ String localizedCurrency(String code) {
 /// translated. Pass the currency the record actually carries; [fallbackCode] is
 /// used only when the record has none, which is the common case for rows
 /// written before the currency column existed.
-String formatMoney(
-  num amount,
-  String currency, {
-  String fallbackCode = 'IQD',
-}) {
+String formatMoney(num amount, String currency, {String fallbackCode = 'IQD'}) {
   final locale = Get.locale?.toLanguageTag() ?? 'en';
   final formatter = NumberFormat.decimalPattern(locale);
   final code = currency.trim().isEmpty ? fallbackCode : currency.trim();

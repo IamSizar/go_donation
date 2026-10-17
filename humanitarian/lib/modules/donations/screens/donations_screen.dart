@@ -10,9 +10,7 @@ class DonationsScreen extends GetView<DonationsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Contributions'.tr),
-      ),
+      appBar: AppBar(title: Text('Contributions'.tr)),
       body: Obx(
         () => ListView.builder(
           padding: const EdgeInsets.all(16),

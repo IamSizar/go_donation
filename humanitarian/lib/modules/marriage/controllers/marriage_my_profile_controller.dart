@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 // Note #18 — mirrors BeneficiaryProjectsController (sponsorship module):
 // same polling + status-transition-snackbar pattern, applied to the
@@ -184,7 +185,7 @@ class MarriageMyProfileController extends GetxController
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'marriage_status_update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,

@@ -13,6 +13,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class PartnersScreen extends StatefulWidget {
   const PartnersScreen({super.key});
@@ -710,11 +711,11 @@ Future<void> openPartnerWebsite(String rawWebsite) async {
       : 'https://$trimmed';
   final uri = Uri.tryParse(normalized);
   if (uri == null) {
-    Get.snackbar('Error'.tr, 'Invalid website link.'.tr);
+    appSnackbar('Error'.tr, 'Invalid website link.'.tr);
     return;
   }
   final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!opened) {
-    Get.snackbar('Error'.tr, 'Could not open website.'.tr);
+    appSnackbar('Error'.tr, 'Could not open website.'.tr);
   }
 }

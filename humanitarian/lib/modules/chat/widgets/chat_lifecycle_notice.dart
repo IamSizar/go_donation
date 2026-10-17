@@ -65,7 +65,9 @@ class ChatLifecycleNotice extends StatelessWidget {
     // Paused is temporary, so it reads as a hold (amber); ended is settled,
     // so it reads as neutral information rather than as a failure. Neither is
     // an error colour: nothing has gone wrong for the user.
-    final tint = paused ? const Color(0xFFB26A00) : AppThemeConfig.mutedText(context);
+    final tint = paused
+        ? const Color(0xFFB26A00)
+        : AppThemeConfig.mutedText(context);
     final title = paused && supervised
         ? 'chat_supervised_closed_title'.tr
         : paused
@@ -87,9 +89,7 @@ class ChatLifecycleNotice extends StatelessWidget {
       padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 18),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
-        border: Border(
-          top: BorderSide(color: tint.withValues(alpha: 0.28)),
-        ),
+        border: Border(top: BorderSide(color: tint.withValues(alpha: 0.28))),
       ),
       child: SafeArea(
         top: false,

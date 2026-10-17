@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class SponsorshipsController extends GetxController with RealtimePollingMixin {
   final isLoading = false.obs;
@@ -77,7 +78,7 @@ class SponsorshipsController extends GetxController with RealtimePollingMixin {
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'Sponsorship update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,

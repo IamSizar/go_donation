@@ -778,7 +778,7 @@ String _dateLabel(String value) {
       DateTime.tryParse(trimmed.replaceFirst(' ', 'T')) ??
       DateTime.tryParse(trimmed);
   if (parsed == null) return trimmed;
-  return DateFormat('dd MMM yyyy').format(parsed);
+  return latinDigits(DateFormat('dd MMM yyyy').format(parsed));
 }
 
 IconData _iconForKind(String kind) {

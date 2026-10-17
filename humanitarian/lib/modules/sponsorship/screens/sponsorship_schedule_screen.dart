@@ -7,6 +7,7 @@ import 'package:flutter_application_1/core/widgets/app_row.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 /// "Eighth: Sponsorship Schedule and Calendar" — requirement 3, entitlement
 /// tracking. One row per due date, filtered into the four views the spec
@@ -242,7 +243,7 @@ class _OccurrenceCard extends StatelessWidget {
   String _date() {
     final parsed = DateTime.tryParse(item.dueDate);
     if (parsed == null) return item.dueDate;
-    return DateFormat('dd MMM yyyy').format(parsed);
+    return latinDigits(DateFormat('dd MMM yyyy').format(parsed));
   }
 
   @override

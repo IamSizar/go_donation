@@ -68,10 +68,8 @@ Future<void> openNotificationDestination(
 
     case NotificationDestinationKind.directChat:
       Get.to(
-        () => ChatConversationScreen(
-          threadId: destination.id!,
-          title: 'Chat'.tr,
-        ),
+        () =>
+            ChatConversationScreen(threadId: destination.id!, title: 'Chat'.tr),
       );
 
     case NotificationDestinationKind.marriageChat:

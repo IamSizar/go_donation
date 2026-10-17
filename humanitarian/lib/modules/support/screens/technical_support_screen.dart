@@ -9,6 +9,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Technical Support — send a message to the team and track the reply.
 ///
@@ -154,13 +155,13 @@ class _TechnicalSupportScreenState extends State<TechnicalSupportScreen> {
       });
       _subject.clear();
       _message.clear();
-      Get.snackbar('Technical Support'.tr, 'support_sent'.tr);
+      appSnackbar('Technical Support'.tr, 'support_sent'.tr);
       await _load();
     } catch (_) {
       // Deliberate: sending is an action, not a data load, and the failure is
       // already told to the user by this snackbar — no false empty state can
       // come out of it.
-      Get.snackbar('Technical Support'.tr, 'support_send_failed'.tr);
+      appSnackbar('Technical Support'.tr, 'support_send_failed'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
     }

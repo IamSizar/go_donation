@@ -5,6 +5,7 @@ import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:flutter_application_1/modules/sponsorship/controllers/beneficiary_submit_project_controller.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Form for beneficiaries to propose a new help project (e.g. “Water for all”).
 /// Submits via [BeneficiarySubmitProjectController] (endpoint in `api/links.dart`).
@@ -241,7 +242,7 @@ class _BeneficiarySubmitProjectScreenState
     if (!mounted) return;
 
     if (err != null) {
-      Get.snackbar(
+      appSnackbar(
         'Submit failed'.tr,
         err,
         snackPosition: SnackPosition.BOTTOM,
@@ -262,7 +263,7 @@ class _BeneficiarySubmitProjectScreenState
 
     _clearForm();
     Get.back<void>();
-    Get.snackbar(
+    appSnackbar(
       'Request submitted'.tr,
       message,
       snackPosition: SnackPosition.BOTTOM,

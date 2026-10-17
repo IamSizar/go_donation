@@ -26,6 +26,7 @@ import 'package:flutter_application_1/modules/support/support_sections.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class SupportSection extends StatefulWidget {
   const SupportSection({super.key});
@@ -140,7 +141,7 @@ class _SupportSectionState extends State<SupportSection>
           AppSound.notification();
           AppHaptics.gentle();
           // Get.snackbar is non-blocking and auto-dismisses.
-          Get.snackbar(
+          appSnackbar(
             'Mission update'.tr,
             message,
             snackPosition: SnackPosition.BOTTOM,
@@ -443,11 +444,11 @@ class _VolunteerMissionDetailScreenState
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        Get.snackbar('Error'.tr, 'location_permission_required'.tr);
+        appSnackbar('Error'.tr, 'location_permission_required'.tr);
         return null;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
-        Get.snackbar('Error'.tr, 'location_services_disabled'.tr);
+        appSnackbar('Error'.tr, 'location_services_disabled'.tr);
         return null;
       }
       // BOUNDED, because an unbounded GPS fix is not a slow success — it is a
@@ -505,7 +506,7 @@ class _VolunteerMissionDetailScreenState
         path = await const ModuleApi().uploadPhoto(File(picked.path));
       } on TimeoutException catch (e) {
         debugPrint('check-in photo upload timed out: $e');
-        Get.snackbar('Error'.tr, 'photo_upload_timed_out'.tr);
+        appSnackbar('Error'.tr, 'photo_upload_timed_out'.tr);
         return null;
       }
       return (lat: position.latitude, lng: position.longitude, photoPath: path);
@@ -520,10 +521,10 @@ class _VolunteerMissionDetailScreenState
         // permission refusals above are fixed by changing a setting. Telling
         // someone to enable a permission they already granted is worse than
         // saying nothing.
-        Get.snackbar('Error'.tr, 'location_timed_out'.tr);
+        appSnackbar('Error'.tr, 'location_timed_out'.tr);
         return null;
       }
-      Get.snackbar(
+      appSnackbar(
         'Error'.tr,
         failureMessage(e, 'error_evidence_capture_failed'),
       );
@@ -545,14 +546,14 @@ class _VolunteerMissionDetailScreenState
       );
       if (!mounted) return;
       setState(() => _signupStatus = 'joined');
-      Get.snackbar('Submitted'.tr, 'checkin_recorded'.tr);
+      appSnackbar('Submitted'.tr, 'checkin_recorded'.tr);
     } catch (e) {
       // backend/internal/handlers/volunteer_checkin.go answers a failed insert
       // with "Database error: " + err.Error() — a literal Postgres message
       // that used to be rendered verbatim on an Arabic screen.
       debugPrint('mission check-in failed: $e');
       if (mounted) {
-        Get.snackbar('Error'.tr, failureMessage(e, 'error_checkin_failed'));
+        appSnackbar('Error'.tr, failureMessage(e, 'error_checkin_failed'));
       }
     } finally {
       if (mounted) setState(() => _checkingInOut = false);
@@ -576,11 +577,11 @@ class _VolunteerMissionDetailScreenState
       );
       if (!mounted) return;
       setState(() => _signupStatus = 'completion_requested');
-      Get.snackbar('Submitted'.tr, 'checkout_recorded'.tr);
+      appSnackbar('Submitted'.tr, 'checkout_recorded'.tr);
     } catch (e) {
       debugPrint('mission check-out failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_mission_checkout_failed'),
         );
@@ -606,7 +607,7 @@ class _VolunteerMissionDetailScreenState
     final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
     final missionId = int.tryParse((widget.mission['id'] ?? '').toString());
     if (userId == null || userId <= 0 || missionId == null || missionId <= 0) {
-      Get.snackbar('Error'.tr, 'Please sign in again before joining.'.tr);
+      appSnackbar('Error'.tr, 'Please sign in again before joining.'.tr);
       return;
     }
 
@@ -628,14 +629,11 @@ class _VolunteerMissionDetailScreenState
         'completed' => 'This mission is already completed for you.'.tr,
         _ => 'Join request sent for admin approval.'.tr,
       };
-      Get.snackbar('Submitted'.tr, message);
+      appSnackbar('Submitted'.tr, message);
     } catch (e) {
       debugPrint('join mission failed: $e');
       if (mounted) {
-        Get.snackbar(
-          'Error'.tr,
-          failureMessage(e, 'error_join_mission_failed'),
-        );
+        appSnackbar('Error'.tr, failureMessage(e, 'error_join_mission_failed'));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -837,7 +835,7 @@ class _VolunteerApplicationFormScreenState
   Future<void> _submit() async {
     final error = _validate();
     if (error != null) {
-      Get.snackbar('Error'.tr, error);
+      appSnackbar('Error'.tr, error);
       return;
     }
     // R2 #37 — volunteering needs a full account.
@@ -867,11 +865,11 @@ class _VolunteerApplicationFormScreenState
         await Get.find<NotificationsController>().refreshNotifications();
       }
       Get.back<bool>(result: true);
-      Get.snackbar('Submitted'.tr, 'Volunteer application saved.'.tr);
+      appSnackbar('Submitted'.tr, 'Volunteer application saved.'.tr);
     } catch (e) {
       debugPrint('volunteer application submit failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_volunteer_application_failed'),
         );

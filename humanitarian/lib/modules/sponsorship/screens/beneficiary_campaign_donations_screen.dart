@@ -92,7 +92,8 @@ class _SummaryBand extends StatelessWidget {
           ),
           InfoChip(
             icon: Icons.savings_rounded,
-            label: '${_fmtMoney(totalRaised)} ${localizedCurrency('IQD')} ${'raised'.tr}',
+            label:
+                '${_fmtMoney(totalRaised)} ${localizedCurrency('IQD')} ${'raised'.tr}',
           ),
         ],
       ),

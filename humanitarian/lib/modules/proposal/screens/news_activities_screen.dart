@@ -17,6 +17,7 @@ import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/widgets/app_list_search_field.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class NewsActivitiesScreen extends StatelessWidget {
   const NewsActivitiesScreen({super.key});
@@ -742,7 +743,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       final res = await const ModuleApi().postMediaComment(widget.postId, text);
       _input.clear();
       if (res['held'] == true) {
-        Get.snackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
+        appSnackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
       } else {
         final cmt = res['comment'];
         if (cmt is Map) {
@@ -754,7 +755,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       // Not swallowed: a failed SEND is reported here as a snackbar. It stays
       // a snackbar rather than an error state because the comment list behind
       // it loaded fine and must keep rendering.
-      Get.snackbar('Error'.tr, 'Could not post your comment.'.tr);
+      appSnackbar('Error'.tr, 'Could not post your comment.'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -1519,11 +1520,11 @@ bool _isVideoUrl(String? url) {
 Future<void> _openMediaLink(String rawUrl) async {
   final uri = Uri.tryParse(rawUrl);
   if (uri == null) {
-    Get.snackbar('Error'.tr, 'Invalid media link.'.tr);
+    appSnackbar('Error'.tr, 'Invalid media link.'.tr);
     return;
   }
   final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!opened) {
-    Get.snackbar('Error'.tr, 'Could not open media link.'.tr);
+    appSnackbar('Error'.tr, 'Could not open media link.'.tr);
   }
 }

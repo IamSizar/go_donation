@@ -14,6 +14,7 @@ import 'package:flutter_application_1/modules/chat/utils/chat_sender_name.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 /// A section heading over the thread list ("Chat requests", "Conversations",
 /// "Waiting for accept") with the section's item count beside it.
@@ -130,7 +131,11 @@ class ChatThreadTile extends StatelessWidget {
                           ),
                           if (thread.lastMessageAt != null)
                             Text(
-                              DateFormat('MMM d').format(thread.lastMessageAt!),
+                              latinDigits(
+                                DateFormat(
+                                  'MMM d',
+                                ).format(thread.lastMessageAt!),
+                              ),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppThemeConfig.mutedText(context),

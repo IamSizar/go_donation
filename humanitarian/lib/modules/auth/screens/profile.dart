@@ -28,6 +28,7 @@ import 'package:flutter_application_1/modules/legal/screens/terms_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/widgets/app_theme_mode_picker.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class ProfileSection extends StatefulWidget {
   const ProfileSection({super.key});
@@ -112,9 +113,9 @@ class _ProfileSectionState extends State<ProfileSection> {
           } catch (_) {}
         }
       }
-      Get.snackbar('clear_cache'.tr, 'cache_cleared'.tr);
+      appSnackbar('clear_cache'.tr, 'cache_cleared'.tr);
     } catch (_) {
-      Get.snackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
+      appSnackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
     }
   }
 
@@ -651,7 +652,7 @@ class _IdentityCodeChip extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: code));
     // 'Copied' and 'reg_volunteer_code' are existing keys; nothing new was
     // invented for this chip.
-    Get.snackbar('reg_volunteer_code'.tr, 'Copied'.tr);
+    appSnackbar('reg_volunteer_code'.tr, 'Copied'.tr);
   }
 
   @override

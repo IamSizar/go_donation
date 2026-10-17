@@ -242,7 +242,9 @@ class ProfileMenuScreen extends StatelessWidget {
                 label: 'About Us',
                 onTap: () => Get.to(
                   () => const ContentPageScreen(
-                      slug: 'about', titleKey: 'About Us'),
+                    slug: 'about',
+                    titleKey: 'About Us',
+                  ),
                 ),
               ),
               MenuGridItem(

@@ -110,8 +110,7 @@ class EventServicesGroupScreen extends StatelessWidget {
           title: 'Hall booking',
           subtitle: 'Request a hall for your event',
           onTap: () => Get.to(
-            () =>
-                const EventServiceRequestScreen(serviceLabel: 'Hall booking'),
+            () => const EventServiceRequestScreen(serviceLabel: 'Hall booking'),
           ),
         ),
         _GroupItem(

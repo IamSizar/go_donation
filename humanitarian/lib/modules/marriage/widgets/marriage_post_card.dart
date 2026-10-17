@@ -8,6 +8,7 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 // Marriage Posts — resolve a stored photo path to a full URL. Uploads are
 // saved as relative paths (e.g. images/uploads/x.png); Image.network needs
@@ -374,7 +375,7 @@ class _MarriageCommentsSheetState extends State<_MarriageCommentsSheet> {
       final res = await widget.api.postMarriageComment(widget.profileId, text);
       _input.clear();
       if (res['held'] == true) {
-        Get.snackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
+        appSnackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
       } else {
         final cmt = res['comment'];
         if (cmt is Map) {
@@ -383,7 +384,7 @@ class _MarriageCommentsSheetState extends State<_MarriageCommentsSheet> {
         widget.onCommentPosted();
       }
     } catch (_) {
-      Get.snackbar('Error'.tr, 'Could not post your comment.'.tr);
+      appSnackbar('Error'.tr, 'Could not post your comment.'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
     }

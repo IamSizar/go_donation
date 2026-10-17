@@ -78,14 +78,12 @@ Map<String, String> withApiAuthHeaders([Map<String, String>? base]) {
   return headers;
 }
 
-Map<String, String> withApiAuthQueryParameters([Map<String, String>? base]) {
-  final query = <String, String>{...?base};
-  final token = apiAuthTokenFieldValue();
-  if (token != null && token.isNotEmpty) {
-    query.putIfAbsent('access_token', () => token);
-  }
-  return query;
-}
+/// Kept so existing call sites compile, but it no longer puts the session token
+/// in the URL. The server reads the token from the Authorization header only
+/// (every call here also sends it), and a token in the query string ends up in
+/// server and proxy logs.
+Map<String, String> withApiAuthQueryParameters([Map<String, String>? base]) =>
+    <String, String>{...?base};
 
 Map<String, dynamic> withApiAuthJsonBody([Map<String, dynamic>? base]) {
   final body = <String, dynamic>{...?base};

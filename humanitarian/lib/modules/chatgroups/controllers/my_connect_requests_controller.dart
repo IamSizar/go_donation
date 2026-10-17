@@ -17,8 +17,7 @@ import '../models/chat_group_models.dart';
 class MyConnectRequestsController extends GetxController {
   /// [api] is injectable so tests can answer without a network; production
   /// code always uses the default.
-  MyConnectRequestsController({ModuleApi api = const ModuleApi()})
-    : _api = api;
+  MyConnectRequestsController({ModuleApi api = const ModuleApi()}) : _api = api;
 
   final ModuleApi _api;
 

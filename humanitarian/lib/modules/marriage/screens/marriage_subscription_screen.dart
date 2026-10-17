@@ -13,6 +13,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Client note — Marriage "Subscription": a real, dynamic package list
 /// (admin adds/edits/removes these — nothing is hardcoded here) with a real
@@ -106,7 +107,7 @@ class _MarriageSubscriptionScreenState
     // have already admitted is stale, so the purchase is gated until a retry
     // succeeds.
     if (_error != null) {
-      Get.snackbar(
+      appSnackbar(
         'Subscription'.tr,
         'Your balance could not be refreshed. Retry the load before subscribing.',
       );
@@ -145,7 +146,8 @@ class _MarriageSubscriptionScreenState
                 _PaymentOptionTile(
                   icon: Icons.account_balance_wallet_rounded,
                   title: 'App Wallet'.tr,
-                  subtitle: '${'Balance'.tr}: $_walletBalanceIQD ${localizedCurrency('IQD')}',
+                  subtitle:
+                      '${'Balance'.tr}: $_walletBalanceIQD ${localizedCurrency('IQD')}',
                   enabled: _walletBalanceIQD >= priceIQD,
                   onTap: () => Navigator.of(sheetContext).pop('app_wallet'),
                 ),
@@ -196,10 +198,7 @@ class _MarriageSubscriptionScreenState
     } catch (e) {
       debugPrint('marriage subscription purchase failed: $e');
       if (mounted) {
-        Get.snackbar(
-          'Error'.tr,
-          failureMessage(e, 'error_subscription_failed'),
-        );
+        appSnackbar('Error'.tr, failureMessage(e, 'error_subscription_failed'));
       }
     } finally {
       if (mounted) setState(() => _busyPackageIds.remove(packageId));

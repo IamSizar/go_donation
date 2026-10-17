@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Read-only feed of beneficiary cases shown to donors / public.
 /// Polls slowly because the data changes when admin adds new published
@@ -121,7 +122,7 @@ class MyBeneficiaryCasesController extends GetxController
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'Case update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,

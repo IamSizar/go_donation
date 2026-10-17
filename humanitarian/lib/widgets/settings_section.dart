@@ -16,6 +16,7 @@ import 'package:flutter_application_1/modules/auth/screens/registration_form.dar
 import 'package:flutter_application_1/widgets/cached_profile_avatar.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Shared account/settings widgets used by ProfileMenuScreen.
 ///
@@ -84,10 +85,10 @@ Future<void> clearCache(BuildContext context) async {
         }
       }
     }
-    Get.snackbar('clear_cache'.tr, 'cache_cleared'.tr);
+    appSnackbar('clear_cache'.tr, 'cache_cleared'.tr);
   } catch (_) {
     // Not silent: the failure is reported to the user by this snackbar.
-    Get.snackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
+    appSnackbar('clear_cache'.tr, 'cache_clear_failed'.tr);
   }
 }
 
@@ -217,7 +218,9 @@ class AccountHeader extends StatelessWidget {
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () async {
-                  await Get.to<bool>(() => const RegistrationFormPage(editMode: true));
+                  await Get.to<bool>(
+                    () => const RegistrationFormPage(editMode: true),
+                  );
                 },
                 child: Padding(
                   padding: EdgeInsets.all(8),
@@ -583,7 +586,8 @@ class DarkModeRow extends StatelessWidget {
               // Which way the switch reads while the mode is still `system`:
               // from the brightness actually on screen, so the control never
               // contradicts what the user is looking at.
-              final isDark = mode == ThemeMode.dark ||
+              final isDark =
+                  mode == ThemeMode.dark ||
                   (mode == ThemeMode.system &&
                       MediaQuery.platformBrightnessOf(context) ==
                           Brightness.dark);
@@ -607,9 +611,8 @@ class DarkModeRow extends StatelessWidget {
                   ),
                   Switch.adaptive(
                     value: isDark,
-                    onChanged: (on) => setAppThemeMode(
-                      on ? ThemeMode.dark : ThemeMode.light,
-                    ),
+                    onChanged: (on) =>
+                        setAppThemeMode(on ? ThemeMode.dark : ThemeMode.light),
                   ),
                 ],
               );
@@ -719,7 +722,7 @@ class _NotificationsRowState extends State<NotificationsRow> {
       // value this row has already abandoned.
       widget.onEnabledChanged?.call(previous);
       debugPrint('setNotificationSetting failed: $e');
-      Get.snackbar(
+      appSnackbar(
         'Settings'.tr,
         'Could not save that preference. Please try again.'.tr,
       );

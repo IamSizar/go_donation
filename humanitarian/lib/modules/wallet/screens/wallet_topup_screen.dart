@@ -16,6 +16,7 @@ import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/localization/money.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// R2 #67 — add money to the wallet. The user pays with one of the same
 /// methods donations use, then sends a request here. Nothing in the wallet
@@ -93,11 +94,11 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
     final amount = int.tryParse(_amount.text.trim());
     final method = _method;
     if (amount == null || amount < 1) {
-      Get.snackbar('Add funds'.tr, 'Enter a valid amount'.tr);
+      appSnackbar('Add funds'.tr, 'Enter a valid amount'.tr);
       return;
     }
     if (method == null) {
-      Get.snackbar('Add funds'.tr, 'Choose how you paid.'.tr);
+      appSnackbar('Add funds'.tr, 'Choose how you paid.'.tr);
       return;
     }
     // A general-user or guest account cannot add funds. Same upgrade prompt the
@@ -121,7 +122,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       _amount.clear();
       _note.clear();
       setState(() => _proofPath = null);
-      Get.snackbar(
+      appSnackbar(
         'Add funds'.tr,
         'Your request was sent. Your wallet is credited once our team confirms the payment.'
             .tr,
@@ -130,7 +131,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       );
       await _load();
     } catch (e) {
-      Get.snackbar(
+      appSnackbar(
         'Add funds'.tr,
         failureMessage(e, 'error_wallet_topup_failed'),
         snackPosition: SnackPosition.BOTTOM,
@@ -364,7 +365,7 @@ class _AccountTile extends StatelessWidget {
             onPressed: () {
               Clipboard.setData(ClipboardData(text: method.accountNumber));
               AppHaptics.gentle();
-              Get.snackbar(
+              appSnackbar(
                 'Copied'.tr,
                 'Account number copied to clipboard.'.tr,
                 duration: const Duration(seconds: 2),

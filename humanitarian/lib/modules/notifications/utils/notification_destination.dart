@@ -197,9 +197,7 @@ class NotificationDestination {
 
   @override
   bool operator ==(Object other) =>
-      other is NotificationDestination &&
-      other.kind == kind &&
-      other.id == id;
+      other is NotificationDestination && other.kind == kind && other.id == id;
 
   @override
   int get hashCode => Object.hash(kind, id);

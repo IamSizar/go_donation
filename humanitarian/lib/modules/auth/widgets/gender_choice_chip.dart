@@ -67,10 +67,7 @@ class GenderChoiceChip extends StatelessWidget {
       // Null is what actually makes the chip inert; the colours above are what
       // make that inertness visible.
       onSelected: locked ? null : (_) => onSelected(),
-      labelStyle: TextStyle(
-        color: labelColor,
-        fontWeight: FontWeight.w700,
-      ),
+      labelStyle: TextStyle(color: labelColor, fontWeight: FontWeight.w700),
       selectedColor: AppThemeConfig.accent(context),
       backgroundColor: AppThemeConfig.softSurface(context),
       // Without this, a disabled ChoiceChip falls back to the theme's disabled

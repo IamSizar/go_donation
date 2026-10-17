@@ -5,6 +5,7 @@ import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Client note — "Task Verification": staff assign a task from the admin
 /// dashboard; the user sees it here and marks it done themselves (a
@@ -67,10 +68,10 @@ class _TaskVerificationScreenState extends State<TaskVerificationScreen> {
     if (!mounted) return;
     setState(() => _completing.remove(task.id));
     if (ok) {
-      Get.snackbar('Task Verification'.tr, 'Task marked as done.'.tr);
+      appSnackbar('Task Verification'.tr, 'Task marked as done.'.tr);
       await _load();
     } else {
-      Get.snackbar('Error'.tr, 'Unable to update the task. Try again.'.tr);
+      appSnackbar('Error'.tr, 'Unable to update the task. Try again.'.tr);
     }
   }
 

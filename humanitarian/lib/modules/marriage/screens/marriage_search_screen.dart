@@ -10,6 +10,7 @@ import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// #46 — Marriage search: browse profiles (q + gender), save (bookmark), and
 /// request a meeting. Backed by GET /api/marriage + /marriage/:id/save +
@@ -142,9 +143,9 @@ class _MarriageSearchScreenState extends State<MarriageSearchScreen> {
       final type = await pickMarriageRequestType(context);
       if (type == null || !mounted) return;
       await const ModuleApi().requestMarriageMeeting(id, '', requestType: type);
-      Get.snackbar('marriage_search'.tr, 'meeting_requested'.tr);
+      appSnackbar('marriage_search'.tr, 'meeting_requested'.tr);
     } catch (_) {
-      Get.snackbar('marriage_search'.tr, 'meeting_request_failed'.tr);
+      appSnackbar('marriage_search'.tr, 'meeting_request_failed'.tr);
     }
   }
 

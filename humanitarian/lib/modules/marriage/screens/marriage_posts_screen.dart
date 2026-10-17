@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_sheet.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Marriage Posts — the continuous feed of approved marriage profiles
 /// themselves (photo + age/city/gender + bio cards), newest first, infinite
@@ -152,7 +153,7 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => wasSaved ? _saved.add(id) : _saved.remove(id));
-      Get.snackbar('Saved'.tr, 'marriage_saved_toggle_failed'.tr);
+      appSnackbar('Saved'.tr, 'marriage_saved_toggle_failed'.tr);
     }
   }
 
@@ -188,11 +189,17 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     }
   }
 
-  Future<void> _share(BuildContext context, Map<String, dynamic> profile) async {
+  Future<void> _share(
+    BuildContext context,
+    Map<String, dynamic> profile,
+  ) async {
     final id = int.tryParse('${profile['id']}') ?? 0;
     final code = (profile['profile_code'] ?? '').toString();
     final summary = (profile['social_summary'] ?? '').toString();
-    final parts = <String>[if (code.isNotEmpty) code, if (summary.trim().isNotEmpty) summary];
+    final parts = <String>[
+      if (code.isNotEmpty) code,
+      if (summary.trim().isNotEmpty) summary,
+    ];
     // Client report — this used to append the generic app link (empty, so
     // no link at all); now appends a deep link straight back to this
     // profile — see app_share.dart's withEntityLink.
@@ -325,4 +332,3 @@ class _MarriagePostsScreenState extends State<MarriagePostsScreen> {
     );
   }
 }
-

@@ -166,7 +166,9 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status == 'closed' ? 'chat_state_closed'.tr : 'marriage_chat_status_$status'.tr,
+        status == 'closed'
+            ? 'chat_state_closed'.tr
+            : 'marriage_chat_status_$status'.tr,
         style: TextStyle(
           color: color,
           fontSize: 11,

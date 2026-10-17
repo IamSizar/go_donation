@@ -6,6 +6,7 @@ import 'package:flutter_application_1/core/app_sound.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class BeneficiaryProjectsController extends GetxController
     with RealtimePollingMixin {
@@ -75,7 +76,7 @@ class BeneficiaryProjectsController extends GetxController
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'Project update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,

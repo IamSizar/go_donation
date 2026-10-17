@@ -67,7 +67,10 @@ abstract final class BotNavigation {
 
     // Deep routes → push a specific screen on top of its base tab.
     'my_donations': BotNavSpec(0, () => const MyDonationsPage()),
-    'edit_profile': BotNavSpec(0, () => const RegistrationFormPage(editMode: true)),
+    'edit_profile': BotNavSpec(
+      0,
+      () => const RegistrationFormPage(editMode: true),
+    ),
     'submit_project': BotNavSpec(
       0,
       () => const BeneficiarySubmitProjectScreen(),

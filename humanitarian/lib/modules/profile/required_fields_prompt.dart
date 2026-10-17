@@ -91,7 +91,12 @@ List<String> columnsForRuleKey(String key) {
   final suffix = ruleKeySuffix(key);
   switch (suffix) {
     case 'name_parts':
-      return const ['name_first', 'name_father', 'name_grandfather', 'name_family'];
+      return const [
+        'name_first',
+        'name_father',
+        'name_grandfather',
+        'name_family',
+      ];
     case 'gps_location':
       return const ['gps_lat', 'gps_lng'];
     case 'personal_photo':
@@ -162,20 +167,21 @@ bool isPromptDismissed(List<String> missing) =>
     promptSignature(missing);
 
 /// Records that the user dismissed this exact set.
-Future<void> dismissPrompt(List<String> missing) =>
-    sharedPreferences.setString(
-      kRequiredFieldsPromptDismissedKey,
-      promptSignature(missing),
-    );
+Future<void> dismissPrompt(List<String> missing) => sharedPreferences.setString(
+  kRequiredFieldsPromptDismissedKey,
+  promptSignature(missing),
+);
 
 /// Loads the rules and the account. Injected in tests; best-effort in
 /// production — either half failing simply means no banner.
 typedef RequiredFieldsLoader = Future<List<String>> Function();
 
 Future<List<String>> _loadMissingFields() async {
-  final roleId = int.tryParse(sharedPreferences.getString('role_id') ?? '') ?? 0;
+  final roleId =
+      int.tryParse(sharedPreferences.getString('role_id') ?? '') ?? 0;
   if (rulePrefixForRole(roleId) == null) return const [];
-  final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '') ?? 0;
+  final userId =
+      int.tryParse(sharedPreferences.getString('id_user') ?? '') ?? 0;
   if (userId <= 0) return const [];
   final rules = await fetchFieldRuleSets();
   if (rules.required.isEmpty) return const [];
@@ -331,15 +337,20 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
                       // `on-` role, which is what the title and body above
                       // already do.
                       ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                        constraints: const BoxConstraints(
+                          minHeight: 44,
+                          minWidth: 44,
+                        ),
                         // Filled, because this is the call to action and the
                         // reason the banner exists. A text link beside a text
                         // link gives the operator no idea which one moves them
                         // forward.
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: theme.colorScheme.onSecondaryContainer,
-                            foregroundColor: theme.colorScheme.secondaryContainer,
+                            backgroundColor:
+                                theme.colorScheme.onSecondaryContainer,
+                            foregroundColor:
+                                theme.colorScheme.secondaryContainer,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
                           onPressed: widget.onOpenProfile ?? _openEditProfile,
@@ -348,10 +359,14 @@ class _RequiredFieldsPromptState extends State<RequiredFieldsPrompt> {
                       ),
                       const SizedBox(width: 8),
                       ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                        constraints: const BoxConstraints(
+                          minHeight: 44,
+                          minWidth: 44,
+                        ),
                         child: TextButton(
                           style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSecondaryContainer,
+                            foregroundColor:
+                                theme.colorScheme.onSecondaryContainer,
                           ),
                           onPressed: _dismiss,
                           child: Text('required_fields_prompt_dismiss'.tr),

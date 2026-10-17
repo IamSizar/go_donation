@@ -17,6 +17,7 @@ import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 // Marriage Posts — resolve a stored photo path to a full URL for preview.
 // Uploads are saved as relative paths (e.g. images/uploads/x.png);
@@ -361,11 +362,11 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        Get.snackbar('Error'.tr, 'location_permission_required'.tr);
+        appSnackbar('Error'.tr, 'location_permission_required'.tr);
         return;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
-        Get.snackbar('Error'.tr, 'location_services_disabled'.tr);
+        appSnackbar('Error'.tr, 'location_services_disabled'.tr);
         return;
       }
       final position = await Geolocator.getCurrentPosition(
@@ -381,7 +382,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     } catch (e) {
       // Device-side, like the registration form's copy of this flow.
       debugPrint('marriage form GPS capture failed: $e');
-      Get.snackbar('Error'.tr, 'error_gps_capture_failed'.tr);
+      appSnackbar('Error'.tr, 'error_gps_capture_failed'.tr);
     } finally {
       if (mounted) setState(() => _gpsLoading = false);
     }
@@ -613,10 +614,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     } catch (e) {
       debugPrint('marriage profile photo upload failed: $e');
       if (mounted) {
-        Get.snackbar(
-          'Error'.tr,
-          failureMessage(e, 'error_photo_upload_failed'),
-        );
+        appSnackbar('Error'.tr, failureMessage(e, 'error_photo_upload_failed'));
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -645,7 +643,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
     } catch (e) {
       debugPrint('marriage attachment upload ($ruleKey) failed: $e');
       if (mounted) {
-        Get.snackbar(
+        appSnackbar(
           'Error'.tr,
           failureMessage(e, 'error_attachment_upload_failed'),
         );
@@ -713,7 +711,7 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
   Future<void> _submit() async {
     final missing = _firstMissingRequired();
     if (missing != null) {
-      Get.snackbar(
+      appSnackbar(
         'marriage_title'.tr,
         '${missing.tr}: ${'reg_required_missing'.tr}',
       );
@@ -952,10 +950,10 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
       } else {
         Get.off(() => const MarriageMyProfileScreen());
       }
-      Get.snackbar('marriage_title'.tr, 'marriage_submitted'.tr);
+      appSnackbar('marriage_title'.tr, 'marriage_submitted'.tr);
     } catch (_) {
       if (mounted) {
-        Get.snackbar('marriage_title'.tr, 'marriage_submit_failed'.tr);
+        appSnackbar('marriage_title'.tr, 'marriage_submit_failed'.tr);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

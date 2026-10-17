@@ -13,6 +13,7 @@ import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 void openCampaignComments(
   BuildContext context, {
@@ -44,8 +45,7 @@ class _CampaignCommentsSheet extends StatefulWidget {
   final VoidCallback onCommentPosted;
 
   @override
-  State<_CampaignCommentsSheet> createState() =>
-      _CampaignCommentsSheetState();
+  State<_CampaignCommentsSheet> createState() => _CampaignCommentsSheetState();
 }
 
 class _CampaignCommentsSheetState extends State<_CampaignCommentsSheet> {
@@ -97,13 +97,10 @@ class _CampaignCommentsSheetState extends State<_CampaignCommentsSheet> {
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      final res = await widget.api.postCampaignComment(
-        widget.campaignId,
-        text,
-      );
+      final res = await widget.api.postCampaignComment(widget.campaignId, text);
       _input.clear();
       if (res['held'] == true) {
-        Get.snackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
+        appSnackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
       } else {
         final cmt = res['comment'];
         if (cmt is Map) {
@@ -112,7 +109,7 @@ class _CampaignCommentsSheetState extends State<_CampaignCommentsSheet> {
         widget.onCommentPosted();
       }
     } catch (_) {
-      Get.snackbar('Error'.tr, 'Could not post your comment.'.tr);
+      appSnackbar('Error'.tr, 'Could not post your comment.'.tr);
     } finally {
       if (mounted) setState(() => _sending = false);
     }

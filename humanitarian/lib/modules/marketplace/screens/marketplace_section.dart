@@ -132,7 +132,15 @@ class _MarketplaceList extends StatelessWidget {
                   // same floating pill (~118pt tall including its own
                   // safe-area bottom padding, plus a small rest margin).
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 130),
+                    // Clear the nav pill (130) and, while the cart teaser is showing
+                    // above it, the teaser too (~115): otherwise the last product's
+                    // Add button sits permanently underneath it.
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      0,
+                      20,
+                      controller.totalQuantity > 0 ? 250 : 130,
+                    ),
                     sliver: SliverMainAxisGroup(
                       slivers: [
                         SliverToBoxAdapter(

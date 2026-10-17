@@ -55,7 +55,6 @@ bool shouldShowStoredHeading(String heading, String topBarTitle) {
   return h != topBarTitle.trim();
 }
 
-
 class _ContentPageScreenState extends State<ContentPageScreen> {
   late Future<ContentPage?> _future;
 

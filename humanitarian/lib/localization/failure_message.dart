@@ -2,7 +2,7 @@
 //
 // WHY THIS FILE EXISTS
 // Seventeen `catch` blocks across the app ended in
-// `Get.snackbar('Error'.tr, e.toString())`. That is forbidden by the project's
+// `appSnackbar('Error'.tr, e.toString())`. That is forbidden by the project's
 // own standard — "Errors are designed, not dumped. Raw exceptions, status
 // codes, or stack traces must never reach the user" — and the codebase already
 // records it as a defect in `proposal_services_section.dart`, where the
@@ -37,6 +37,7 @@ import 'dart:io';
 
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// True when [error] means the request never reached a working server.
 ///
@@ -68,8 +69,10 @@ bool isOfflineFailure(Object error) {
 ///
 /// The caller is still responsible for logging [error] — this function never
 /// renders it.
-String failureMessage(Object error, String whatFailedKey) =>
-    failureMessageFor(offline: isOfflineFailure(error), whatFailedKey: whatFailedKey);
+String failureMessage(Object error, String whatFailedKey) => failureMessageFor(
+  offline: isOfflineFailure(error),
+  whatFailedKey: whatFailedKey,
+);
 
 /// [failureMessage] for a call site that no longer holds the exception.
 ///
@@ -83,6 +86,8 @@ String failureMessageFor({
   required String whatFailedKey,
 }) {
   final whatFailed = whatFailedKey.tr;
-  final whatToDoNext = offline ? 'error_next_offline'.tr : 'error_next_retry'.tr;
+  final whatToDoNext = offline
+      ? 'error_next_offline'.tr
+      : 'error_next_retry'.tr;
   return '$whatFailed $whatToDoNext';
 }

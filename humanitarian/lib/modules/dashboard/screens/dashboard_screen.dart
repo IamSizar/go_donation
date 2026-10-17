@@ -9,7 +9,8 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/design/motion.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
-import 'package:flutter_application_1/core/widgets/app_screen.dart' show HeaderLogo;
+import 'package:flutter_application_1/core/widgets/app_screen.dart'
+    show HeaderLogo;
 import 'package:flutter_application_1/modules/chat/controllers/chat_controller.dart';
 import 'package:flutter_application_1/modules/chat/screens/messages_screen.dart';
 import 'package:flutter_application_1/modules/community/screens/community_services_section.dart';
@@ -395,10 +396,14 @@ class _CompactBottomNavBar extends StatelessWidget {
               // either layout; 0.45 is low enough for scrolled content to
               // stay visible, softened by the blur, without the icons and
               // the active pill losing contrast against busy content.
-              color: AppThemeConfig.navBarSurface(context).withValues(alpha: 0.45),
+              color: AppThemeConfig.navBarSurface(
+                context,
+              ).withValues(alpha: 0.45),
               borderRadius: BorderRadius.circular(_radius),
               border: Border.all(
-                color: AppThemeConfig.borderStrong(context).withValues(alpha: 0.5),
+                color: AppThemeConfig.borderStrong(
+                  context,
+                ).withValues(alpha: 0.5),
               ),
               boxShadow: [
                 BoxShadow(
@@ -699,6 +704,7 @@ class DashboardTopBar extends StatefulWidget {
   static const int _storeIndex = 1;
   static const int _marriageIndex = 2;
   static const int _cityGuideIndex = 3;
+
   /// Space between the trailing controls.
   ///
   /// Was 8 with five controls; J9 makes it six, so it is 6. The arithmetic on

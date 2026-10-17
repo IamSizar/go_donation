@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 class ChatConversationScreen extends StatefulWidget {
   const ChatConversationScreen({
@@ -262,7 +263,9 @@ class _MessageBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
                 child: Text(
-                  DateFormat('MMM d · HH:mm').format(message.createdAt!),
+                  latinDigits(
+                    DateFormat('MMM d · HH:mm').format(message.createdAt!),
+                  ),
                   style: TextStyle(
                     fontSize: 10,
                     color: AppThemeConfig.mutedText(context),

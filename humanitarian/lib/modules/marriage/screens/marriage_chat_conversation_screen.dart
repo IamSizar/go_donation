@@ -11,6 +11,7 @@ import 'package:flutter_application_1/modules/chat/widgets/chat_lifecycle_notice
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/modules/chat/utils/chat_invite_refusal.dart';
 import 'package:flutter_application_1/modules/marriage/widgets/marriage_chat_invite_bar.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 /// Note #35 — one staff-mediated marriage chat thread. Every bubble is
 /// labeled only by role ("You" / the counterpart's masked label / "Staff")
@@ -398,7 +399,7 @@ class _Bubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
                 child: Text(
-                  DateFormat('MMM d · HH:mm').format(createdAt),
+                  latinDigits(DateFormat('MMM d · HH:mm').format(createdAt)),
                   style: TextStyle(
                     fontSize: 10,
                     color: AppThemeConfig.mutedText(context),

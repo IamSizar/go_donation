@@ -32,6 +32,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Lifecycle observer helper — kept separate so the mixin doesn't have
 /// to declare itself as a WidgetsBindingObserver (which would force
@@ -127,7 +128,7 @@ mixin RealtimePollingMixin on GetxController {
 ///   );
 ///   _lastSnapshot = {for (final d in donations) d.id.toString(): d.status};
 ///   for (final t in transitions) {
-///     Get.snackbar('Update', 'Donation #${t.key} → ${t.toStatus}');
+///     appSnackbar('Update', 'Donation #${t.key} → ${t.toStatus}');
 ///   }
 ///
 /// Returns transitions where `previous[key]` existed AND differs from the

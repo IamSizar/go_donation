@@ -13,6 +13,7 @@ import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:get/get.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class MarketplaceController extends GetxController
     with RealtimePollingMixin, CatalogueFacets {
@@ -260,7 +261,7 @@ class MarketplaceController extends GetxController
       products.addAll(page.items);
       hasMoreProducts.value = page.hasMore;
     } catch (_) {
-      Get.snackbar('Marketplace'.tr, 'Unable to load more products.'.tr);
+      appSnackbar('Marketplace'.tr, 'Unable to load more products.'.tr);
     } finally {
       isLoadingMoreProducts.value = false;
     }
@@ -359,7 +360,7 @@ class MarketplaceController extends GetxController
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'Order update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,
@@ -400,7 +401,7 @@ class MarketplaceController extends GetxController
       (product['stock_quantity'] ?? '').toString(),
     );
     if (stockQuantity != null && nextQuantity > stockQuantity) {
-      Get.snackbar(
+      appSnackbar(
         'Marketplace'.tr,
         'Only @count available.'.trParams({'count': '$stockQuantity'}),
       );
@@ -468,7 +469,7 @@ class MarketplaceController extends GetxController
 
   Future<void> checkoutCart() async {
     if (cartQuantities.isEmpty) {
-      Get.snackbar('Marketplace'.tr, 'Add products to the cart first.'.tr);
+      appSnackbar('Marketplace'.tr, 'Add products to the cart first.'.tr);
       return;
     }
     if (isCheckingOut.value) return;
@@ -492,13 +493,10 @@ class MarketplaceController extends GetxController
       clearCart();
       await fetchOrders();
       if (wallet) await loadWalletBalance();
-      Get.snackbar('Submitted'.tr, 'Order request saved.'.tr);
+      appSnackbar('Submitted'.tr, 'Order request saved.'.tr);
     } catch (e) {
       debugPrint('marketplace checkout failed: $e');
-      Get.snackbar(
-        'Error'.tr,
-        failureMessage(e, 'error_order_checkout_failed'),
-      );
+      appSnackbar('Error'.tr, failureMessage(e, 'error_order_checkout_failed'));
     } finally {
       isCheckingOut.value = false;
     }

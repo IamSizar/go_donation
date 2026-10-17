@@ -17,6 +17,7 @@ import 'package:flutter_application_1/modules/donations/screens/campaign_detail_
 import 'package:flutter_application_1/modules/donations/screens/donations_section.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class SavedCampaignsScreen extends StatefulWidget {
   const SavedCampaignsScreen({super.key, this.api = const ModuleApi()});
@@ -70,9 +71,7 @@ class _SavedCampaignsScreenState extends State<SavedCampaignsScreen> {
   /// server refuses.
   Future<void> _unsave(FeaturedCampaignData campaign) async {
     final index = _items.indexOf(campaign);
-    setState(
-      () => _items = _items.where((c) => c.id != campaign.id).toList(),
-    );
+    setState(() => _items = _items.where((c) => c.id != campaign.id).toList());
     try {
       await widget.api.saveCampaign(campaign.id);
     } catch (_) {
@@ -82,7 +81,7 @@ class _SavedCampaignsScreenState extends State<SavedCampaignsScreen> {
         restored.insert(index.clamp(0, restored.length), campaign);
         _items = restored;
       });
-      Get.snackbar('Saved'.tr, 'Could not remove this campaign.'.tr);
+      appSnackbar('Saved'.tr, 'Could not remove this campaign.'.tr);
     }
   }
 
@@ -101,7 +100,8 @@ class _SavedCampaignsScreenState extends State<SavedCampaignsScreen> {
         empty: const AppEmpty(
           icon: Icons.bookmark_border_rounded,
           title: 'No saved campaigns yet.',
-          message: 'Tap the bookmark on any campaign to save it here for later.',
+          message:
+              'Tap the bookmark on any campaign to save it here for later.',
         ),
         builder: (list) => RefreshIndicator(
           onRefresh: _load,

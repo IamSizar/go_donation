@@ -138,7 +138,23 @@ String localizedDate(Object? raw) {
   // Unparseable is better shown than swallowed — it means the server sent a
   // shape we do not know, and hiding it would hide the bug too.
   if (parsed == null) return value;
-  return DateFormat('dd MMM yyyy').format(parsed.toLocal());
+  return latinDigits(DateFormat('dd MMM yyyy').format(parsed.toLocal()));
+}
+
+/// Arabic-Indic and Persian digits → 0-9. The rest of the app (amounts, counts,
+/// phone numbers) is shown in Western digits, and a date in «١٧ أكتوبر ٢٠٢٦» next
+/// to «15,000» on the same screen reads as two different apps.
+String latinDigits(String input) {
+  const arabicIndic = '٠١٢٣٤٥٦٧٨٩';
+  const persian = '۰۱۲۳۴۵۶۷۸۹';
+  final out = StringBuffer();
+  for (final rune in input.runes) {
+    final ch = String.fromCharCode(rune);
+    final a = arabicIndic.indexOf(ch);
+    final p = persian.indexOf(ch);
+    out.write(a >= 0 ? '$a' : (p >= 0 ? '$p' : ch));
+  }
+  return out.toString();
 }
 
 /// [localizedDate], with a translated word for the places where "no date" is

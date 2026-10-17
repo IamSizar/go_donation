@@ -466,5 +466,3 @@ class _EmptyNote extends StatelessWidget {
     );
   }
 }
-
-

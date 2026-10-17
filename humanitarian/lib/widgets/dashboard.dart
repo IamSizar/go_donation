@@ -132,7 +132,7 @@ class DashboardHomeSection extends StatelessWidget {
     if (raw.isEmpty) return '';
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
-    return DateFormat('dd MMM yyyy').format(parsed.toLocal());
+    return latinDigits(DateFormat('dd MMM yyyy').format(parsed.toLocal()));
   }
 
   Widget _buildHero({
@@ -2249,7 +2249,7 @@ String _dashboardMediaDate(dynamic value) {
   if (raw.isEmpty) return '';
   final parsed = DateTime.tryParse(raw);
   if (parsed == null) return raw;
-  return DateFormat('dd MMM yyyy').format(parsed.toLocal());
+  return latinDigits(DateFormat('dd MMM yyyy').format(parsed.toLocal()));
 }
 
 // Resolve a media path to an absolute URL (absolute passes through;

@@ -49,10 +49,7 @@ class _LuckyCouponScreenState extends State<LuckyCouponScreen>
     if (_index != null || _flip.isAnimating) return;
     setState(() => _index = _random.nextInt(motivationalTasks.length));
     _flip
-      ..duration = AppMotion.resolve(
-        context,
-        const Duration(milliseconds: 750),
-      )
+      ..duration = AppMotion.resolve(context, const Duration(milliseconds: 750))
       ..forward(from: 0).whenComplete(AppHaptics.success);
     AppHaptics.gentle();
   }

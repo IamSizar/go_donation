@@ -268,8 +268,10 @@ class _ConnectRequestSheetState extends State<ConnectRequestSheet> {
       '[chat-groups] connect request for ${widget.contextType} '
       '${widget.contextId} failed: $error',
     );
-    final message =
-        failureMessage(error, 'error_connect_request_submit_failed');
+    final message = failureMessage(
+      error,
+      'error_connect_request_submit_failed',
+    );
     AppHaptics.error();
     // Dismissed while in flight — gone, or still mounted for its ~200 ms exit
     // animation: an error set on the sheet would never be read, and staying

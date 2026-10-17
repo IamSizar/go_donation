@@ -10,6 +10,7 @@ import 'package:flutter_application_1/core/realtime_polling.dart';
 import 'package:flutter_application_1/modules/donations/models/donation_history_models.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class MyDonationsController extends GetxController with RealtimePollingMixin {
   final isLoading = false.obs;
@@ -213,7 +214,7 @@ class MyDonationsController extends GetxController with RealtimePollingMixin {
       if (msg == null) continue;
       AppSound.notification();
       AppHaptics.gentle();
-      Get.snackbar(
+      appSnackbar(
         'Donation update'.tr,
         msg,
         snackPosition: SnackPosition.BOTTOM,

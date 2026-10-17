@@ -18,6 +18,7 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/localization/content_localizer.dart';
 
 import '../models/app_notification_model.dart';
 import 'chat_request_actions.dart';
@@ -309,7 +310,7 @@ String _relativeTime(DateTime dt) {
   if (diff.inDays < 7) {
     return '@count days'.trParams({'count': '${diff.inDays}'});
   }
-  return DateFormat('MMM d').format(dt);
+  return latinDigits(DateFormat('MMM d').format(dt));
 }
 
 /// Gradient icon badge in the category colour.

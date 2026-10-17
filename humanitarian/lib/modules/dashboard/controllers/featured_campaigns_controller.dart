@@ -269,7 +269,9 @@ class FeaturedCampaignsController extends GetxController
         body == null ||
         body['status']?.toString() != 'success' ||
         body['data'] is! List) {
-      throw Exception(body?['error']?.toString() ?? 'Failed to load saved campaigns.');
+      throw Exception(
+        body?['error']?.toString() ?? 'Failed to load saved campaigns.',
+      );
     }
     _persistCampaignsCsrfFromBody(body);
 

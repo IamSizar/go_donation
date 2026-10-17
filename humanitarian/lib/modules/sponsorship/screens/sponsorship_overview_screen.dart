@@ -6,6 +6,7 @@ import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/modules/sponsorship/screens/sponsorship_schedule_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 class SponsorshipOverviewScreen extends StatelessWidget {
   const SponsorshipOverviewScreen({super.key});
@@ -82,12 +83,12 @@ class SponsorshipOverviewScreen extends StatelessWidget {
                             final id = int.tryParse('${item['id']}') ?? 0;
                             final ok = await controller.cancelSponsorship(id);
                             if (ok) {
-                              Get.snackbar(
+                              appSnackbar(
                                 'Cancelled'.tr,
                                 'Sponsorship cancelled.'.tr,
                               );
                             } else if (controller.errorMessage.value != null) {
-                              Get.snackbar(
+                              appSnackbar(
                                 'Error'.tr,
                                 controller.errorMessage.value!,
                               );

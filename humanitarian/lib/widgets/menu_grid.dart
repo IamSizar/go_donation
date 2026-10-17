@@ -135,38 +135,38 @@ class _MenuTile extends StatelessWidget {
           // over two lines of Arabic without the label being clipped.
           height: 96,
           child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: tint.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(item.icon, size: 20, color: tint),
                 ),
-                child: Icon(item.icon, size: 20, color: tint),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.label.tr,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  // 12, not 11.5: twelve is the floor for body-ish text, and
-                  // these labels are the only thing naming each destination.
-                  fontSize: 12,
-                  height: 1.25,
-                  // Small text wants a touch MORE tracking, not less — the
-                  // opposite of a heading. Large type is what gets tightened.
-                  fontWeight: FontWeight.w600,
-                  color: AppThemeConfig.text(context),
+                const SizedBox(height: 8),
+                Text(
+                  item.label.tr,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    // 12, not 11.5: twelve is the floor for body-ish text, and
+                    // these labels are the only thing naming each destination.
+                    fontSize: 12,
+                    height: 1.25,
+                    // Small text wants a touch MORE tracking, not less — the
+                    // opposite of a heading. Large type is what gets tightened.
+                    fontWeight: FontWeight.w600,
+                    color: AppThemeConfig.text(context),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),

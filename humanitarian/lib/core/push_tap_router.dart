@@ -90,6 +90,9 @@ abstract final class PushTapRouter {
     Map<String, dynamic> data, {
     bool Function()? isGuest,
   }) {
-    return resolveNotificationDestination(data, isGuest: isGuest ?? isGuestMode);
+    return resolveNotificationDestination(
+      data,
+      isGuest: isGuest ?? isGuestMode,
+    );
   }
 }

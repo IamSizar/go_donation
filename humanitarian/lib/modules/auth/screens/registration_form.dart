@@ -24,6 +24,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// New-user onboarding form. Replaces the old "Choose your role" screen:
 /// collects name, date of birth, address and role, then submits the whole
@@ -1575,11 +1576,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        Get.snackbar('Error'.tr, 'location_permission_required'.tr);
+        appSnackbar('Error'.tr, 'location_permission_required'.tr);
         return;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
-        Get.snackbar('Error'.tr, 'location_services_disabled'.tr);
+        appSnackbar('Error'.tr, 'location_services_disabled'.tr);
         return;
       }
       final position = await Geolocator.getCurrentPosition(
@@ -1597,7 +1598,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
       // refusing or failing to fix a position — so the advice names the
       // location service rather than the connection.
       debugPrint('registration GPS capture failed: $e');
-      Get.snackbar('Error'.tr, 'error_gps_capture_failed'.tr);
+      appSnackbar('Error'.tr, 'error_gps_capture_failed'.tr);
     } finally {
       if (mounted) setState(() => _gpsLoading = false);
     }
@@ -2047,7 +2048,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                       .tr
                 : 'Your registration was saved, but your documents did not upload. You can add them from your profile.'
                       .tr;
-            Get.snackbar(
+            appSnackbar(
               'Registration'.tr,
               message,
               duration: const Duration(seconds: 6),
@@ -2082,7 +2083,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
             ),
           ).then((saved) {
             if (saved) return;
-            Get.snackbar(
+            appSnackbar(
               'Registration'.tr,
               'Your registration was saved, but your social links did not. You can add them from Privacy settings.'
                   .tr,
@@ -2101,7 +2102,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
         // would be dropped on the waiting screen as though they had just
         // applied again.
         Get.back<bool>(result: true);
-        Get.snackbar(
+        appSnackbar(
           'Profile'.tr,
           'Your profile has been updated.'.tr,
           duration: const Duration(seconds: 4),

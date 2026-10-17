@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 import '../../../api/guest_session.dart';
 import '../../../api/links.dart';
@@ -102,7 +103,7 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
       }
       final demoCode = body['demo_code']?.toString();
       if (demoCode != null && demoCode.isNotEmpty) {
-        Get.snackbar(
+        appSnackbar(
           'OTP ready'.tr,
           'Demo OTP: @code'.trParams({'code': demoCode}),
           snackPosition: SnackPosition.BOTTOM,
@@ -187,7 +188,8 @@ class _GuestUpgradeScreenState extends State<GuestUpgradeScreen>
             Text(
               _step == _Step.phone
                   // R2 #19 — one short line.
-                  ? 'Please confirm your phone number to upgrade your account.'.tr
+                  ? 'Please confirm your phone number to upgrade your account.'
+                        .tr
                   // Isolate the embedded number as LTR (U+2066 LRI ...
                   // U+2069 PDI) so its digit grouping doesn't mirror under
                   // an RTL locale (matches Note #39's fix on the verify

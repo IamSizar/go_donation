@@ -35,10 +35,13 @@ Future<Map<String, dynamic>?> fetchFullProfile() async {
     ),
   );
   try {
-    final uri = Uri.parse('${baseUrl}profile/full').replace(
-      queryParameters: withApiAuthQueryParameters(const {}),
+    final uri = Uri.parse(
+      '${baseUrl}profile/full',
+    ).replace(queryParameters: withApiAuthQueryParameters(const {}));
+    final res = await dio.get<dynamic>(
+      uri.toString(),
+      options: withApiAuthOptions(),
     );
-    final res = await dio.get<dynamic>(uri.toString(), options: withApiAuthOptions());
     if (res.statusCode != 200) return null;
     final body = res.data;
     if (body is! Map) return null;

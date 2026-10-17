@@ -228,4 +228,3 @@ class GuestAccountSection extends StatelessWidget {
     );
   }
 }
-

@@ -8,6 +8,7 @@ import 'package:flutter_application_1/modules/marriage/widgets/marriage_request_
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// The profiles the user bookmarked on the Marriage Posts feed, newest first.
 ///
@@ -89,7 +90,7 @@ class _MarriageSavedScreenState extends State<MarriageSavedScreen> {
         restored.insert(index.clamp(0, restored.length), profile);
         _items = restored;
       });
-      Get.snackbar('Saved'.tr, 'marriage_saved_unsave_failed'.tr);
+      appSnackbar('Saved'.tr, 'marriage_saved_unsave_failed'.tr);
     }
   }
 

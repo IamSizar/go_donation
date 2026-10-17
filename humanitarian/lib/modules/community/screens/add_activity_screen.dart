@@ -14,6 +14,7 @@ import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
 import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// OPOS #25280 — the translation key for a failed submission's snackbar.
 ///
@@ -111,7 +112,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty || _categorySlug == null) {
-      Get.snackbar('add_activity'.tr, 'activity_need_fields'.tr);
+      appSnackbar('add_activity'.tr, 'activity_need_fields'.tr);
       return;
     }
     if (!await requireUpgrade(context)) return;
@@ -140,11 +141,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       });
       if (!mounted) return;
       Get.back();
-      Get.snackbar('add_activity'.tr, 'activity_submitted'.tr);
+      appSnackbar('add_activity'.tr, 'activity_submitted'.tr);
     } catch (e) {
       debugPrint('add activity submit failed: $e');
       if (mounted) {
-        Get.snackbar('add_activity'.tr, activitySubmitFailureKey(e).tr);
+        appSnackbar('add_activity'.tr, activitySubmitFailureKey(e).tr);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

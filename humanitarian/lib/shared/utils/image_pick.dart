@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_application_1/core/design/tokens.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_pressable.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Pick a photo and let the user choose its shape before it is uploaded (#20).
 ///
@@ -157,7 +158,7 @@ Future<String?> pickCroppedImage(
     if (context.mounted) {
       final denied =
           e.code == 'camera_access_denied' || e.code == 'photo_access_denied';
-      Get.snackbar(
+      appSnackbar(
         'Error'.tr,
         (denied ? 'error_photo_access_denied' : 'error_camera_unavailable').tr,
       );

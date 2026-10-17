@@ -403,23 +403,23 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen> {
             // donate flow, whose own action runs the upgrade prompt (#44 /
             // Note #40) before anything is charged.
             Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: FilledButton(
-                  onPressed: () {
-                    AppHaptics.success();
-                    Get.back(result: true);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: AppThemeConfig.onAccent(context),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: FilledButton(
+                onPressed: () {
+                  AppHaptics.success();
+                  Get.back(result: true);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: AppThemeConfig.onAccent(context),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Text('Donate to this campaign'.tr),
                 ),
+                child: Text('Donate to this campaign'.tr),
               ),
+            ),
           ],
         ),
       ),

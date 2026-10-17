@@ -47,6 +47,7 @@ import 'package:flutter_application_1/api/auth_session.dart';
 import 'package:flutter_application_1/core/app_state.dart';
 import 'package:flutter_application_1/routes/app_routes.dart';
 import 'package:get/get.dart';
+import 'package:flutter_application_1/core/app_snackbar.dart';
 
 /// Translation keys for what the user is told. Constants rather than literals
 /// because `.tr` returns the key itself when it is missing — silently — so the
@@ -150,5 +151,5 @@ Future<bool> handleExpiredSession() async {
 /// The production hook: replace the whole stack with sign-in, then say why.
 Future<void> _routeToSignIn() async {
   Get.offAllNamed(AppRoutes.authLogin);
-  Get.snackbar(kSessionExpiredTitleKey.tr, kSessionExpiredMessageKey.tr);
+  appSnackbar(kSessionExpiredTitleKey.tr, kSessionExpiredMessageKey.tr);
 }

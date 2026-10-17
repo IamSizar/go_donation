@@ -252,11 +252,7 @@ class AppStatusTag extends StatelessWidget {
       ),
       child: Text(
         label.tr.toUpperCase(),
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: AppType.wLabel,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 9, fontWeight: AppType.wLabel, color: fg),
       ),
     );
   }
