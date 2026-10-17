@@ -504,7 +504,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ✅ Partly — inside the one screen
+**Status:** 🟡 Partly — inside the one screen
 
 **Done:** «balance transfer» is now one of the kinds picked from the single row in the unified donation screen. Choosing it shows only the payment methods that belong to it (recharge cards and the transfer numbers set by the organization), with the organization's number and a «copy» button. The notes field and the confirm button stay fixed at the bottom.
 
@@ -514,7 +514,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ✅ Partly — inside the one screen
+**Status:** 🟡 Partly — inside the one screen
 
 **Done:** «direct cash» is now one of the kinds picked from the single row in the unified donation screen; choosing it shows only the cash payment method. The donor's name and phone appear automatically from the account on one line, with the amount, the optional note and the confirm button at the bottom.
 
@@ -522,7 +522,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ✅ Partly — inside the one screen
+**Status:** 🟡 Partly — inside the one screen
 
 **Done:** «in-kind» is now one of the options in the same kind-of-donation row of the unified donation screen; choosing it opens its form with: category, item name, quantity and pickup address.
 
@@ -550,7 +550,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ✅ Partly · ➕ the rest is an addition — not in the original scope (put aside)
+**Status:** 🟡 Partly · ➕ the rest is an addition — not in the original scope (put aside)
 
 **Scope:** the proposal does not include a percentage deduction or operating-cost fee on donations. It only lists donations dedicated to the organization's operational sustainability (§9), which is the «التبرع لمؤسسة» option. Fees appear only for the marriage service (§16).
 
@@ -592,7 +592,7 @@ Volunteers reach staff — volunteers reach staff in one tap; staff ↔ staff vi
 
 ## 59. Beneficiaries / khotba / general user / visitor: start with a support ticket; staff replies; staff can convert the ticket into a chat with specific people; can close it; ticket feature stays.
 
-**Status:** ✅ Partly exists · ➕ the rest is an addition — not in the original scope (put aside)
+**Status:** 🟡 Partly exists · ➕ the rest is an addition — not in the original scope (put aside)
 
 **Scope:** Part exists (see below). Turning a ticket into a chat is an addition: §18 only lists contacting support from inside the app.
 
@@ -604,7 +604,7 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 
 ## 60. Encrypted group chats: aid section (staff + donor(s)/beneficiary); khotba (staff + suitor + girl + guardian). Opens only with staff approval; no personal data shown (numbers, real names); files/photos only by staff; staff can pause / archive / delete.
 
-**Status:** ✅ Mostly exists · ➕ the rest is an addition — not in the original scope (put aside)
+**Status:** 🟡 Mostly exists · ➕ the rest is an addition — not in the original scope (put aside)
 
 **Scope:** Mostly exists (see below). The extra parts (encryption, staff file sending, block button) are additions: not in the proposal.
 

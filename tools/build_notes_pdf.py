@@ -18,6 +18,7 @@ OUT_PDF = os.path.join(ROOT, 'Notes_with_fixes.pdf')
 CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 STATUS = [  # (prefix, label, colour)
+    ('🟡', 'تم جزئياً', '#c27c0e'),
     ('✅', 'تم الإصلاح', '#1f7a4d'),
     ('➕', 'إضافة — خارج النطاق الأصلي', '#6b4fa0'),
     ('⏳', 'قيد الانتظار', '#b7791f'),
