@@ -13,6 +13,8 @@ When all points are done: give the owner **the same notes file the client sent**
 ## EXTRA requests from the owner during round 2 (not numbered points; include in the final file)
 - **Default language = Arabic** (2026-10-17). Found: with no saved choice the app followed the phone and skipped English to the NEXT language in the phone's list (Kurdish on an English+Kurdish Iraqi phone). Fixed in `locale_service.dart` (`loadLocale` returns Arabic on first launch; user's choice always wins). Test: `test/localization/default_language_test.dart`. Screenshot: `round2_screens/extra/default-arabic.png`.
 
+- **City Guide map squashed + «API KEY REQUIRED»** (owner screenshot, 2026-10-17). Found: (1) the map was an `Expanded` taking only the space left under the profile banner, header, search, button and chips, so with the banner showing it shrank to a ~100pt strip; (2) CartoDB now answers every tile with an "API KEY REQUIRED" image (confirmed with curl), so the basemap was that watermark. Fixed in `community_services_section.dart` (page scrolls, map min height 440 / 60% of screen) and tiles → OpenStreetMap in both maps (`community_detail_screen.dart` too); attribution «© OpenStreetMap». NOTE: OSM's free tiles suit modest use; at scale use a keyed provider (one URL to change). Not verified with the banner present (it did not reappear on the test account). Screenshots: `round2_screens/extra/city-guide-map-before.png`, `city-guide-map-fixed.png`. Related: #88.
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged

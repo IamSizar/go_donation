@@ -400,12 +400,12 @@ class CommunityDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 children: [
+                                  // OpenStreetMap tiles: CartoDB (the previous source)
+                                  // now serves an "API KEY REQUIRED" image instead.
                                   TileLayer(
                                     urlTemplate:
-                                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                                    subdomains: const ['a', 'b', 'c', 'd'],
-                                    userAgentPackageName:
-                                        'com.humanitarian.app',
+                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName: 'com.tawazzn.app',
                                   ),
                                   MarkerLayer(
                                     markers: [

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
@@ -409,7 +410,13 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
           // the place-card row below the map ends up hidden behind the
           // floating bottom nav bar.
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-          child: Column(
+          // A ListView, not a Column: the map used to be an Expanded that took
+          // whatever height was LEFT under the banner, header, search, button
+          // and chips — on a phone showing the "complete your profile" banner
+          // that was ~100pt, so the map shrank to a strip. Now the page
+          // scrolls and the map keeps a proper height.
+          child: ListView(
+            padding: EdgeInsets.zero,
             children: [
               _CityGuideHeader(
                 count: items.length,
@@ -517,7 +524,10 @@ class _CityGuideScreenState extends State<CityGuideScreen> {
               // OUTSIDE this on purpose: they are standing actions, and
               // someone whose places failed to load is exactly who may want
               // to suggest a missing one.
-              Expanded(
+              SizedBox(
+                // At least 440pt, or 60% of a tall screen: enough map to read
+                // the pins plus the place strip under it.
+                height: math.max(440, MediaQuery.sizeOf(context).height * 0.6),
                 child: AppAsync<List<Map<String, dynamic>>>(
                   loading: _controller.isLoading.value,
                   error: _controller.errorMessage.value,
@@ -1170,13 +1180,16 @@ class _CityMapState extends State<_CityMap> {
                 },
               ),
               children: [
-                // Clean, colourful basemap (CartoDB Voyager) — far more legible
-                // than the old neon-on-black style.
+                // OpenStreetMap's own tiles, with Arabic place names.
+                //
+                // This was CartoDB Voyager. CartoDB now answers every tile with
+                // an "API KEY REQUIRED" image, so the whole basemap was that
+                // watermark. Nothing else about the map changed. OSM's tile
+                // servers are for modest use; at real scale, put a keyed tile
+                // provider (MapTiler, Stadia, ...) behind this one URL.
                 TileLayer(
-                  urlTemplate:
-                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                  subdomains: const ['a', 'b', 'c', 'd'],
-                  userAgentPackageName: 'com.humanitarian.app',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.tawazzn.app',
                 ),
                 MarkerLayer(
                   markers: [
@@ -1330,7 +1343,7 @@ class _CityMapState extends State<_CityMap> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
-                  '© CartoDB © OSM',
+                  '© OpenStreetMap',
                   style: TextStyle(fontSize: 9, color: Colors.black45),
                 ),
               ),
