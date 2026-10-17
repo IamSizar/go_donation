@@ -7,6 +7,12 @@ Last updated: 2026-10-16
 Now ➕ Addition: #2 #5 #10 #11 #12 #14 #44 #45 #48 #66 #72 #73 #83, the «general user» part of #35 + #37 #38, and the extras of #59 #60 #61.
 Owner also said (2026-10-16): NO payment/donation changes for now → #47–55 reverted; #54 bug documented only. #67 (wallet hole) is payment-related → ASK before touching; note the app wallet itself is not in the proposal.
 
+## FINAL DELIVERABLE (owner, 2026-10-17)
+When all points are done: give the owner **the same notes file the client sent** (`~/Downloads/الملاحظات.pdf`, 20 pages, same order/numbering) back with, for EACH point, how it was fixed + the screenshots (or ➕ Addition / ⏳ with the reason). Build it from ROUND2_REPORT.md; also tell him each point's fix in chat with screenshots.
+
+## EXTRA requests from the owner during round 2 (not numbered points; include in the final file)
+- **Default language = Arabic** (2026-10-17). Found: with no saved choice the app followed the phone and skipped English to the NEXT language in the phone's list (Kurdish on an English+Kurdish Iraqi phone). Fixed in `locale_service.dart` (`loadLocale` returns Arabic on first launch; user's choice always wins). Test: `test/localization/default_language_test.dart`. Screenshot: `round2_screens/extra/default-arabic.png`.
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged

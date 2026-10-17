@@ -123,10 +123,15 @@ class AppLocaleService {
     if (code == localeTag(arabic) || code == arabic.languageCode) {
       return arabic;
     }
-    // A stored value always wins — the user picked it. Only when there is
-    // none (first launch, or after clearing data) do we follow the device.
+    // A stored value always wins — the user picked it. With none (first
+    // launch, or after clearing data) the app opens in ARABIC, whatever the
+    // phone's language is. It used to follow the phone, and that was the bug:
+    // the loop below skipped English and took the NEXT language in the phone's
+    // list, so an English phone with Kurdish second (common in Iraq) opened the
+    // whole app in Kurdish. The owner's rule is Arabic by default; the language
+    // pill on the welcome screen is how anyone chooses another.
     if (code.isEmpty) {
-      return deviceLocale();
+      return arabic;
     }
 
     return english;
@@ -134,6 +139,9 @@ class AppLocaleService {
 
   /// The app language matching the phone's own language, or English when the
   /// device is set to something we don't ship.
+  ///
+  /// NOT used for the first-launch default any more (see [loadLocale]): the
+  /// default is Arabic. Kept for a future "use the phone's language" option.
   ///
   /// Read from PlatformDispatcher rather than the widget binding so it works
   /// during startup, before runApp. Kurdish has two codes in the wild: `ckb`
