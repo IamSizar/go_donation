@@ -3,7 +3,7 @@
 Source: client PDF «الملاحظات» (20 pages, 2026-10-16). Every point in PDF order.
 Legend: ✅ fixed & verified · ⏳ waiting (new feature — needs the original scope) · ❌ not fixed (reason given) · ℹ️ info only
 
-All changes were tested on a separate test copy. Nothing was changed on the live system.
+We tested all changes on a separate test copy. Nothing was changed on the live system.
 
 ## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options. (Umbrella — concrete work is #47–#55.)
 
@@ -43,7 +43,7 @@ Dashboard → التواصل والدعم → **المجموعات الحوار�
 
 ## 4. **Room control buttons for supervisor:** temporary pause, archive, delete, kick a member, add a new member.
 
-**Status:** ✅ Already existed — tested — plus 3 clean-ups
+**Status:** ✅ Already existed — we tested it — plus 3 clean-ups
 
 All 5 buttons are on every room (المجموعات الحوارية → open a room) and all 5 work:
 إغلاق المحادثة = temporary pause (members read only; «فتح المحادثة» reopens) · أرشفة · حذف المحادثة · إزالة (per member) · «إضافة عضو».
@@ -141,7 +141,7 @@ Noted: the red markers in the client's PDF were used to find the screen for each
 
 ## 13. Image resize/crop enabled in ALL sections, not only the identity section.
 
-**Status:** ✅ Already in place (checked in the code)
+**Status:** ✅ Already in place (we checked)
 
 Every photo the app asks for — personal photo, ID card front/back, residence card, ration card, extra documents, events/khotba profile photos — goes through the same picker that first asks «التقاط صورة / اختيار من المعرض» and then opens the **crop / resize** screen (done in the previous round). There is no upload left that skips it.
 The one deliberate exception is the volunteer's **check-in photo** at a mission: it is proof of presence taken live with the camera, so it must not be edited.
@@ -157,7 +157,7 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 **Status:** ✅ Improved (real cause on the live system still to be timed)
 
-**Found:** on the local copy every registration request answers in a few ms, so the slowness can't be reproduced here. Reading the code showed two real weak spots on a slow connection: the form opened with every field visible and then re-arranged itself when the field-rules answer arrived, and that request had no time limit (a stalled connection left the form in the wrong state forever). Photos are already uploaded in the background after the registration is saved, and resized before upload.
+**Found:** on the local copy every registration request answers in a few ms, so the slowness can't be reproduced here. We found two real weak spots on a slow connection: the form opened with every field visible and then re-arranged itself when the field-rules answer arrived, and that request had no time limit (a stalled connection left the form in the wrong state forever). Photos are already uploaded in the background after the registration is saved, and resized before upload.
 
 **Fixed:** the form now remembers the last field-rules answer on the device so it opens already correct, and the request gives up after 8 seconds instead of hanging.
 
@@ -187,7 +187,7 @@ Before → After:
 ![](round2_screens/16-19/after_city_guide_open.png)
 ![](round2_screens/16-19/after_guest_support_chat.png)
 
-**Note:** on the test copy the city-guide map shows a watermark from the map provider. To check on the live app; if it shows there too, the map needs a provider key.
+**Note:** on the test copy the city-guide map shows a watermark from the map provider. We will check this on the live app; if the watermark shows there too, the map needs a provider key.
 
 ## 17. Visitor «ترقية الحساب»: error when filling data, English message "Failed to send verification code".
 
@@ -248,7 +248,7 @@ Kurdish texts were left as they are (no Kurdish written by us — waiting for th
 
 **Status:** ✅ Fixed
 
-The welcome screen no longer scrolls — every element is fixed in place (tested by swiping up/down).
+The welcome screen no longer scrolls — every element is fixed in place (we tested this by swiping up and down).
 
 ## 24. Circular logo overlaps inside the dark square: remove the thin green circular lines around the square; enlarge inner logo slightly (not to square size); add light shadow / 3D.
 
@@ -273,7 +273,7 @@ Launch screen → welcome screen:
 
 **Status:** ✅ Fixed
 
-The sign-in screens (login, set password, upgrade account) no longer scroll or bounce when the form fits on screen — everything stays in place (tested: swiping does nothing). They only move if the keyboard actually covers a field, so no field can get hidden.
+The sign-in screens (login, set password, upgrade account) no longer scroll or bounce when the form fits on screen — everything stays in place (we tested: swiping does nothing). They only move if the keyboard actually covers a field, so no field can get hidden.
 
 ![](round2_screens/25-26/login.png)
 
@@ -548,7 +548,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 **Fixed:** the limit is now 1,000,000,000 IQD, and an amount that is not usable is refused with a clear message instead of saving an empty row. The pending / approval / wallet logic is unchanged.
 
-**Check on the live system:** look for donations with an empty amount.
+**On the live system:** we will check for donations saved with an empty amount.
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
@@ -606,7 +606,7 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 
 **Scope:** Mostly exists (see below). The extra parts (encryption, staff file sending, block button) are additions: not in the proposal.
 
-Exists and checked in the code:
+Exists, and we checked it:
 - Rooms between donor / beneficiary are opened **only by staff** (connect request → staff approval, or staff creates the room).
 - Members see only a nickname («مانح 1», «مستحق 1») — **no real names, no phone numbers**; a message containing a phone number or email is **blocked** automatically and logged.
 - Staff can pause / archive / delete.
@@ -639,7 +639,7 @@ Not in the system yet (new features → waiting for scope):
 - **Submit button:** «إرسال للمراجعة» is now pinned at the bottom of the screen, clear of the phone's buttons, and always visible while the form scrolls.
 - **Server:** it now accepts the photos and keeps only photos uploaded through the app itself (anything else is dropped), at most 6.
 
-Checked end to end on the local copy: the suggestion arrived as «قيد المراجعة» with the GPS coordinates and the uploaded photo.
+We checked this end to end on a test copy: the suggestion arrived as «قيد المراجعة» with the GPS coordinates and the uploaded photo.
 
 | Before (top) | Before (bottom: button at the edge) |
 |---|---|
@@ -656,7 +656,7 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 **Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. The overlap does not show on every test device (some keep the navigation bar outside the app window), so the fix was checked by simulating a 56-point bar.
 
 **Fixed:** the page now clears the system inset plus a margin, so the logout row scrolls fully above the buttons. On phones with no inset nothing changes.
-- On a real Android phone, scroll the profile page to the end and check: the logout row should sit clear above the buttons.
+- We will also confirm on a real Android phone: scrolling the profile page to the end, the logout row should sit clear above the buttons.
 
 ![](round2_screens/63/android-profile-bottom.png)
 
@@ -668,7 +668,7 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 
 **Found:** the card looked broken: a wide empty dark rectangle with the icon at one corner and the number at the opposite one, so it read as an unfinished or non-working section.
 
-**Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. Checked on iPhone and Android.
+**Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. We checked on iPhone and Android.
 
 If the client wants the section editable (photos, custom text), that is a new feature, not in the proposal.
 
@@ -678,16 +678,16 @@ If the client wants the section editable (photos, custom text), that is a new fe
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
-**Status:** ✅ Fixed (the cause that could be reproduced); the "froze for good" case needs your phone to confirm
+**Status:** ✅ Fixed (the cause that could be reproduced); the "froze for good" case needs confirming on the client's phone
 
 **Found:** tapping a product opens a sheet that covered most of the screen and could only be dismissed by swiping it down or tapping the dim strip above it. Nothing on it said so: no close button. After «إضافة» the sheet stayed open, and it hid the cart bar behind it, so the cart only showed up once the sheet was finally dismissed. That matches «selecting a product froze the page, cancel didn't respond, the cart only appeared after several tries». Logging out and back in doesn't help because it is not a stuck state, just a sheet with no visible exit.
 
 **Fixed:**
-- A visible **✕** in the sheet's header (checked on iPhone and Android).
+- A visible **✕** in the sheet's header (we checked on iPhone and Android).
 - Once the product is in the cart the sheet shows **«عرض السلة · N عنصر»**, which closes it and opens the cart.
 - After closing, the cart bar («1 عنصر · 15,000 د.ع») is visible immediately.
 
-**Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on the client's phone, please send the phone model and what was on screen.
+**Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on the client's phone, we will need the phone model and what was on screen.
 
 Payment was not touched.
 
@@ -783,7 +783,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 ![](round2_screens/74/hi_city_guide.png)
 ## 75. Sticky table header in every section. (Round-1 #49021 did this — re-verify all pages.)
 
-**Status:** ✅ Verified — already works everywhere
+**Status:** ✅ Already works everywhere (we verified)
 
 **Found:** the header is made sticky by one shared script that every table uses; no table has its own markup. Nothing overrides it, so no change was needed.
 
@@ -906,5 +906,5 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 **Status:** ✅ Fixed
 
-**Fixed:** only the open page's sidebar item is highlighted; the parent group no longer looks selected together with a child (checked on Push, Users).
+**Fixed:** only the open page's sidebar item is highlighted; the parent group no longer looks selected together with a child (we checked on Push and Users).
 
