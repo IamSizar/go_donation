@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
@@ -204,7 +205,9 @@ class _EngagementRow extends StatelessWidget {
       children: [
         Expanded(
           child: _EngageIcon(
-            icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            icon: liked
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
             color: liked ? Colors.red : null,
             label: likeCount > 0 ? '$likeCount' : 'Like'.tr,
             onTap: onLike,
@@ -313,8 +316,7 @@ class _MarriageCommentsSheet extends StatefulWidget {
   final VoidCallback onCommentPosted;
 
   @override
-  State<_MarriageCommentsSheet> createState() =>
-      _MarriageCommentsSheetState();
+  State<_MarriageCommentsSheet> createState() => _MarriageCommentsSheetState();
 }
 
 class _MarriageCommentsSheetState extends State<_MarriageCommentsSheet> {
@@ -364,12 +366,12 @@ class _MarriageCommentsSheetState extends State<_MarriageCommentsSheet> {
   Future<void> _submit() async {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
+    // R2 #37 — a general user (guest account) can read khotba posts but
+    // cannot comment until the account is upgraded.
+    if (!await requireUpgrade(context)) return;
     setState(() => _sending = true);
     try {
-      final res = await widget.api.postMarriageComment(
-        widget.profileId,
-        text,
-      );
+      final res = await widget.api.postMarriageComment(widget.profileId, text);
       _input.clear();
       if (res['held'] == true) {
         Get.snackbar('Thanks'.tr, 'Your comment is awaiting review.'.tr);
@@ -637,10 +639,7 @@ class _MarriageCommentTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                body,
-                style: TextStyle(color: AppThemeConfig.text(context)),
-              ),
+              Text(body, style: TextStyle(color: AppThemeConfig.text(context))),
             ],
           ),
         ),

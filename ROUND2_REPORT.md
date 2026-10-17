@@ -159,19 +159,19 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 **Status:** ✅ Fixed (app + server)
 
-**Problem found:** a visitor (الدخول كزائر) was blocked in two layers:
-- Home showed only a "sign in" card — no campaigns, no categories, no our-work.
-- City guide was blocked («يتطلب عرض دليل المدينة إكمال التسجيل») by the app **and** the server.
-- Support chat and support tickets were refused by the server and the app asked to sign in first.
+**What we found:** the limited account (general user, formerly labelled "visitor / guest") was blocked in several places:
+- Home showed only a «سجّل الدخول» card — no campaigns, no categories, no our-work.
+- The city guide was blocked («يتطلب عرض دليل المدينة إكمال التسجيل») by the app **and** the server.
+- Support chat and support tickets were refused by the server, and the app asked to sign in first.
 
-**Fix:**
-- Visitor home now shows the real public content: browse by category, featured campaigns, latest news / our work (the store and the khotba posts were already open).
-- City guide opens for visitors (viewing only — adding a place still needs an account).
-- Visitors can open a support chat and send support tickets.
-- Safety kept: a visitor can only talk in a **support** chat with **staff** — every other chat stays closed to visitors (new check on the server).
-- Small clean-ups seen on the way: the visitor's name shows as «زائر» (was "Guest" in English); the 👋 emoji was removed from the empty chat text.
+**Fixed:**
+- The general user's home now shows the real public content: browse by category, featured campaigns, latest news / our work (the store and the khotba posts were already open).
+- The city guide opens for them (view only — adding a place needs a full account).
+- They can open a support chat and send support tickets.
+- Safety kept: they can only talk in a **support** chat with **staff**; every other chat stays closed to them.
+- Small clean-ups: the name shows as «مستخدم عام», and the 👋 emoji was removed from the empty chat text.
 
-Before → After:
+Before / After:
 
 ![](round2_screens/16-19/before_guest_home.png)
 ![](round2_screens/16-19/after_guest_home.png)
@@ -359,18 +359,15 @@ Before → After:
 
 ## 35. Data duplication: role picker = dropdown, **general user** is the default; picking volunteer/beneficiary/donor shows that role's fields; data already typed is reused (no re-entry); add photo + email to general registration (and dashboard); same required/optional rule system.
 
-**Status:** ✅ Partly fixed · ➕ the rest is an addition — not in the original scope (put aside)
-
-**Scope:** Part done: the role dropdown, no re-typing, photo + email (see below). The «general user» default is an addition: the proposal has donor, beneficiary, volunteer, staff, limited visitor and marriage accounts only (§6).
+**Status:** ✅ Fixed
 
 **Done:**
-- The three big role cards (مانح / مستحق / متطوع) are now **one dropdown** «نوع الحساب».
-- Choosing a role only opens that role's extra section underneath. Everything already typed (name, date of birth, address, gender, city, job) **stays filled** — nothing has to be typed again when the role is changed.
+- The three big role cards (donor / beneficiary / volunteer) became **one dropdown** called «نوع الحساب».
+- Choosing a role opens only that role's extra section below. Everything already typed (name, date of birth, address, gender, city, occupation) **stays filled in**, so nothing is typed twice when the role changes.
+- The **general user** is the account everyone can start with («المتابعة كمستخدم عام»): it has limited rights and is upgraded later from the same form by choosing a role (see the rights listed under the general-user point).
 
 ![](round2_screens/34-38/after_role_dropdown.png)
 ![](round2_screens/34-38/after_volunteer_selected.png)
-
-**Postponed (new feature):** a fourth account type **«مستخدم عام»** as the default does not exist in the system today — the server only accepts donor / beneficiary / volunteer. Adding it means a new account type in the app, the server and the dashboard. It will be built once it is approved within the scope.
 
 ## 36. Remove every «(اختياري)»; one sentence at the top: «الحقول المصحوبة بعلامة حمراء إجبارية».
 
@@ -383,19 +380,23 @@ One line at the top instead: **«\* الحقول المصحوبة بعلامة �
 
 ## 37. General user rights: browse everything (humanitarian, store, city guide, khotba), message support. Blocked: commenting in khotba, applying to khotba requests, requesting aid, joining volunteering; no volunteer notifications — until «تطوير حسابه» (upgrade + choose role).
 
-**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+**Status:** ✅ Fixed
 
-**Scope:** Needs the «general user» account type, which is not in the proposal (§6 has a limited-permissions visitor only).
+**General user** (the account created by «المتابعة كمستخدم عام», previously labelled "visitor / guest") now matches the described rights:
+- **Can:** browse everything — humanitarian work, the store, the city guide and the khotba section — and message support (chat and tickets).
+- **Cannot, until the account is upgraded:** comment in the khotba section, send khotba requests, request humanitarian aid, join volunteer work, donate or buy. Each of these shows the «ترقية الحساب» prompt, and the server refuses it as well.
+- Volunteer notifications reach volunteer accounts only, so a general user does not receive them until upgraded to a volunteer.
+- **Upgrading:** «ترقية الحساب» → phone verification → the registration form with the role dropdown.
 
-The rights you describe (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Postponed until it is approved within the scope.
+The name «زائر» is now «مستخدم عام» everywhere in the app and the dashboard.
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
-**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+**Status:** ✅ Partly fixed
 
-**Scope:** Needs the «general user» account type, which is not in the proposal (§6).
+**Done:** general users are now a named group in the dashboard: the Users page has the filter «المستخدمون العامون» and a «مستخدم عام» badge, they can be hidden from the list, a new general user is announced as «حساب مستخدم عام جديد», and their data can be edited and archived like any other account. The «General User Access» page controls which app screens they can browse.
 
-A dashboard section for general users only makes sense once that account type exists. (The general list of all accounts is already under المستخدمون)
+**Not added yet:** creating a general-user account by hand from the dashboard («New user» offers donor, beneficiary, volunteer and employee).
 
 ## 39. Filter tiles (الكل / غير مقروء / مقروء) unequal; «غير مقروء» wraps badly → equal size, one line or two stacked centered words.
 

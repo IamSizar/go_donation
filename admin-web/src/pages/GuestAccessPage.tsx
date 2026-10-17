@@ -118,36 +118,22 @@ export default function GuestAccessPage() {
             </thead>
             <tbody>
               {screens.map((s) => {
-                // Note #40 — City Directory is now a HARD, unconditional
-                // block for guests (server-enforced), independent of this
-                // toggle. Keep the row so the setting isn't silently lost,
-                // but make clear it no longer has any effect for guests.
-                const locked = s === 'city_directory'
                 return (
                   <tr key={s}>
                     <td style={{ textAlign: 'start' }}>
                       <strong>{screenLabel(s)}</strong>
-                      {locked && (
-                        <div className="muted" style={{ fontSize: '12px', marginTop: '2px' }}>
-                          {t('guest.city_directory_locked_note')}
-                        </div>
-                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      {locked ? (
-                        <span className="muted">{t('guest.always_blocked')}</span>
-                      ) : (
-                        <label className="switch-label" style={{ cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!config[s]}
-                            disabled={saving === s}
-                            onChange={() => toggle(s)}
-                            aria-label={screenLabel(s)}
-                          />{' '}
-                          <span className="muted">{config[s] ? t('guest.shown') : t('guest.hidden')}</span>
-                        </label>
-                      )}
+                      <label className="switch-label" style={{ cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!config[s]}
+                          disabled={saving === s}
+                          onChange={() => toggle(s)}
+                          aria-label={screenLabel(s)}
+                        />{' '}
+                        <span className="muted">{config[s] ? t('guest.shown') : t('guest.hidden')}</span>
+                      </label>
                     </td>
                   </tr>
                 )

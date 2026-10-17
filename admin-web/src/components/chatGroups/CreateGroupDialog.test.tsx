@@ -178,7 +178,7 @@ describe('CreateGroupDialog', () => {
       status: 400,
       code: 'guest_member_not_allowed',
       english: 'Guest accounts cannot be added to a chat group.',
-      shown: 'Guest accounts cannot join a chat group. Remove the guest account from the members and try again.',
+      shown: 'General user accounts cannot join a chat group. Remove the general user account from the members and try again.',
     },
     {
       status: 409,

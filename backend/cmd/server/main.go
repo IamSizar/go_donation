@@ -717,7 +717,9 @@ func main() {
 			// above, scoped to marriage-seeker profile cards.
 			authed.POST("/marriage/:id/like", marriageEngageH.Like)
 			authed.GET("/marriage/:id/comments", marriageEngageH.Comments)
-			authed.POST("/marriage/:id/comments", marriageEngageH.Comment)
+			// R2 #37 — the general user (guest account) browses the khotba section
+			// but cannot comment in it until the account is upgraded.
+			authed.POST("/marriage/:id/comments", auth.RequireNotGuest(), marriageEngageH.Comment)
 			authed.POST("/marriage/:id/share", marriageEngageH.Share)
 
 			// Client report 2026-09-22 — same shape again, scoped to donation
@@ -902,12 +904,12 @@ func main() {
 
 			authed.GET("/volunteers", volunteersH.Get)
 			authed.GET("/volunteers/", volunteersH.Get)
-			authed.POST("/volunteers", volunteersH.Post)
-			authed.POST("/volunteers/", volunteersH.Post)
+			authed.POST("/volunteers", auth.RequireNotGuest(), volunteersH.Post)
+			authed.POST("/volunteers/", auth.RequireNotGuest(), volunteersH.Post)
 			authed.GET("/volunteer_hub", volunteersH.Get)
 			authed.GET("/volunteer_hub/", volunteersH.Get)
-			authed.POST("/volunteer_hub", volunteersH.Post)
-			authed.POST("/volunteer_hub/", volunteersH.Post)
+			authed.POST("/volunteer_hub", auth.RequireNotGuest(), volunteersH.Post)
+			authed.POST("/volunteer_hub/", auth.RequireNotGuest(), volunteersH.Post)
 			// Phase 21b — clean REST resource for browsing missions
 			// without the joined-missions overlay /volunteer_hub adds.
 			authed.GET("/missions", volunteersH.Missions)

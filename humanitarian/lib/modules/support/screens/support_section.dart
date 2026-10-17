@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -599,6 +600,9 @@ class _VolunteerMissionDetailScreenState
   );
 
   Future<void> _joinMission() async {
+    // R2 #37 — a general user (guest account) cannot join volunteer work
+    // until the account is upgraded.
+    if (!await requireUpgrade(context)) return;
     final userId = int.tryParse(sharedPreferences.getString('id_user') ?? '');
     final missionId = int.tryParse((widget.mission['id'] ?? '').toString());
     if (userId == null || userId <= 0 || missionId == null || missionId <= 0) {
@@ -836,6 +840,8 @@ class _VolunteerApplicationFormScreenState
       Get.snackbar('Error'.tr, error);
       return;
     }
+    // R2 #37 — volunteering needs a full account.
+    if (!await requireUpgrade(context)) return;
 
     setState(() => _loading = true);
     try {
