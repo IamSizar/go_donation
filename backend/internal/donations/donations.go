@@ -19,6 +19,12 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 )
 
+// MaxDonationAmount is the sanity ceiling for one gift, in dinars. It used to be
+// 1,000,000 — a dollar-sized limit that silently dropped ordinary dinar gifts
+// (R2 #54): the row saved with an empty amount and still answered "success".
+// The column is NUMERIC(14,2), so this stays far below what it can hold.
+const MaxDonationAmount = 1_000_000_000
+
 func itoa(n int) string { return strconv.Itoa(n) }
 
 // fallbackDonationType maps a donor-supplied donation type to one of the three
@@ -178,7 +184,7 @@ func (s *Store) Insert(
 	if amount != nil {
 		amt := strings.TrimSpace(*amount)
 		var n float64
-		if _, err := fmt.Sscanf(amt, "%f", &n); err == nil && n > 0 && n < 1_000_000 {
+		if _, err := fmt.Sscanf(amt, "%f", &n); err == nil && n > 0 && n < MaxDonationAmount {
 			amountStr = amt
 		}
 	}

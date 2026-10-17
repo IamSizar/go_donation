@@ -39,12 +39,12 @@ func NewDonationsHandler(s *donations.Store, n *notify.Notifier, w *wallet.Store
 
 // parseIQDAmount parses a donation/order amount string into whole IQD,
 // matching the same sanity range donations.Store.Insert already applies
-// (0 &lt; amount &lt; 1,000,000) so a wallet debit never charges more or less
+// (0 < amount < donations.MaxDonationAmount) so a wallet debit never charges more or less
 // than what actually gets recorded on the row it's paying for.
 func parseIQDAmount(s string) (int64, bool) {
 	s = strings.TrimSpace(s)
 	var n float64
-	if _, err := fmt.Sscanf(s, "%f", &n); err != nil || n <= 0 || n >= 1_000_000 {
+	if _, err := fmt.Sscanf(s, "%f", &n); err != nil || n <= 0 || n >= donations.MaxDonationAmount {
 		return 0, false
 	}
 	return int64(n + 0.5), true
@@ -185,6 +185,17 @@ func (h *DonationsHandler) Create(c *gin.Context) {
 	donorKind := ""
 	if v, ok := get("donation_kind"); ok {
 		donorKind = v
+	}
+
+	// R2 #54 — an amount that was typed but is not usable used to be dropped
+	// silently: the row was saved empty and the donor was told "success".
+	// Refuse it instead, before anything is saved or charged. A gift with no
+	// amount at all (e.g. in-kind) is still fine.
+	if amountPtr != nil && strings.TrimSpace(*amountPtr) != "" {
+		if _, ok := parseIQDAmount(*amountPtr); !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "A valid amount is required."})
+			return
+		}
 	}
 
 	ins, err := h.Store.Insert(ctx, uid, campaignID, msgPtr, amountPtr, methodPtr, donationType, projectSlugPtr, donorKind)
