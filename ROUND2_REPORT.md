@@ -8,8 +8,11 @@ Code: branch `round2-fixes` (not pushed / not deployed yet).
 
 ## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options. (Umbrella — concrete work is #47–#55.)
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (summary of the whole round)
 
+**Fixed:** this is the umbrella point. The concrete de-cluttering was done screen by screen in the points below: shorter titles and removed duplicate/hero sentences (e.g. #62, #63, #65, #68, #71, #86), cleaner cards and sheets (#64, #68, #69), profile menu and dashboard tidy-ups, plus a sweep for cut-off words and misaligned text on every screen touched.
+
+**Not changed (by owner decision):** the donation / payment flow (#47–#55) — the existing wallet + proof-of-transfer system stays exactly as it is.
 
 ## 2. **Where are attendance / activity details in app + dashboard?** (a) daily attendance/leave log for staff & volunteers; (b) participant registration form per activity/campaign; (c) aid-delivery documentation — volunteer/staff uploads report + proof (photo or signature).
 
@@ -116,8 +119,9 @@ Before (left) → After (right):
 
 ## 9. (Info only) Images: some have red markers; some notes are explained in text without a picture.
 
-**Status:** ℹ️ info only
+**Status:** ℹ️ Info only
 
+Noted: the red markers in the client's PDF were used to find the screen for each note; points explained only in text were matched to the screen by name. No change needed.
 
 ## 10. **In-App Admin Panel** (staff manage from the phone, isolated permissions): Khotba staff → khotba files, approvals, their chats only; Volunteers staff → volunteers, activities, chats, attendance; Store staff → products + purchase requests; Beneficiaries staff → beneficiary data, approvals, forms, their messages.
 
