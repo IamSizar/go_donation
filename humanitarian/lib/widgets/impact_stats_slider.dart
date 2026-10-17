@@ -115,12 +115,13 @@ class _ImpactStatsSliderState extends State<ImpactStatsSlider> {
 
     // Size the card to the (clamped) text scale so the fixed-height PageView can
     // never RenderFlex-overflow — including large accessibility text sizes and
-    // taller Arabic/Kurdish glyphs. Fixed chrome (icon chip + paddings) ≈ 94px;
-    // the number+label text block (≈ 59px at 1.0×) grows with the scale.
+    // taller Arabic/Kurdish glyphs. R2 #64: the card is now a compact
+    // horizontal one (icon beside number + label), so the fixed chrome is the
+    // 40pt of padding and the text block (~70pt at 1.0x) is what scales.
     final textScale = MediaQuery.textScalerOf(
       context,
     ).scale(1.0).clamp(1.0, 1.3);
-    final cardHeight = 94 + 59 * textScale;
+    final cardHeight = 40 + 70 * textScale;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,56 +237,64 @@ class _ImpactCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // R2 #64 — the old layout pinned the icon to one corner and the
+            // number to the opposite one in a wide card, leaving most of it
+            // empty, so the card looked unfinished. Icon and text now sit
+            // together, vertically centred.
+            child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     color: AppThemeConfig.onAccent(
                       context,
                     ).withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
                     slide.icon,
                     color: AppThemeConfig.onAccent(context),
-                    size: 22,
+                    size: 28,
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: slide.value),
-                      duration: const Duration(milliseconds: 900),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, v, _) => Text(
-                        slide.format(v),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: slide.value),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, v, _) => Text(
+                          slide.format(v),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppThemeConfig.onAccent(context),
+                            fontSize: 34,
+                            height: 1.1,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        slide.label.tr,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: AppThemeConfig.onAccent(context),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                          color: AppThemeConfig.onAccent(
+                            context,
+                          ).withValues(alpha: 0.92),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      slide.label.tr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppThemeConfig.onAccent(
-                          context,
-                        ).withValues(alpha: 0.92),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

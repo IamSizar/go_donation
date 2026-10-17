@@ -656,8 +656,19 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 
 ## 64. «أثرنا» section doesn't work — where are its data/photos/details edited?
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (the card); the question answered below
 
+**Answer — where is «أثرنا» edited?** Nowhere, by design. It is the "Our impact" banner on Home and its three numbers are counted live from the real data: **donors** (active donor accounts), **beneficiaries** (active beneficiary accounts) and **completed activities** (completed volunteer missions plus approved project requests). That matches the proposal's «banner showing the general statistics», which are automatic. It has no photos or text to edit. The statistics boxes below it («المساهمات المؤكدة» etc.) work the same way.
+
+**Found:** the card looked broken: a wide empty dark rectangle with the icon at one corner and the number at the opposite one, so it read as an unfinished or non-working section.
+
+**Fixed:** the card is now compact: the icon beside a large number and its label, vertically centred, at a sensible height. The data, the automatic rotation and the dots are unchanged. Checked on iPhone and Android.
+
+If the client wants the section editable (photos, custom text), that is a new feature, not in the proposal.
+
+| Before (Android) | After (iPhone) | After (Android) |
+|---|---|---|
+| ![](round2_screens/64/before-android.png) | ![](round2_screens/64/after-ios.png) | ![](round2_screens/64/after-android.png) |
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
