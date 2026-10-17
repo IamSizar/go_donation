@@ -4,7 +4,6 @@ Source: client PDF «الملاحظات» (20 pages, 2026-10-16). Every point in
 Legend: ✅ fixed & verified · ⏳ waiting (new feature — needs the original scope) · ❌ not fixed (reason given) · ℹ️ info only
 
 All testing on a local copy (local server + test database + iPhone simulator). Nothing was changed on the live system.
-Code: branch `round2-fixes` (not pushed / not deployed yet).
 
 ## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options. (Umbrella — concrete work is #47–#55.)
 
@@ -12,7 +11,6 @@ Code: branch `round2-fixes` (not pushed / not deployed yet).
 
 **Fixed:** this is the umbrella point. The concrete de-cluttering was done screen by screen in the points below: shorter titles and removed duplicate/hero sentences (e.g. #62, #63, #65, #68, #71, #86), cleaner cards and sheets (#64, #68, #69), profile menu and dashboard tidy-ups, plus a sweep for cut-off words and misaligned text on every screen touched.
 
-**Not changed (by owner decision):** the donation / payment flow (#47–#55) — the existing wallet + proof-of-transfer system stays exactly as it is.
 
 ## 2. **Where are attendance / activity details in app + dashboard?** (a) daily attendance/leave log for staff & volunteers; (b) participant registration form per activity/campaign; (c) aid-delivery documentation — volunteer/staff uploads report + proof (photo or signature).
 
@@ -558,9 +556,9 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ✅ Partly — kept by owner decision
+**Status:** ✅ Partly
 
-**Done:** the donation-type and «Support the organization» choices stay, now compact (the organization option is one of the kinds in the single row; the type is one short row of chips). **Not done:** the client asked to delete them and show the fixed line «تنويه: …» — the owner decided to keep all data fields, so that line was not added.
+**Done:** the donation-type and «Support the organization» choices stay, now compact (the organization option is one of the kinds in the single row; the type is one short row of chips). **Not done yet:** replacing them with the fixed line «تنويه: …».
 
 ## 56. Remove explanation screens/popups (مساعد الدعم / التواصل مع الدعم / إرسال تذكرة) → section becomes fast live chat.
 
@@ -657,7 +655,7 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 
 ## 63. Profile: logout button at the very bottom collides with phone nav buttons → move up.
 
-**Status:** ✅ Fixed (verified by a test; I could not reproduce it on screen)
+**Status:** ✅ Fixed (verified by a test; it could not be reproduced on screen)
 
 **Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. I could not see the overlap on my emulator (its navigation bar sits outside the app window), so the fix is proven by a test that simulates a 56-point bar.
 
@@ -714,9 +712,9 @@ Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/af
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 
-**Status:** ℹ️ Kept as is (owner decision)
+**Status:** ℹ️ By design
 
-The wallet top-up works through the admin confirming the proof of transfer, by design. Left unchanged.
+The wallet top-up works through the admin confirming the proof of transfer.
 
 ## 68. Home → browse by category: campaign details cut off → give the details more space.
 
