@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_application_1/localization/item_count.dart';
 import 'package:flutter_application_1/api/guest_session.dart';
@@ -39,25 +41,30 @@ class CartScreen extends StatelessWidget {
 
         return Column(
           children: [
+            // Items and the payment choice scroll together — with every payment
+            // method the organization offers the choice is long, and a fixed
+            // panel under a short list overflowed the screen.
             Expanded(
-              child: ListView.separated(
+              child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                itemCount: entries.length,
-                separatorBuilder: (context, i) => const SizedBox(height: 10),
-                itemBuilder: (context, i) {
-                  final product = controller.productById(entries[i].key);
-                  if (product == null) return const SizedBox.shrink();
-                  return _CartLineItem(
-                    product: product,
-                    quantity: entries[i].value,
-                    controller: controller,
-                  );
-                },
+                children: [
+                  for (final entry in entries) ...[
+                    if (controller.productById(entry.key) != null)
+                      _CartLineItem(
+                        product: controller.productById(entry.key)!,
+                        quantity: entry.value,
+                        controller: controller,
+                      ),
+                    const SizedBox(height: 10),
+                  ],
+                  const SizedBox(height: 6),
+                  _CartPaymentSection(controller: controller),
+                ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-              child: _CartCheckoutPanel(controller: controller),
+              child: _CartCheckoutBar(controller: controller),
             ),
           ],
         );
@@ -236,8 +243,8 @@ class _CartQuantityStepper extends StatelessWidget {
   }
 }
 
-class _CartCheckoutPanel extends StatelessWidget {
-  const _CartCheckoutPanel({required this.controller});
+class _CartPaymentSection extends StatelessWidget {
+  const _CartPaymentSection({required this.controller});
 
   final MarketplaceController controller;
 
@@ -257,14 +264,54 @@ class _CartCheckoutPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            _CartPaymentCard(
-              icon: Icons.payments_rounded,
-              title: 'Cash'.tr,
-              subtitle: 'Pay when your order arrives.'.tr,
-              selected: !controller.payWithWallet.value,
-              onTap: () => controller.payWithWallet.value = false,
-            ),
-            const SizedBox(height: 10),
+            // R2 #66 — the same ways to pay as a donation: every method the
+            // organization has set up in the dashboard, then the app wallet.
+            if (controller.paymentMethodsFailed.value) ...[
+              Text(
+                "We couldn't load the latest payment options, so these are the default ones."
+                    .tr,
+                style: TextStyle(
+                  color: AppThemeConfig.mutedText(context),
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (controller.paymentMethods.isEmpty)
+              _CartPaymentCard(
+                icon: Icons.payments_rounded,
+                title: 'Cash'.tr,
+                subtitle: 'Pay when your order arrives.'.tr,
+                selected: !controller.payWithWallet.value,
+                onTap: () => controller.payWithWallet.value = false,
+              ),
+            for (var i = 0; i < controller.paymentMethods.length; i++) ...[
+              _CartPaymentCard(
+                icon: _iconForMethodType(
+                  controller.paymentMethods[i].methodType,
+                ),
+                title: controller.paymentMethods[i].localizedName,
+                subtitle: controller.paymentMethods[i].localizedInstructions,
+                selected:
+                    !controller.payWithWallet.value &&
+                    controller.selectedPaymentIndex.value == i,
+                onTap: () {
+                  controller.payWithWallet.value = false;
+                  controller.selectedPaymentIndex.value = i;
+                },
+              ),
+              // The chosen method's account sits right under it, with a copy
+              // button, as on the donation screen: the buyer pays there, and
+              // staff approve the order once the payment has arrived.
+              if (!controller.payWithWallet.value &&
+                  controller.selectedPaymentIndex.value == i &&
+                  controller.paymentMethods[i].accountNumber.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _CartAccountCard(method: controller.paymentMethods[i]),
+              ],
+              const SizedBox(height: 10),
+            ],
             _CartPaymentCard(
               icon: Icons.account_balance_wallet_rounded,
               title: 'App Wallet'.tr,
@@ -274,7 +321,25 @@ class _CartCheckoutPanel extends StatelessWidget {
               selected: controller.payWithWallet.value,
               onTap: () => controller.payWithWallet.value = true,
             ),
-            const SizedBox(height: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CartCheckoutBar extends StatelessWidget {
+  const _CartCheckoutBar({required this.controller});
+
+  final MarketplaceController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Obx(
+        () => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
                 Expanded(
@@ -445,4 +510,80 @@ String? _cartImageUrl(dynamic value) {
   if (uri != null && uri.hasScheme) return path;
 
   return Uri.parse(publicBaseUrl).resolve(path).toString();
+}
+
+IconData _iconForMethodType(String type) {
+  switch (type) {
+    case 'cash':
+      return Icons.payments_rounded;
+    case 'card':
+      return Icons.credit_card_rounded;
+    case 'mobile':
+      return Icons.smartphone_rounded;
+    case 'wallet':
+      return Icons.account_balance_wallet_rounded;
+    default:
+      return Icons.account_balance_rounded;
+  }
+}
+
+/// The account the buyer pays into for the chosen method, with a copy button —
+/// the same information, in the same form, as the donation screen.
+class _CartAccountCard extends StatelessWidget {
+  const _CartAccountCard({required this.method});
+
+  final PaymentMethod method;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = method.accountName.isNotEmpty
+        ? method.accountName
+        : method.localizedName;
+    return GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppThemeConfig.mutedText(context),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SelectableText(
+                  method.accountNumber,
+                  style: TextStyle(
+                    color: AppThemeConfig.text(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: method.accountNumber));
+              Get.snackbar(
+                'Copied'.tr,
+                'Account number copied to clipboard.'.tr,
+                snackPosition: SnackPosition.BOTTOM,
+                margin: const EdgeInsets.all(16),
+                duration: const Duration(seconds: 2),
+              );
+            },
+            tooltip: 'Copy'.tr,
+            icon: const Icon(Icons.copy_rounded, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
 }

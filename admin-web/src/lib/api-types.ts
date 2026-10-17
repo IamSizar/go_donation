@@ -385,6 +385,8 @@ export type MarketOrder = {
   currency: string
   status: string
   buyer_note: string | null
+  /** What the buyer chose to pay with (a payment-methods catalogue name, or app_wallet). */
+  payment_method?: string
   created_at: string
   updated_at: string
   name: string | null

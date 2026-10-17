@@ -188,7 +188,8 @@ func (h *MarketplaceHandler) Post(c *gin.Context) {
 		qty = 1
 	}
 	note := strings.TrimSpace(firstNonEmpty(asStr(data["buyer_note"]), asStr(data["note"])))
-	payWithWallet := asStr(data["payment_method"]) == "app_wallet"
+	paymentMethod := strings.TrimSpace(asStr(data["payment_method"]))
+	payWithWallet := paymentMethod == "app_wallet"
 
 	ctx := c.Request.Context()
 
@@ -234,7 +235,7 @@ func (h *MarketplaceHandler) Post(c *gin.Context) {
 		}
 	}
 
-	id, result, stockLeft, err := h.Store.CreateOrder(ctx, buyerID, productID, qty, note)
+	id, result, stockLeft, err := h.Store.CreateOrder(ctx, buyerID, productID, qty, note, paymentMethod)
 	if err != nil {
 		if walletDebitedIQD > 0 {
 			_, _ = h.Wallet.Refund(ctx, buyerID, walletDebitedIQD, "marketplace_orders", 0, "Refund: order failed to save")

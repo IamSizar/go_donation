@@ -1210,7 +1210,7 @@ const en = {
                     new_product: '+ New product',
                     products_search_placeholder: 'search name / category',
                     orders_search_placeholder: 'search product / note',
-                    total_products: '{n} total products', total_orders: '{n} total orders' },
+                    total_products: '{n} total products', total_orders: '{n} total orders', pay_wallet: 'App wallet' },
     marriage:     { title: 'Events',       search_placeholder: 'search code / city', new: '+ New profile' },
     marriage_requests: {
       subtitle: 'Every "request a meeting" tap from the app lands here. Approve to open a staff-mediated chat, or decline.',
@@ -1430,6 +1430,7 @@ const en = {
     item: 'Item',
     seller: 'Seller',
     buyer: 'Buyer',
+    payment_method: 'Payment',
     placed: 'Placed',
     pickup: 'Pickup',
     subscription: 'Subscription',

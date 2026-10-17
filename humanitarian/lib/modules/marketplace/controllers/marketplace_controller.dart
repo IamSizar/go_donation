@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
+import 'package:flutter_application_1/api/payment_methods_api.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
 import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/app_sound.dart';
@@ -125,6 +126,41 @@ class MarketplaceController extends GetxController
   // the default cash-on-delivery-style flow.
   final payWithWallet = false.obs;
 
+  // R2 #66 — the store pays the way donations do: the same payment-methods
+  // list the organization manages in the dashboard (cash, bank accounts,
+  // cards, mobile-balance numbers …) plus the app wallet. Empty until loaded;
+  // [paymentMethodsFailed] tells the cart to say the list is the default one.
+  final paymentMethods = <PaymentMethod>[].obs;
+  final paymentMethodsFailed = false.obs;
+
+  /// Index into [paymentMethods] of the chosen method (ignored when paying
+  /// with the wallet).
+  final selectedPaymentIndex = 0.obs;
+
+  /// The method the buyer chose, in the form the server stores: the
+  /// catalogue name, or `app_wallet`. Cash when nothing could be loaded.
+  String get chosenPaymentMethod {
+    if (payWithWallet.value) return 'app_wallet';
+    if (paymentMethods.isEmpty) return 'Cash';
+    final i = selectedPaymentIndex.value.clamp(0, paymentMethods.length - 1);
+    final m = paymentMethods[i];
+    return m.nameEn.isNotEmpty ? m.nameEn : m.localizedName;
+  }
+
+  Future<void> loadPaymentMethods() async {
+    try {
+      final fetched = await fetchPaymentMethods();
+      paymentMethods.assignAll(fetched);
+      paymentMethodsFailed.value = false;
+      if (selectedPaymentIndex.value >= fetched.length) {
+        selectedPaymentIndex.value = 0;
+      }
+    } catch (e) {
+      debugPrint('marketplace: payment methods unavailable: $e');
+      paymentMethodsFailed.value = true;
+    }
+  }
+
   // Null means "we don't know the balance" (never loaded, or the load failed).
   // It deliberately does NOT default to 0: showing a confident "0 IQD" when the
   // request failed tells the user their wallet is empty, which may be false.
@@ -158,6 +194,7 @@ class MarketplaceController extends GetxController
     fetchSections(); // admin-curated store sections rail
     fetchOrders();
     loadWalletBalance();
+    loadPaymentMethods();
     // Only orders need real-time updates; products refresh on manual
     // pull-to-refresh. Polling orders alone keeps the request volume low.
     startPolling();
@@ -440,6 +477,7 @@ class MarketplaceController extends GetxController
     final entries = Map<int, int>.from(cartQuantities);
     final userId = sharedPreferences.getString('id_user') ?? '';
     final wallet = payWithWallet.value;
+    final paymentMethod = chosenPaymentMethod;
 
     try {
       for (final entry in entries.entries) {
@@ -448,7 +486,7 @@ class MarketplaceController extends GetxController
           'product_id': entry.key,
           'user_id': userId,
           'quantity': entry.value,
-          if (wallet) 'payment_method': 'app_wallet',
+          'payment_method': paymentMethod,
         });
       }
       clearCart();

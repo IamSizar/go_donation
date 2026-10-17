@@ -705,9 +705,18 @@ Payment was not touched.
 
 ## 66. Store: no payment options, only cash? (needs e-payment).
 
-**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+**Status:** ✅ Fixed — the store now pays the way donations do
 
-**Scope:** Not in the proposal: store payment (§14 lists orders and status only).
+The store checkout offers the **same ways to pay as a donation**: every method the organization has set up in the dashboard (cash, FIB bank account, MasterCard, Visa, electronic wallet, mobile recharge card, mobile balance transfer), plus the **app wallet**. The list is the same one, so a method added or changed in the dashboard shows in the store as well.
+
+- When a method has an account number, it appears right under the method with a copy button; the buyer sends the payment there.
+- The order is saved as **pending** with the chosen method written on it. Staff see the method in the Orders table («طريقة الدفع») and approve the order once the payment has arrived, exactly as they confirm a donation.
+- Paying with the **app wallet** takes the amount from the wallet at once, as before.
+- The cart now scrolls as one page (items and payment choices) with the total and the pay button always visible at the bottom.
+
+| Store cart | Dashboard orders |
+|---|---|
+| ![](round2_screens/66/iphone-cart-payment-methods.png) | ![](round2_screens/66/hi_dashboard_orders_payment.png) |
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 

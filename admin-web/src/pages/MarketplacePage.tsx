@@ -46,6 +46,7 @@ const ORDER_CSV_COLUMNS: CsvColumn<MarketOrder>[] = [
   { header: 'buyer_user_id', get: (o) => o.buyer_user_id },
   { header: 'quantity', get: (o) => o.quantity },
   { header: 'total_amount', get: (o) => o.total_amount },
+  { header: 'payment_method', get: (o) => o.payment_method ?? '' },
   { header: 'currency', get: (o) => o.currency },
   { header: 'status', get: (o) => o.status },
   { header: 'created_at', get: (o) => o.created_at },
@@ -588,6 +589,14 @@ function OrdersTab() {
           {formatAmount(o.total_amount)} <span className="muted">{o.currency}</span>
         </strong>
       ),
+    },
+    {
+      key: 'payment',
+      header: t('col.payment_method'),
+      cell: (o) =>
+        o.payment_method
+          ? (o.payment_method === 'app_wallet' ? t('page.marketplace.pay_wallet') : o.payment_method)
+          : <span className="muted">—</span>,
     },
     {
       key: 'status',

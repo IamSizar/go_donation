@@ -1143,7 +1143,7 @@ const ar: DeepPartial<typeof en> = {
                     new_product: '+ منتج جديد',
                     products_search_placeholder: 'بحث بالاسم / الفئة',
                     orders_search_placeholder: 'بحث بالمنتج / الملاحظة',
-                    total_products: '{n} منتج', total_orders: '{n} طلب شراء' },
+                    total_products: '{n} منتج', total_orders: '{n} طلب شراء', pay_wallet: 'محفظة التطبيق' },
     marriage:     { title: 'الفعاليات', search_placeholder: 'بحث بالكود / المدينة', new: '+ ملف جديد' },
     marriage_requests: {
       subtitle: 'كل طلب "حجز لقاء" من التطبيق يصل إلى هنا. وافق لفتح محادثة بوساطة الموظفين، أو ارفض.',
@@ -1359,6 +1359,7 @@ const ar: DeepPartial<typeof en> = {
     item: 'العنصر',
     seller: 'البائع',
     buyer: 'المشتري',
+    payment_method: 'طريقة الدفع',
     placed: 'تاريخ الطلب',
     pickup: 'الاستلام',
     subscription: 'الاشتراك',

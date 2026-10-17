@@ -70,16 +70,20 @@ type Product struct {
 
 // Order is the row shape returned by ?view=orders.
 type Order struct {
-	ID          int64     `json:"id"`
-	ProductID   int64     `json:"product_id"`
-	BuyerUserID *int      `json:"buyer_user_id"`
-	Quantity    int       `json:"quantity"`
-	TotalAmount string    `json:"total_amount"`
-	Currency    string    `json:"currency"`
-	Status      string    `json:"status"`
-	BuyerNote   *string   `json:"buyer_note"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64   `json:"id"`
+	ProductID   int64   `json:"product_id"`
+	BuyerUserID *int    `json:"buyer_user_id"`
+	Quantity    int     `json:"quantity"`
+	TotalAmount string  `json:"total_amount"`
+	Currency    string  `json:"currency"`
+	Status      string  `json:"status"`
+	BuyerNote   *string `json:"buyer_note"`
+	// PaymentMethod is what the buyer chose to pay with (migration 142): a name
+	// from the payment-methods catalogue, or app_wallet. Empty for orders
+	// placed before it was recorded.
+	PaymentMethod string    `json:"payment_method"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 	// Joined product columns:
 	Name       *string `json:"name"`
 	NameAr     *string `json:"name_ar"`
@@ -122,7 +126,7 @@ func (s *Store) ListOrdersForUser(ctx context.Context, userID int64, page, limit
 
 	rows, err := s.Pool.Query(ctx, `
 		SELECT o.id, o.product_id, o.buyer_user_id, o.quantity, o.total_amount::text,
-		       o.currency, o.status, o.buyer_note, o.created_at, o.updated_at,
+		       o.currency, o.status, o.buyer_note, o.payment_method, o.created_at, o.updated_at,
 		       p.name, p.name_ar, p.name_sorani, p.name_badini, p.category, p.image_path
 		  FROM marketplace_orders o
 		  LEFT JOIN marketplace_products p ON p.id = o.product_id
@@ -140,7 +144,7 @@ func (s *Store) ListOrdersForUser(ctx context.Context, userID int64, page, limit
 		var o Order
 		err := rows.Scan(
 			&o.ID, &o.ProductID, &o.BuyerUserID, &o.Quantity, &o.TotalAmount,
-			&o.Currency, &o.Status, &o.BuyerNote, &o.CreatedAt, &o.UpdatedAt,
+			&o.Currency, &o.Status, &o.BuyerNote, &o.PaymentMethod, &o.CreatedAt, &o.UpdatedAt,
 			&o.Name, &o.NameAr, &o.NameSorani, &o.NameBadini, &o.Category, &o.ImagePath,
 		)
 		if err != nil {
@@ -289,7 +293,7 @@ func (s *Store) AdminListOrders(ctx context.Context, page, perPage int, status, 
 	args = append(args, perPage, offset)
 	rows, err := s.Pool.Query(ctx, `
 		SELECT o.id, o.product_id, o.buyer_user_id, o.quantity, o.total_amount::text,
-		       o.currency, o.status, o.buyer_note, o.created_at, o.updated_at,
+		       o.currency, o.status, o.buyer_note, o.payment_method, o.created_at, o.updated_at,
 		       p.name, p.name_ar, p.name_sorani, p.name_badini, p.category, p.image_path
 		  FROM marketplace_orders o
 		  LEFT JOIN marketplace_products p ON p.id = o.product_id`+where+`
@@ -306,7 +310,7 @@ func (s *Store) AdminListOrders(ctx context.Context, page, perPage int, status, 
 		var o Order
 		if err := rows.Scan(
 			&o.ID, &o.ProductID, &o.BuyerUserID, &o.Quantity, &o.TotalAmount,
-			&o.Currency, &o.Status, &o.BuyerNote, &o.CreatedAt, &o.UpdatedAt,
+			&o.Currency, &o.Status, &o.BuyerNote, &o.PaymentMethod, &o.CreatedAt, &o.UpdatedAt,
 			&o.Name, &o.NameAr, &o.NameSorani, &o.NameBadini, &o.Category, &o.ImagePath,
 		); err != nil {
 			return nil, err
@@ -367,6 +371,7 @@ func (s *Store) CreateOrder(
 	productID int64,
 	quantity int,
 	buyerNote string,
+	paymentMethod string,
 ) (newID int64, result CreateOrderResult, stockLeft int, err error) {
 	if quantity < 1 {
 		quantity = 1
@@ -374,6 +379,10 @@ func (s *Store) CreateOrder(
 	buyerNote = strings.TrimSpace(buyerNote)
 	if len(buyerNote) > 1000 {
 		buyerNote = buyerNote[:1000]
+	}
+	paymentMethod = strings.TrimSpace(paymentMethod)
+	if r := []rune(paymentMethod); len(r) > 64 {
+		paymentMethod = string(r[:64])
 	}
 
 	var (
@@ -410,10 +419,10 @@ func (s *Store) CreateOrder(
 
 	err = s.Pool.QueryRow(ctx, `
 		INSERT INTO marketplace_orders
-		   (product_id, buyer_user_id, quantity, total_amount, currency, buyer_note, transaction_code)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		   (product_id, buyer_user_id, quantity, total_amount, currency, buyer_note, transaction_code, payment_method)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id`,
-		productID, buyerUserID, quantity, total, currency, noteArg, txnCode,
+		productID, buyerUserID, quantity, total, currency, noteArg, txnCode, paymentMethod,
 	).Scan(&newID)
 	if err != nil {
 		return 0, OrderCreated, 0, err
