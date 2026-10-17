@@ -616,9 +616,10 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 - **Staff only** can pause, archive or delete the chat (from the dashboard) — members have no such buttons.
 
 **Not available yet (new features, put aside):**
-1. A **group** chat with more people — the suitor's mother, the girl's guardian — the marriage chat is between the two sides and staff.
-2. **Sending files / photos** — the chat is text only, so staff-only file sending is not there.
-3. **Encrypting** the stored messages — they are stored as ordinary text today.
+1. **Adding the girl's guardian to the chat — not available.** The marriage chat is between the two sides and staff, and no new member can be added to it.
+2. **Adding the suitor's mother** or anyone else, i.e. a **group** chat — not available for the same reason.
+3. **Sending files / photos** — the chat is text only, so staff-only file sending is not there.
+4. **Encrypting** the stored messages — they are stored as ordinary text today.
 
 **Aid section:** staff can already open a supervised room with several donors and beneficiaries, opened by staff only, with masked nicknames (e.g. «مانح 1»), phone numbers and emails refused, and pause / archive / delete by staff only.
 
