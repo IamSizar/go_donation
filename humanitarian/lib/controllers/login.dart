@@ -179,7 +179,11 @@ class LoginController extends GetxController {
   /// recent send — `resendOtp()` reads it so re-issuing a code uses the
   /// same mode without needing the screen to pass it back.
   String _lastOtpMode = 'real';
-  Future<bool> sendOtp(String phone, {String mode = 'real'}) async {
+  Future<bool> sendOtp(
+    String phone, {
+    String mode = 'real',
+    String? purpose,
+  }) async {
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -201,7 +205,11 @@ class LoginController extends GetxController {
 
       final resp = await _loginSessionDio.post<dynamic>(
         otpRequestUrl,
-        data: <String, dynamic>{'phone': normalizedPhone, 'mode': resolvedMode},
+        data: <String, dynamic>{
+          'phone': normalizedPhone,
+          'mode': resolvedMode,
+          if (purpose != null) 'purpose': purpose,
+        },
         options: Options(contentType: Headers.jsonContentType),
       );
 
@@ -221,6 +229,11 @@ class LoginController extends GetxController {
             startResendCooldown(retryAfter.toInt());
           }
           errorMessage.value = 'otp_resend_cooldown_message'.tr;
+          return false;
+        }
+        if (errorCode == 'phone_already_registered') {
+          // Sign-up only: say so before any code is sent, in this app's own words.
+          errorMessage.value = 'phone_already_registered_message'.tr;
           return false;
         }
         if (errorCode == 'staff_otp_unavailable') {

@@ -226,6 +226,8 @@ class _LoginFormState extends State<_LoginForm>
     final sent = await _loginController.sendOtp(
       normalizedPhone,
       mode: _otpMode,
+      purpose:
+          'signup', // lets the server say "already registered" before sending
     );
     if (!mounted) return;
     if (sent) {

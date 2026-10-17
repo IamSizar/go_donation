@@ -17,6 +17,7 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'phone_already_registered_message': 'This number is already registered. Sign in instead of creating an account.',
     'My contributions': 'My contributions',
     'Add funds': 'Add funds',
     'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.',
@@ -3378,6 +3379,7 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'phone_already_registered_message': 'هذا الرقم مسجل بالفعل. سجّل الدخول بدلاً من إنشاء حساب.',
     'My contributions': 'مساهماتي',
     'Add funds': 'شحن المحفظة',
     'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'ادفع بإحدى هذه الطرق ثم أرسل الطلب. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',

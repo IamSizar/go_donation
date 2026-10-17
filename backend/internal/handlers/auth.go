@@ -579,6 +579,11 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 type otpRequestReq struct {
 	Phone string `json:"phone"`
 	Mode  string `json:"mode"` // "real" or "demo"
+	// Purpose is "signup" only from the app's create-account screen. Every other
+	// caller (sign-in recovery, set-password for an older account, staff login)
+	// leaves it empty, because they all need a code for a number that already
+	// exists.
+	Purpose string `json:"purpose"`
 }
 
 // POST /api/auth/otp/request
@@ -624,6 +629,25 @@ func (h *AuthHandler) OTPRequest(c *gin.Context) {
 			"retry_after": rate.RetryAfter,
 		})
 		return
+	}
+
+	// Create-account screen only: a number that already has a finished account
+	// (one with a password) is told so NOW, before any code is spent and before
+	// the user is taken to a code screen that can only end in "already
+	// registered". Checked after the per-IP limit above, so it cannot be used to
+	// sweep numbers faster than a code request could. A number with an account
+	// but no password yet (an older account) still gets its code: it needs one
+	// to set the first password.
+	if strings.EqualFold(strings.TrimSpace(req.Purpose), "signup") {
+		if uid, err := h.Users.GetIDByPhone(ctx, phone); err == nil && uid > 0 {
+			if hash, herr := h.Users.GetPasswordHash(ctx, uid); herr == nil && hash != "" {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "This number is already registered. Sign in instead.",
+					"code":  "phone_already_registered",
+				})
+				return
+			}
+		}
 	}
 
 	// Section 27 — progressive per-phone lockout. If this number is already
