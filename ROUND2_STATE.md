@@ -2,6 +2,11 @@
 
 Last updated: 2026-10-16
 
+## SCOPE (owner gave the proposal 2026-10-17)
+`ORIGINAL_SCOPE.md` + `ORIGINAL_PROPOSAL.pdf`. Rule: not in scope → mark **➕ Addition**, put aside, come back later.
+Now ➕ Addition: #2 #5 #10 #11 #12 #14 #44 #45 #48 #66 #72 #73 #83, the «general user» part of #35 + #37 #38, and the extras of #59 #60 #61.
+Owner also said (2026-10-16): NO payment/donation changes for now → #47–55 reverted; #54 bug documented only. #67 (wallet hole) is payment-related → ASK before touching; note the app wallet itself is not in the proposal.
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged

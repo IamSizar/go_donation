@@ -13,7 +13,9 @@ Code: branch `round2-fixes` (not pushed / not deployed yet).
 
 ## 2. **Where are attendance / activity details in app + dashboard?** (a) daily attendance/leave log for staff & volunteers; (b) participant registration form per activity/campaign; (c) aid-delivery documentation — volunteer/staff uploads report + proof (photo or signature).
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: no attendance / leave logs, per-activity registration forms or aid-delivery documentation.
 
 What exists today (partial):
 - Attendance: volunteers check in / check out per mission (time + GPS + photo) → dashboard **لوحة المتطوعين**. No daily attendance table; nothing for staff.
@@ -68,7 +70,9 @@ Files: `admin-web/src/lib/groupAlias.ts` (new), `components/chatGroups/GroupRost
 
 ## 5. **Calling feature:** voice/video calls in all private + group chats for all roles (staff, volunteer, donor, beneficiary, general user, events/khotba), supervisor can switch calling on/off entirely.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: no voice or video calls.
 
 
 ## 6. **Simplify staff/volunteer messaging:** remove friction; once an account is activated + approved in the dashboard, enable direct instant messaging; pause/archive/delete stays with admin.
@@ -117,17 +121,23 @@ Before (left) → After (right):
 
 ## 10. **In-App Admin Panel** (staff manage from the phone, isolated permissions): Khotba staff → khotba files, approvals, their chats only; Volunteers staff → volunteers, activities, chats, attendance; Store staff → products + purchase requests; Beneficiaries staff → beneficiary data, approvals, forms, their messages.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: the admin side is a web dashboard (§4, §19), not a panel inside the phone app.
 
 
 ## 11. **Saved accounts + switching:** on logout keep accounts in secure local storage; login screen lists previously-used accounts (photo, name, phone); one tap switches without password/OTP; button «تسجيل دخول بحساب آخر» under the list. (Same as page 3 intro.)
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: no saved accounts or account switching.
 
 
 ## 12. **Verification architecture:** first account creation → Step 1 phone OTP, Step 2 email verification (link/code). After both, email is the default confirmation method for later operations (new-device login, recovery) — free. Settings option to switch back to phone.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: no email-verification architecture.
 
 
 ## 13. Image resize/crop enabled in ALL sections, not only the identity section.
@@ -139,7 +149,9 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 ## 14. Extra-files field (attach files, documents, other photos) in registration for all roles (donor, volunteer, khotba, beneficiary, general user) — exists? With image resize.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal for all roles (§7 covers supporting documents for beneficiaries only).
 
 
 ## 15. Fix slowness during registration.
@@ -357,7 +369,9 @@ Before → After:
 
 ## 35. Data duplication: role picker = dropdown, **general user** is the default; picking volunteer/beneficiary/donor shows that role's fields; data already typed is reused (no re-entry); add photo + email to general registration (and dashboard); same required/optional rule system.
 
-**Status:** ✅ Partly fixed · ⏳ "general user" part waiting for scope
+**Status:** ✅ Partly fixed · ➕ the rest is an addition — not in the original scope (put aside)
+
+**Scope:** Part done: the role dropdown, no re-typing, photo + email (see below). The «general user» default is an addition: the proposal has donor, beneficiary, volunteer, staff, limited visitor and marriage accounts only (§6).
 
 **Done:**
 - The three big role cards (مانح / مستحق / متطوع) are now **one dropdown** «نوع الحساب».
@@ -379,13 +393,17 @@ One line at the top instead: **«\* الحقول المصحوبة بعلامة �
 
 ## 37. General user rights: browse everything (humanitarian, store, city guide, khotba), message support. Blocked: commenting in khotba, applying to khotba requests, requesting aid, joining volunteering; no volunteer notifications — until «تطوير حسابه» (upgrade + choose role).
 
-**Status:** ⏳ Waiting — needs the new «مستخدم عام» account type (see #35)
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Needs the «general user» account type, which is not in the proposal (§6 has a limited-permissions visitor only).
 
 The rights the client describes (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Waiting for the scope.
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
-**Status:** ⏳ Waiting — needs the new «مستخدم عام» account type (see #35)
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Needs the «general user» account type, which is not in the proposal (§6).
 
 A dashboard section for general users only makes sense once that account type exists. (The general list of all accounts is already under المستخدمون; #81 covers separating the lists per role.)
 
@@ -430,12 +448,16 @@ The button already existed in the green box at the top, but its label was just �
 
 ## 44. App: result → action link (e.g. «اكفل عائلة هذا الشهر» → opens donation section); share result instantly; real finger-scratch effect instead of tap-to-reveal video.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: the wheel / scratch games are not listed (§13 lists stars, badges and motivational elements).
 
 
 ## 45. Dashboard: manage wheel slot texts, scratch prizes/texts, and link each text to an app section (destination).
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: managing the wheel / scratch games from the dashboard.
 
 
 ## 46. Visual quality: wheel/scratch graphics look amateur → modern UI matching brand + smooth animations.
@@ -475,7 +497,9 @@ Owner decision (2026-10-16): no changes to the payment / donation system for now
 
 ## 48. Step 2 — e-payment: amount, card type (Visa, Master, FIB) → straight to gateway; IQD default, other currencies manual; notes.
 
-**Status:** ⏳ Waiting — needs a payment gateway (and a decision)
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: no payment-gateway integration is listed, and §24 puts bank transfer outside phase 1. §9 only says electronic donation «through the approved payment methods» (the dashboard-managed list).
 
 The app has no payment gateway, so "straight to the gateway" cannot be built. A gateway means a provider account and keys, a redirect, and a confirmation callback. The old flow records a pending contribution and staff confirm it. Left unchanged.
 
@@ -559,7 +583,9 @@ See #6: volunteers reach staff in one tap; staff ↔ staff via «محادثة ا
 
 ## 59. Beneficiaries / khotba / general user / visitor: start with a support ticket; staff replies; staff can convert the ticket into a chat with specific people; can close it; ticket feature stays.
 
-**Status:** ✅ Partly exists · ⏳ "turn a ticket into a chat" waiting for scope
+**Status:** ✅ Partly exists · ➕ the rest is an addition — not in the original scope (put aside)
+
+**Scope:** Part exists (see below). Turning a ticket into a chat is an addition: §18 only lists contacting support from inside the app.
 
 What works today:
 - Beneficiaries / visitors / anyone can open a support **ticket** (and visitors now too — #16), and staff answer it in the dashboard (الدعم → Reply). Staff can mark it open / in progress / resolved / **closed**.
@@ -569,7 +595,9 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 
 ## 60. Encrypted group chats: aid section (staff + donor(s)/beneficiary); khotba (staff + suitor + girl + guardian). Opens only with staff approval; no personal data shown (numbers, real names); files/photos only by staff; staff can pause / archive / delete. (Related #3, #4)
 
-**Status:** ✅ Mostly exists · ⏳ 3 parts waiting for scope
+**Status:** ✅ Mostly exists · ➕ the rest is an addition — not in the original scope (put aside)
+
+**Scope:** Mostly exists (see below). The extra parts (encryption, staff file sending, block button) are additions: not in the proposal.
 
 Exists and checked in the code:
 - Rooms between donor / beneficiary are opened **only by staff** (connect request → staff approval, or staff creates the room).
@@ -583,7 +611,9 @@ Not in the system yet (new features → waiting for scope):
 
 ## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete. (Related #4)
 
-**Status:** ✅ Exists (tested in #4) · ⏳ "Block" waiting for scope
+**Status:** ✅ Exists (tested in #4) · ➕ the rest is an addition — not in the original scope (put aside)
+
+**Scope:** Pause / stop modes and Block are additions: not in the proposal.
 
 - **Full stop**: «إغلاق المحادثة» — members can only read until staff reopen it. ✅
 - **Temporary pause where the client can still write**: simply leave the chat open — members never see "read" marks (the app has no read receipts for members), so staff can read without the client knowing. ✅
@@ -612,7 +642,9 @@ Not in the system yet (new features → waiting for scope):
 
 ## 66. Store: no payment options, only cash? (needs e-payment).
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: store payment (§14 lists orders and status only).
 
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
@@ -642,12 +674,16 @@ Not in the system yet (new features → waiting for scope):
 
 ## 72. «خدمات الفعاليات» → real store: subcategories (halls, photographers, decor), each with providers, photos (e.g. 6 per hall), price; cart; e-payment; booking/direct purchase.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: an events-services store with providers, prices, cart and payment.
 
 
 ## 73. Public posting: today only targeted posts to one person → allow public posts (e.g. "looking for specs X") others can view, comment on, and contact the owner.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** Not in the proposal: public posts in the marriage section (§16 says contact only through staff).
 
 
 ## 74. Export button + date/time column in EVERY section/table (screenshots: الشركاء has no date/time; إيصالات المساعدات has no export and no date/time).
@@ -697,7 +733,9 @@ Not in the system yet (new features → waiting for scope):
 
 ## 83. Store (dashboard + app) judged weak by someone who runs a real store app → needs clear, easy, complete sections.
 
-**Status:** ⏳ Waiting — new feature, needs scope
+**Status:** ➕ Addition — not in the original scope (put aside, to come back to later)
+
+**Scope:** A full store redesign goes beyond §14 (display, link to beneficiary, review/approve, orders + status).
 
 
 ## 84. Align all toolbar input fields on ONE horizontal row in every section (screenshots: لوحة التحكم, المستحقون, اشتراكات الفعاليات, المتطوعون, طلبات التواصل, التعليقات, دليل المدينة, الموظفون).
