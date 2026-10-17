@@ -111,20 +111,8 @@ export const USER_FIELDS: FieldSpec[] = [
   { key: 'phone', label: 'Phone', labelKey: 'field.phone', type: 'text', required: true, phone: 'login', section: ACCOUNT_SECTION },
   { key: 'email', label: 'Email', labelKey: 'field.email', type: 'text', section: ACCOUNT_SECTION },
   ...PROFILE_EDIT_FIELDS,
-  // Dashboard sign-in name. The dashboard finds an account BY username, so a
-  // new password on an account without one signs in nowhere — the password box
-  // used to be offered alone, which is why "new password does not work" (#79/#87).
-  { key: 'username', label: 'Username', labelKey: 'auth.username', type: 'text', dir: 'ltr', section: ACCOUNT_SECTION },
-  {
-    key: 'password',
-    label: 'New password',
-    labelKey: 'field.new_password',
-    type: 'password',
-    placeholder: 'Leave blank to keep unchanged',
-    placeholderKey: 'hint.leave_blank_unchanged',
-    full: true,
-    section: ACCOUNT_SECTION,
-  },
+  // No password or username box here (client #87): an administrator cannot set
+  // or change another person's password. People reset their own through the app.
 ]
 
 /**

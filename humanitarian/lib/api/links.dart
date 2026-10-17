@@ -333,12 +333,13 @@ String mediaShareUrl(int postId) => '${baseUrl}media/$postId/share';
 String marriageLikeUrl(int profileId) => '${baseUrl}marriage/$profileId/like';
 String marriageCommentsUrl(int profileId) =>
     '${baseUrl}marriage/$profileId/comments';
-String marriageShareUrl(int profileId) =>
-    '${baseUrl}marriage/$profileId/share';
+String marriageShareUrl(int profileId) => '${baseUrl}marriage/$profileId/share';
 
 /// Client report 2026-09-22 — same shape again, scoped to donation campaigns.
-String campaignLikeUrl(int campaignId) => '${baseUrl}campaigns/$campaignId/like';
-String campaignSaveUrl(int campaignId) => '${baseUrl}campaigns/$campaignId/save';
+String campaignLikeUrl(int campaignId) =>
+    '${baseUrl}campaigns/$campaignId/like';
+String campaignSaveUrl(int campaignId) =>
+    '${baseUrl}campaigns/$campaignId/save';
 String campaignCommentsUrl(int campaignId) =>
     '${baseUrl}campaigns/$campaignId/comments';
 
@@ -391,6 +392,9 @@ const String uploadsUrl = '${baseUrl}uploads';
 // Note #42 — test-phase internal app wallet (IQD).
 const String walletUrl = '${baseUrl}wallet';
 const String walletTransactionsUrl = '${baseUrl}wallet/transactions';
+
+/// R2 #67 — ask for a wallet top-up (POST) / read my requests (GET).
+const String walletTopupRequestsUrl = '${baseUrl}wallet/topup-requests';
 // Client note — "Task Verification".
 const String tasksUrl = '${baseUrl}tasks';
 const String volunteerMissionSignupsUrl = '${baseUrl}volunteer_mission_signups';

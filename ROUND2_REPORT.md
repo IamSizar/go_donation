@@ -36,10 +36,10 @@ Dashboard → التواصل والدعم → **المجموعات الحوار�
 - Khotba (suitor + girl + staff): request arrives in الفعاليات → **طلبات الفعاليات** → «موافقة» → supervised chat opens in **محادثات الفعاليات** ✅
 - Adding the girl's guardian to the khotba chat: not possible today → a new feature, postponed.
 
-![](round2_screens/03/1_create_dialog_team.jpg)
+![](round2_screens/03/1_create_dialog_team.png)
 ![](round2_screens/03/hi_groups_list.png)
-![](round2_screens/03/3_event_request_approve.jpg)
-![](round2_screens/03/4_event_chat_opened.jpg)
+![](round2_screens/03/3_event_request_approve.png)
+![](round2_screens/03/4_event_chat_opened.png)
 
 ## 4. **Room control buttons for supervisor:** temporary pause, archive, delete, kick a member, add a new member.
 
@@ -48,11 +48,11 @@ Dashboard → التواصل والدعم → **المجموعات الحوار�
 All 5 buttons are on every room (المجموعات الحوارية → open a room) and all 5 work:
 إغلاق المحادثة = temporary pause (members read only; «فتح المحادثة» reopens) · أرشفة · حذف المحادثة · إزالة (per member) · «إضافة عضو».
 
-![](round2_screens/04/1_room_controls.jpg)
-![](round2_screens/04/2_paused.jpg)
-![](round2_screens/04/3_member_added.jpg)
-![](round2_screens/04/5_archived.jpg)
-![](round2_screens/04/6_deleted.jpg)
+![](round2_screens/04/1_room_controls.png)
+![](round2_screens/04/2_paused.png)
+![](round2_screens/04/3_member_added.png)
+![](round2_screens/04/5_archived.png)
+![](round2_screens/04/6_deleted.png)
 
 **Clean-ups done on this page (simpler, less repetition):**
 1. The "paused" state was written twice (line under the buttons + a green box above the message field) → now shown once.
@@ -60,8 +60,8 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 3. Removing a member asked twice (a confirm box, then a password box) → one box with a short sentence + the password.
 
 ![](round2_screens/04/8_after_status_once_arabic_aliases.png)
-![](round2_screens/04/9_after_single_remove_dialog.jpg)
-![](round2_screens/04/10_after_member_removed.jpg)
+![](round2_screens/04/9_after_single_remove_dialog.png)
+![](round2_screens/04/10_after_member_removed.png)
 
 **Note:** the khotba chat (محادثات الفعاليات) has open / archive / delete but no add / remove member, so the girl's guardian can't be added → a new feature, postponed.
 
@@ -720,9 +720,21 @@ The store checkout offers the **same ways to pay as a donation**: every method t
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 
-**Status:** ℹ️ By design
+**Status:** ✅ Fixed
 
-The wallet top-up works through the admin confirming the proof of transfer.
+**Found:** users had no way to request a wallet top-up at all, so there was no safe path to begin with. Any top-up that skips staff approval is unacceptable.
+
+**Fixed:** there is now exactly one way to fund a wallet, and it goes through staff approval:
+- From the «My wallet» card on Home the user taps «+», which opens the «Add funds» screen.
+- They pick a payment method from the same list used for donations and the shop (cash, FIB, MasterCard, Visa, e-wallet, mobile recharge card, mobile-balance transfer); the account number appears with a copy button; they enter the amount and a transfer reference, attach proof if they have it, and send.
+- The request arrives in the dashboard under «Wallet top-up requests», where staff approve or reject it.
+- The wallet balance changes only when staff approve, and the user is notified of the result.
+- Visitor and general-user accounts cannot submit a top-up request.
+
+![](round2_screens/67/iphone-topup-request-form.png)
+![](round2_screens/67/hi_dashboard_topup_pending.png)
+![](round2_screens/67/hi_dashboard_topup_approved.png)
+![](round2_screens/67/iphone-wallet-after-approval.png)
 
 ## 68. Home → browse by category: campaign details cut off → give the details more space.
 
@@ -829,17 +841,15 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 ## 79. Change-password in dashboard (edit user modal, «كلمة مرور جديدة») doesn't work → fix.
 
-**Status:** ✅ Fixed
+**Status:** 🚫 Rejected
 
-**Found:** saving the password worked, but dashboard sign-in uses a username and the Edit window had no username box, so staff accounts without one could never sign in.
-
-**Fixed:** Edit now has Username + New password in an Account section; saving a password on a staff account with no username is refused with a clear message. Username must be valid and unique.
+**Decision:** no supervisor or administrator can set or change another user's password from the dashboard; the password stays under the account owner's sole control. So this option is not offered, and the «New password» box has been removed from the Edit account window.
 
 ![](round2_screens/77/hi_edit_modal_bottom.png)
 
 ## 80. Supervisor permissions: where to assign roles to dashboard staff with per-section permissions?
 
-**Status:** ❓ Answered
+**Status:** ☑️ Already existed
 
 **Answer:** menu الصلاحيات والموظفون → «الصلاحيات» (matrix: tier × section × view/add/edit/archive/delete/export, password-confirmed and audit-logged, plus per-employee overrides) and «الموظفون» (staff accounts, support department). To make a new staff member: create the account in المستخدمين, then «ترقية إلى موظف» on the Staff page and pick the tier. Super-Admin only.
 
@@ -891,9 +901,9 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 ## 87. Change password not working in edit account.
 
-**Status:** ✅ Fixed
+**Status:** 🚫 Rejected
 
-**Fixed:** the Edit window now has the username the sign-in needs.
+**Decision:** no supervisor or administrator can set or change another user's password from the dashboard; the password stays under the account owner's sole control. So this option is not offered, and the «New password» box has been removed from the Edit account window.
 
 ![](round2_screens/77/hi_edit_modal_bottom.png)
 

@@ -78,6 +78,28 @@ func WalletToppedUpMsg(amountIQD, newBalanceIQD int64) LocalizedMessage {
 	}
 }
 
+// WalletTopUpRejectedMsg — staff declined a wallet top-up request (R2 #67).
+// No Kurdish wording has been supplied yet, so those two fall back to the
+// English text rather than inventing a translation.
+func WalletTopUpRejectedMsg(amountIQD int64) LocalizedMessage {
+	en := fmt.Sprintf("Your wallet top-up request for %d IQD was not approved. Please contact support if you already sent the payment.", amountIQD)
+	return LocalizedMessage{
+		Type: "wallet_topup_rejected",
+		Title: LocalText{
+			En:  "Top-up request not approved",
+			Ar:  "لم تتم الموافقة على طلب الشحن",
+			Ckb: "Top-up request not approved",
+			Kmr: "Top-up request not approved",
+		},
+		Body: LocalText{
+			En:  en,
+			Ar:  fmt.Sprintf("لم تتم الموافقة على طلب شحن المحفظة بمبلغ %d دينار عراقي. يرجى التواصل مع الدعم إذا كنت قد أرسلت الدفعة.", amountIQD),
+			Ckb: en,
+			Kmr: en,
+		},
+	}
+}
+
 // TaskAssignedMsg — client note "Task Verification": staff just assigned the
 // user a new task to complete.
 func TaskAssignedMsg(title string) LocalizedMessage {

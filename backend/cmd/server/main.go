@@ -751,6 +751,9 @@ func main() {
 			// below).
 			authed.GET("/wallet", walletH.GetBalance)
 			authed.GET("/wallet/transactions", walletH.ListTransactions)
+			// R2 #67 — ask for a top-up; staff approve it in the dashboard.
+			authed.POST("/wallet/topup-requests", auth.RequireNotGuest(), walletH.CreateTopUpRequest)
+			authed.GET("/wallet/topup-requests", walletH.ListMyTopUpRequests)
 
 			// Client note — "Task Verification". Read-only + self-complete for
 			// the user themselves; assigning/deleting is admin-only (below).
@@ -1191,6 +1194,9 @@ func main() {
 			admin.POST("/admin/users/:id/staff_tier", perm("users", "edit"), adminStatusH.UserStaffTier) // Users #c
 			// Note #42 — test-phase wallet top-up (admin credits a user's balance).
 			admin.POST("/admin/users/:id/wallet/topup", perm("users", "edit"), walletH.AdminTopUp)
+			admin.GET("/admin/wallet/topup-requests", perm("users", "view"), walletH.AdminListTopUpRequests)
+			admin.POST("/admin/wallet/topup-requests/:id/approve", perm("users", "edit"), walletH.AdminDecideTopUpRequest(true))
+			admin.POST("/admin/wallet/topup-requests/:id/reject", perm("users", "edit"), walletH.AdminDecideTopUpRequest(false))
 			// Client note — "Task Verification": staff assign tasks to users.
 			admin.GET("/admin/tasks", perm("tasks", "view"), tasksH.AdminList)
 			admin.POST("/admin/tasks", perm("tasks", "add"), tasksH.AdminCreate)

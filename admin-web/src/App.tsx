@@ -20,6 +20,7 @@ const UsersPage = lazy(() => import('./pages/UsersPage'))
 const DonorsPage = lazy(() => import('./pages/DonorsPage'))
 const RegistrationsPage = lazy(() => import('./pages/RegistrationsPage'))
 const ProfileChangesPage = lazy(() => import('./pages/ProfileChangesPage'))
+const WalletTopupsPage = lazy(() => import('./pages/WalletTopupsPage'))
 const DonationsPage = lazy(() => import('./pages/DonationsPage'))
 const CampaignsPage = lazy(() => import('./pages/CampaignsPage'))
 const SponsorshipsPage = lazy(() => import('./pages/SponsorshipsPage'))
@@ -140,6 +141,7 @@ export default function App() {
             <Route path="donors" element={<DonorsPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="profile-changes" element={<ProfileChangesPage />} />
+            <Route path="wallet-topups" element={<WalletTopupsPage />} />
             <Route path="donations" element={<DonationsPage />} />
             <Route path="donation-codes" element={<DonationCodesPage />} />
             <Route path="project-categories" element={<ProjectCategoriesPage />} />

@@ -17,10 +17,10 @@ describe('splitAccountPatch (#79/#87)', () => {
     expect(r.profilePatch).toEqual({ city: 'Erbil' })
     expect(r.credentials).toBeNull()
   })
-  it('the Edit form actually offers a username box before the password box', () => {
+  it('the Edit form offers no password box — an admin cannot set another person\'s password (#87)', () => {
     const keys = USER_FIELDS.map((f) => f.key)
-    expect(keys.indexOf('username')).toBeGreaterThan(-1)
-    expect(keys.indexOf('username')).toBeLessThan(keys.indexOf('password'))
+    expect(keys).not.toContain('password')
+    expect(keys).not.toContain('username')
   })
 })
 
@@ -34,7 +34,8 @@ describe('Edit/New share one visibility rule (#78)', () => {
     const shown = buildEditUserFields(rules as never, true, 1).map((f) => f.key)
     expect(shown).toContain('national_id')
     expect(shown).not.toContain('tribe_clan')
-    expect(shown).toEqual(expect.arrayContaining(['phone', 'username', 'password']))
+    expect(shown).toContain('phone')
+    expect(shown).not.toContain('password')
   })
   it('a role with no form: Edit shows all, New hides profile boxes', () => {
     expect(isProfileFieldShown(byKey('tribe_clan'), 4, undefined, true)).toBe(true)

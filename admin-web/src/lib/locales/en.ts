@@ -16,6 +16,12 @@ const en = {
     fib_desc: 'The FIB account number shown to donors on the donate screen.',
     fib_saved: 'FIB number saved',
   },
+  walletTopups: {
+    subtitle: 'Users ask here for money to be added to their wallet. The wallet changes only when you approve.',
+    approve: 'Approve and add to wallet', reject: 'Reject',
+    approved: 'Approved — the wallet was credited.', rejected: 'Request rejected.',
+    note: 'Reference / note', proof: 'Proof',
+  },
   profileChanges: {
     subtitle: 'Name and photo changes waiting for staff approval.',
     old: 'Current',
@@ -37,6 +43,7 @@ const en = {
   },
   nav: {
     profile_changes: 'Profile Changes',
+    wallet_topups: 'Wallet top-ups',
     trash: 'Trash',
     dashboard: 'Dashboard',
     users: 'Users',

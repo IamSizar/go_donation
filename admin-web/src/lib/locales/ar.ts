@@ -16,6 +16,12 @@ const ar: DeepPartial<typeof en> = {
     fib_desc: 'رقم حساب FIB الذي يظهر للمتبرعين في شاشة التبرع.',
     fib_saved: 'تم حفظ رقم FIB',
   },
+  walletTopups: {
+    subtitle: 'يطلب المستخدمون هنا إضافة مبلغ إلى محفظتهم. لا تتغير المحفظة إلا عند موافقتكم.',
+    approve: 'موافقة وإضافة إلى المحفظة', reject: 'رفض',
+    approved: 'تمت الموافقة — أُضيف المبلغ إلى المحفظة.', rejected: 'تم رفض الطلب.',
+    note: 'المرجع / ملاحظة', proof: 'الإثبات',
+  },
   profileChanges: {
     subtitle: 'تغييرات الاسم والصورة بانتظار موافقة الموظفين.',
     old: 'الحالي',
@@ -37,6 +43,7 @@ const ar: DeepPartial<typeof en> = {
   },
   nav: {
     profile_changes: 'تغييرات الملف الشخصي',
+    wallet_topups: 'طلبات شحن المحفظة',
     trash: 'المهملات',
     dashboard: 'لوحة التحكم',
     users: 'المستخدمون',

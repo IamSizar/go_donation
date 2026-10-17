@@ -1,9 +1,9 @@
+import 'package:flutter_application_1/modules/wallet/screens/wallet_topup_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
 
-import 'package:flutter_application_1/shared/widgets/adaptive_dialog.dart';
 import 'package:flutter_application_1/core/design/directional_icons.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/wallet_api.dart';
@@ -998,9 +998,8 @@ class _WalletCardState extends State<_WalletCard> {
   @override
   Widget build(BuildContext context) {
     final balance = _balanceIQD;
-    // Compact single-row layout: icon · label+balance · info button. No
-    // top-up/add-funds action — top-ups are staff-only for now (see the
-    // info dialog below), so the card must not imply otherwise.
+    // Compact single-row layout: icon · label+balance · add-funds button.
+    // The button only sends a REQUEST; staff credit the wallet (R2 #67).
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -1074,26 +1073,20 @@ class _WalletCardState extends State<_WalletCard> {
           ),
           Semantics(
             button: true,
-            label: 'How do I add funds?'.tr,
+            label: 'Add funds'.tr,
             child: IconButton(
-              tooltip: 'How do I add funds?'.tr,
+              tooltip: 'Add funds'.tr,
               icon: Icon(
-                Icons.info_outline_rounded,
+                Icons.add_circle_outline_rounded,
                 color: AppThemeConfig.onAccent(context),
               ),
-              // Kept the original, already-fully-translated (en/ar/ckb/kmr)
-              // copy rather than the spec's suggested new sentence, which has
-              // no non-English translation yet — swapping would silently show
-              // English to Arabic/Kurdish users.
-              onPressed: () => showAdaptiveMessage(
-                context,
-                title: 'My wallet'.tr,
-                message:
-                    'Wallet top-ups are added by our team for now. Contact support to add funds, then use "App Wallet" as a payment option when donating or buying.'
-                        .tr,
-                buttonLabel: 'OK'.tr,
-                textAlign: TextAlign.start,
-              ),
+              // R2 #67 — ask for a top-up: pay with one of the usual methods,
+              // send the request, staff confirm it in the dashboard. The
+              // wallet only changes once they do.
+              onPressed: () async {
+                await Get.to<void>(() => const WalletTopUpScreen());
+                _load();
+              },
             ),
           ),
         ],

@@ -231,7 +231,7 @@ export default function MarriageChatsPage() {
                   display: 'flex', flexDirection: 'column', gap: 4,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <strong style={{ fontSize: 13.5 }}>
                     {name(th.requester_name, th.requester_user_id, t)} ↔ {name(th.owner_name, th.owner_user_id, t)}
                   </strong>

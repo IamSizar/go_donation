@@ -17,6 +17,15 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Add funds': 'Add funds',
+    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.',
+    'Choose how you paid.': 'Choose how you paid.',
+    'Your request was sent. Your wallet is credited once our team confirms the payment.': 'Your request was sent. Your wallet is credited once our team confirms the payment.',
+    'Transfer reference (optional)': 'Transfer reference (optional)',
+    'Attach proof of payment (optional)': 'Attach proof of payment (optional)',
+    'Proof attached': 'Proof attached',
+    'Waiting for approval': 'Waiting for approval',
+    'error_wallet_topup_failed': 'We couldn\'t send your top-up request.',
     'My statistics': 'My statistics',
     'activity_tap_map': 'Tap the map to mark the place',
     'General user': 'General user',
@@ -3368,6 +3377,15 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Add funds': 'شحن المحفظة',
+    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'ادفع بإحدى هذه الطرق ثم أرسل الطلب. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
+    'Choose how you paid.': 'اختر طريقة الدفع التي استخدمتها.',
+    'Your request was sent. Your wallet is credited once our team confirms the payment.': 'تم إرسال طلبك. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
+    'Transfer reference (optional)': 'مرجع التحويل (اختياري)',
+    'Attach proof of payment (optional)': 'إرفاق إثبات الدفع (اختياري)',
+    'Proof attached': 'تم إرفاق الإثبات',
+    'Waiting for approval': 'بانتظار الموافقة',
+    'error_wallet_topup_failed': 'تعذّر إرسال طلب الشحن.',
     'My statistics': 'إحصاءاتي',
     'activity_tap_map': 'اضغط على الخريطة لتحديد المكان',
     'General user': 'مستخدم عام',

@@ -4246,3 +4246,18 @@ html[dir='rtl'] .data-table th {
   .page-head .row,
   .toolbar-row { flex-wrap: wrap; }
 }
+
+/* The header bar sits every control on ONE bottom line. When a page has many
+   filters, its head wraps onto two lines (title above, controls below); with
+   the bar centring its items, Back / Refresh / Next / the primary action then
+   floated half a row higher than the search and filters. Bottom-aligning puts
+   them all on the same line; on a one-line head nothing changes (every item is
+   the same height). Link-style buttons never wrap their label. */
+.top-action-bar { align-items: flex-end; }
+.page-head .row .row-edit-btn,
+.page-head .row a.row-edit-btn { white-space: nowrap; }
+/* Inside the bar the head is exactly one control tall; the standalone head's
+   extra min-height made it 4px taller than the buttons beside it, so its
+   controls sat 4px off their line. */
+.page-head-slot .page-head { min-height: 0; }
+.page-head-slot .page-head { align-items: flex-end; }

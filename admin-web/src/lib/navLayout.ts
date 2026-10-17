@@ -31,6 +31,8 @@ export const NAV: NavItem[] = [
   { to: '/donors',        tKey: 'nav.donors',         module: 'users' },
   { to: '/registrations', tKey: 'nav.registrations', countKey: 'registrations', module: 'registrations' },
   { to: '/profile-changes', tKey: 'nav.profile_changes', module: 'users' },
+  // R2 #67 — wallet top-up requests wait here for staff approval.
+  { to: '/wallet-topups', tKey: 'nav.wallet_topups', module: 'users' },
   { to: '/campaigns',     tKey: 'nav.campaigns',      module: 'campaigns' },
   { to: '/donations',     tKey: 'nav.donations',     countKey: 'donations', module: 'donations' },
   { to: '/donation-codes', tKey: 'nav.donation_codes', module: 'donations' },
@@ -212,7 +214,7 @@ export const DEFAULT_NAV_SECTIONS: NavSection[] = [
   },
   {
     kind: 'group', key: 'aid_campaigns', tKey: 'nav_group.aid_campaigns',
-    items: ['/campaigns', '/donations', '/in-kind', '/receipts', '/project-categories', '/sponsorships', '/sponsorship-types'],
+    items: ['/campaigns', '/donations', '/wallet-topups', '/in-kind', '/receipts', '/project-categories', '/sponsorships', '/sponsorship-types'],
   },
   {
     kind: 'group', key: 'city_guide', tKey: 'nav_group.city_guide',
