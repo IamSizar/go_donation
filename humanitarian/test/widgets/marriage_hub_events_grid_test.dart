@@ -183,13 +183,12 @@ void main() {
   });
 
   group('events section grid', () {
-    testWidgets('all six items appear for a signed-in user', (tester) async {
+    testWidgets('all five items appear for a signed-in user', (tester) async {
       await tester.pumpWidget(_app(home: const EventsSectionGroupScreen()));
       await _settle(tester);
 
       for (final title in const [
         'Browse profiles',
-        'Event posts',
         'My profile',
         'Subscription',
         'Chats',
@@ -197,18 +196,17 @@ void main() {
       ]) {
         expect(find.text(title), findsOneWidget, reason: title);
       }
-      expect(find.byType(EventHubCard), findsNWidgets(6));
+      expect(find.byType(EventHubCard), findsNWidgets(5));
     });
 
-    testWidgets('a guest sees only the two public items', (tester) async {
+    testWidgets('a guest sees only the public item (event posts live on the hub)', (tester) async {
       await sharedPreferences.setBool(kGuestModePrefsKey, true);
 
       await tester.pumpWidget(_app(home: const EventsSectionGroupScreen()));
       await _settle(tester);
 
-      expect(find.byType(EventHubCard), findsNWidgets(2));
+      expect(find.byType(EventHubCard), findsNWidgets(1));
       expect(find.text('Browse profiles'), findsOneWidget);
-      expect(find.text('Event posts'), findsOneWidget);
       expect(find.text('My profile'), findsNothing);
       expect(find.text('Message the staff team'), findsNothing);
     });
@@ -240,7 +238,7 @@ void main() {
       // locale actually took effect for this pump rather than silently
       // rendering the English strings under an RTL wrapper.
       expect(find.text('خدمات الفعاليات'), findsOneWidget);
-      expect(find.text('قسم الفعاليات'), findsOneWidget);
+      expect(find.text('إدارة ملف التوافق الأسري'), findsOneWidget);
     });
   });
 }

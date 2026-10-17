@@ -17,6 +17,8 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'No products yet': 'No products yet',
+    'Nothing has been added to this section yet.': 'Nothing has been added to this section yet.',
     'Urgent need': 'Urgent need',
     'High priority': 'High priority',
     'Ongoing support': 'Ongoing support',
@@ -3362,6 +3364,8 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'No products yet': 'لا توجد منتجات بعد',
+    'Nothing has been added to this section yet.': 'لم تتم إضافة شيء إلى هذا القسم بعد.',
     'Urgent need': 'حاجة عاجلة',
     'High priority': 'أولوية عالية',
     'Ongoing support': 'دعم مستمر',

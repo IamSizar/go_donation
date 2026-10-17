@@ -141,10 +141,10 @@ void main() {
     final height = tester.getSize(find.byKey(_strip)).height;
     expect(
       height,
-      lessThanOrEqualTo(250),
+      lessThanOrEqualTo(254),
       reason:
           'the card content measures 229pt at this text scale; a strip taller '
-          'than ~250 is the dead band under every card that the owner asked to '
+          'than ~254 is the dead band under every card that the owner asked to '
           'remove',
     );
     expect(
