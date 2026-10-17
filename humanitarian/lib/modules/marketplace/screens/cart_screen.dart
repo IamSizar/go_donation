@@ -188,10 +188,10 @@ class _CartThumbnailFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.deepOrange.withValues(alpha: 0.12),
-      child: const Icon(
+      color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
+      child: Icon(
         Icons.storefront_rounded,
-        color: Colors.deepOrange,
+        color: AppThemeConfig.accent(context),
         size: 26,
       ),
     );
@@ -213,9 +213,11 @@ class _CartQuantityStepper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.deepOrange.withValues(alpha: 0.12),
+        color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.22)),
+        border: Border.all(
+          color: AppThemeConfig.accent(context).withValues(alpha: 0.22),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -430,7 +432,7 @@ class _CartPaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Colors.deepOrange;
+    final accent = AppThemeConfig.accent(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(

@@ -36,7 +36,9 @@ import (
 func GuestGetsEmptyList() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u, ok := auth.UserFromGin(c)
-		if !ok || u == nil || !u.IsGuest {
+		// A guest, and a general user (role 6): both are restricted from chats, and
+		// both get the same quiet empty state instead of an error that retries.
+		if !ok || u == nil || (!u.IsGuest && u.RoleID != 6) {
 			c.Next()
 			return
 		}

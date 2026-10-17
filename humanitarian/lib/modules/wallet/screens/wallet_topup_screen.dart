@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter_application_1/api/links.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/api/payment_methods_api.dart';
@@ -99,6 +100,9 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       Get.snackbar('Add funds'.tr, 'Choose how you paid.'.tr);
       return;
     }
+    // A general-user or guest account cannot add funds. Same upgrade prompt the
+    // Contribute screen shows, asked before anything is sent.
+    if (!await requireUpgrade(context)) return;
     setState(() => _busy = true);
     try {
       String? proof;
@@ -122,10 +126,15 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
         'Your request was sent. Your wallet is credited once our team confirms the payment.'
             .tr,
         duration: const Duration(seconds: 5),
+        snackPosition: SnackPosition.BOTTOM,
       );
       await _load();
     } catch (e) {
-      Get.snackbar('Error'.tr, failureMessage(e, 'error_wallet_topup_failed'));
+      Get.snackbar(
+        'Add funds'.tr,
+        failureMessage(e, 'error_wallet_topup_failed'),
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

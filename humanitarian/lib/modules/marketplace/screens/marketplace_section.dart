@@ -1015,10 +1015,10 @@ class _QuantityControl extends StatelessWidget {
               duration: AppMotion.resolve(context, AppMotion.settleDuration),
               curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
               decoration: BoxDecoration(
-                color: Colors.deepOrange.withValues(alpha: 0.12),
+                color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: Colors.deepOrange.withValues(alpha: 0.22),
+                  color: AppThemeConfig.accent(context).withValues(alpha: 0.22),
                 ),
               ),
               child: Row(
@@ -1132,7 +1132,9 @@ class _CartTeaserBar extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.deepOrange.withValues(alpha: 0.14),
+                    color: AppThemeConfig.accent(
+                      context,
+                    ).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
@@ -1235,7 +1237,7 @@ class _ProductImageLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.deepOrange.withValues(alpha: 0.1),
+        color: AppThemeConfig.accent(context).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
@@ -1244,7 +1246,7 @@ class _ProductImageLoading extends StatelessWidget {
           height: 22,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Colors.deepOrange.withValues(alpha: 0.75),
+            color: AppThemeConfig.accent(context).withValues(alpha: 0.75),
           ),
         ),
       ),
@@ -1258,7 +1260,7 @@ class _ProductImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.deepOrange.withValues(alpha: 0.12),
+      color: AppThemeConfig.accent(context).withValues(alpha: 0.12),
       child: Icon(
         Icons.storefront_rounded,
         color: AppThemeConfig.pending(context),

@@ -32,6 +32,10 @@ void routeByRegistrationStatus([String? status]) {
   // approved, or unknown (grandfathered accounts predate the status column).
   final roleId = sharedPreferences.getString('role_id');
   if (roleId != null && roleId.trim().isNotEmpty) {
+    // The push token could not be registered while the account was still
+    // incomplete or pending (the server refuses it until approval), so try again
+    // now that the account is in. Safe to repeat: it is an upsert.
+    unawaited(PushRegistration.registerNow());
     Get.offAllNamed(AppRoutes.home);
   } else {
     // Approved but no role yet — send them through the form to pick one.

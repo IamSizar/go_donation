@@ -17,12 +17,15 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
-    'phone_already_registered_message': 'This number is already registered. Sign in instead of creating an account.',
+    'phone_already_registered_message':
+        'This number is already registered. Sign in instead of creating an account.',
     'My contributions': 'My contributions',
     'Add funds': 'Add funds',
-    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.',
+    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.':
+        'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.',
     'Choose how you paid.': 'Choose how you paid.',
-    'Your request was sent. Your wallet is credited once our team confirms the payment.': 'Your request was sent. Your wallet is credited once our team confirms the payment.',
+    'Your request was sent. Your wallet is credited once our team confirms the payment.':
+        'Your request was sent. Your wallet is credited once our team confirms the payment.',
     'Transfer reference (optional)': 'Transfer reference (optional)',
     'Attach proof of payment (optional)': 'Attach proof of payment (optional)',
     'Proof attached': 'Proof attached',
@@ -31,9 +34,11 @@ class AppTranslations extends Translations {
     'My statistics': 'My statistics',
     'activity_tap_map': 'Tap the map to mark the place',
     'General user': 'General user',
-    'Choose an account type to use this feature.': 'Choose an account type to use this feature.',
+    'Choose an account type to use this feature.':
+        'Choose an account type to use this feature.',
     'No products yet': 'No products yet',
-    'Nothing has been added to this section yet.': 'Nothing has been added to this section yet.',
+    'Nothing has been added to this section yet.':
+        'Nothing has been added to this section yet.',
     'Urgent need': 'Urgent need',
     'High priority': 'High priority',
     'Ongoing support': 'Ongoing support',
@@ -3379,12 +3384,15 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
-    'phone_already_registered_message': 'هذا الرقم مسجل بالفعل. سجّل الدخول بدلاً من إنشاء حساب.',
+    'phone_already_registered_message':
+        'هذا الرقم مسجل بالفعل. سجّل الدخول بدلاً من إنشاء حساب.',
     'My contributions': 'مساهماتي',
     'Add funds': 'شحن المحفظة',
-    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'ادفع بإحدى هذه الطرق ثم أرسل الطلب. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
+    'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.':
+        'ادفع بإحدى هذه الطرق ثم أرسل الطلب. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
     'Choose how you paid.': 'اختر طريقة الدفع التي استخدمتها.',
-    'Your request was sent. Your wallet is credited once our team confirms the payment.': 'تم إرسال طلبك. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
+    'Your request was sent. Your wallet is credited once our team confirms the payment.':
+        'تم إرسال طلبك. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
     'Transfer reference (optional)': 'مرجع التحويل (اختياري)',
     'Attach proof of payment (optional)': 'إرفاق إثبات الدفع (اختياري)',
     'Proof attached': 'تم إرفاق الإثبات',
@@ -3393,9 +3401,11 @@ class AppTranslations extends Translations {
     'My statistics': 'إحصاءاتي',
     'activity_tap_map': 'اضغط على الخريطة لتحديد المكان',
     'General user': 'مستخدم عام',
-    'Choose an account type to use this feature.': 'اختر نوع حسابك لتتمكن من استخدام هذه الميزة.',
+    'Choose an account type to use this feature.':
+        'اختر نوع حسابك لتتمكن من استخدام هذه الميزة.',
     'No products yet': 'لا توجد منتجات بعد',
-    'Nothing has been added to this section yet.': 'لم تتم إضافة شيء إلى هذا القسم بعد.',
+    'Nothing has been added to this section yet.':
+        'لم تتم إضافة شيء إلى هذا القسم بعد.',
     'Urgent need': 'حاجة عاجلة',
     'High priority': 'أولوية عالية',
     'Ongoing support': 'دعم مستمر',

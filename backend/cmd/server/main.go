@@ -888,7 +888,7 @@ func main() {
 			// OPOS #26347 — guests are refused on the READ routes too, not
 			// only the writes: the server must not rely on the app hiding
 			// these screens from a guest session.
-			authed.GET("/chat-groups", auth.RequireNotGuest(), chatGroupH.List)
+			authed.GET("/chat-groups", handlers.GuestGetsEmptyList(), chatGroupH.List)
 			authed.GET("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.Messages)
 			authed.POST("/chat-groups/:id/messages", auth.RequireNotGuest(), chatGroupH.PostMessage)
 			authed.POST("/chat-groups/:id/read", auth.RequireNotGuest(), chatGroupH.MarkRead)
