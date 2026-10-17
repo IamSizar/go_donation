@@ -2929,6 +2929,8 @@ class AppTranslations extends Translations {
     // data, and omitted entirely when the visible places span more than one.
     '@count place': '@count place',
     '@count places': '@count places',
+    '@count places two': '@count places',
+    '@count places few': '@count places',
     'location_failed':
         'Could not find your location. Try again outdoors or '
         'check that location is on for this app.',
@@ -5943,6 +5945,8 @@ class AppTranslations extends Translations {
     '@count place': '@count مكان',
     // تمييز after a numeral, matching '@count شخصا متأثرا'.
     '@count places': '@count مكانا',
+    '@count places two': 'مكانان',
+    '@count places few': '@count أماكن',
     'location_failed':
         'تعذّر تحديد موقعك. حاول في الخارج أو تأكد من تفعيل '
         'الموقع لهذا التطبيق.',
@@ -9231,6 +9235,8 @@ class AppTranslations extends Translations {
     'No beneficiary cases yet.': 'هێشتا هیچ کەیسێکی شایستە نییە.',
     '@count place': '@count شوێن',
     '@count places': '@count شوێن',
+    '@count places two': '@count شوێن',
+    '@count places few': '@count شوێن',
     'location_failed':
         'نەتوانرا شوێنەکەت بدۆزرێتەوە. لە دەرەوە هەوڵ بدەرەوە یان دڵنیابە خزمەتگوزاری شوێن بۆ ئەم ئەپە چالاکە.',
     'map_my_location': 'بڕۆ بۆ شوێنی من',
@@ -12159,6 +12165,8 @@ class AppTranslations extends Translations {
     'No beneficiary cases yet.': 'هێشتا چ کەیسێن شایستە نینن.',
     '@count place': '@count جه',
     '@count places': '@count جه',
+    '@count places two': '@count جه',
+    '@count places few': '@count جه',
     'location_failed':
         'نەشیا جهێ تە بهێتە دیتن. ل دەرڤە هەول بدە یان دلنیا بە کو خزمەتگوزاریا جهی بۆ ڤێ ئەپێ یا چالاکە.',
     'map_my_location': 'هەڕە بۆ جهێ من',

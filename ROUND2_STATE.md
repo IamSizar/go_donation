@@ -15,6 +15,12 @@ When all points are done: give the owner **the same notes file the client sent**
 
 - **City Guide map squashed + «API KEY REQUIRED»** (owner screenshot, 2026-10-17). Found: (1) the map was an `Expanded` taking only the space left under the profile banner, header, search, button and chips, so with the banner showing it shrank to a ~100pt strip; (2) CartoDB now answers every tile with an "API KEY REQUIRED" image (confirmed with curl), so the basemap was that watermark. Fixed in `community_services_section.dart` (page scrolls, map min height 440 / 60% of screen) and tiles → OpenStreetMap in both maps (`community_detail_screen.dart` too); attribution «© OpenStreetMap». NOTE: OSM's free tiles suit modest use; at scale use a keyed provider (one URL to change). Not verified with the banner present (it did not reappear on the test account). Screenshots: `round2_screens/extra/city-guide-map-before.png`, `city-guide-map-fixed.png`. Related: #88.
 
+- **Visual sweep findings (owner asked 2026-10-17: fix cut-off words, misalignment, text outside frames, on every screen I touch):**
+  - City Guide cards/sheet showed raw category codes in English («education · cooperative») → now the category name in the app language (`cityCategoryLabel`); unknown English-only codes are hidden.
+  - City Guide count «5 مكانا» was wrong Arabic → 1 مكان / 2 مكانان / 3–10 أماكن / 11+ مكانًا (tests in city_map_chip_test.dart).
+  - **ANDROID CANNOT BUILD:** `android/app/google-services.json` only has `com.easytech.humanitarian` and `com.example.humanitarian`; the app id is `com.tawazzn`. Needs the real Firebase file for com.tawazzn (owner/Firebase console). I used a TEMPORARY local patch (never commit; restore with `git checkout -- humanitarian/android/app/google-services.json`). Emulator: sc_pixel_6 (`$S/a.sh` wraps adb -s emulator-5554), JAVA_HOME = Android Studio jbr.
+  - 4 old failing app tests still to look at: translating_widget_literals, featured_campaign_card_size, marriage_hub_events_grid ×2 (may hide real layout bugs).
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged

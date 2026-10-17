@@ -112,16 +112,31 @@ void main() {
       isFalse,
     );
   });
-}
 
-// ─── The camera-follows-the-filter rule ─────────────────────────────────────
-//
-// MapOptions.initialCenter/initialZoom are one-shot: flutter_map reads them
-// when the map is created and ignores them forever after. Without an explicit
-// re-centre, filtering by sector or searching changed the list underneath
-// while the camera stayed put, so the visible area stopped matching the places
-// the screen claimed to be showing.
-//
-// The comparison is by COORDINATES rather than list identity because the
-// parent rebuilds this widget for reasons that move no pin — re-centring on
-// those would yank the map away from a user who had just panned somewhere.
+  group('Arabic counts use the right plural form', () {
+    // 1 مكان, 2 مكانان, 3–10 أماكن, 11+ مكانًا. Only the last existed, so a
+    // map with five places said «5 مكانا».
+    setUp(() => Get.locale = const Locale('ar', 'SA'));
+
+    String chip(int n) => cityMapChipLabel(
+      pinCount: n,
+      source: [_place(''), _place('')],
+    );
+
+    test('one and two', () {
+      expect(chip(1), '1 مكان');
+      expect(chip(2), 'مكانان');
+    });
+
+    test('three to ten take أماكن', () {
+      for (final n in [3, 5, 10]) {
+        expect(chip(n), '$n أماكن', reason: '$n');
+      }
+    });
+
+    test('eleven and over keep the singular after the number', () {
+      expect(chip(11), '11 مكانا');
+      expect(chip(25), '25 مكانا');
+    });
+  });
+}

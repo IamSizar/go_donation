@@ -55,7 +55,17 @@ class ProfileMenuScreen extends StatelessWidget {
       title: 'Profile'.tr,
       subtitle: '',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        // R2 #63 — the last row, «تسجيل الخروج», sat under the phone's
+        // navigation buttons on Android phones that draw the app edge to edge.
+        // The page ignored that system inset and ended with a flat 24. It now
+        // clears the inset plus a comfortable margin, so the row scrolls fully
+        // above the buttons (zero extra space on phones that report no inset).
+        padding: EdgeInsets.fromLTRB(
+          20,
+          4,
+          20,
+          32 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         children: [
           AccountHeader(guest: guest),
 

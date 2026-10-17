@@ -115,9 +115,17 @@ String cityMapChipLabel({
   // Singular and plural are separate keys so English stays correct at one pin;
   // Arabic uses the تمييز form after the numeral either way, following
   // '@count شخصا متأثرا'.
-  final count = (pinCount == 1 ? '@count place' : '@count places').trParams({
-    'count': '$pinCount',
-  });
+  // Arabic counts take three different forms: 1 مكان, 2 مكانان, 3–10 أماكن
+  // and 11+ مكانًا. Only the 11+ form existed, so «5 مكانا» was wrong. The
+  // other languages keep one form for every number (their entries for the
+  // two extra keys are the same text as '@count places').
+  final key = switch (pinCount) {
+    1 => '@count place',
+    2 => '@count places two',
+    >= 3 && <= 10 => '@count places few',
+    _ => '@count places',
+  };
+  final count = key.trParams({'count': '$pinCount'});
 
   // Localised as they are collected, not afterwards. Two raw spellings that
   // name the same governorate collapse to one entry this way, which is
@@ -1661,6 +1669,38 @@ Color categoryPillFill(Color tint, Color card) =>
 Color categoryPillInk(Color tint, Color card, Color ink) =>
     readableOn(tint: tint, background: categoryPillFill(tint, card), ink: ink);
 
+/// A place's category as the reader should see it.
+///
+/// An entry stores a category CODE (`clinics`, `education`...). The cards and
+/// the detail sheet printed that code, so an Arabic screen showed English words
+/// such as «education · cooperative». This resolves the code against the
+/// dashboard-managed list (4 languages), then against the app's own
+/// translations. A code with no name in the reader's language is left out
+/// rather than shown raw — an Arabic screen should not carry English
+/// identifiers — but a label an admin typed in Arabic/Kurdish is kept.
+String cityCategoryLabel(String code) {
+  final slug = code.trim();
+  if (slug.isEmpty) return '';
+  if (Get.isRegistered<CommunityController>()) {
+    for (final c in Get.find<CommunityController>().categories) {
+      if ((c['slug'] ?? '').toString() == slug) {
+        return localizedContentFromValues(
+          base: (c['name_en'] ?? '').toString(),
+          arabic: (c['name_ar'] ?? '').toString(),
+          sorani: (c['name_ckb'] ?? '').toString(),
+          badini: (c['name_kmr'] ?? '').toString(),
+          fallback: '',
+        );
+      }
+    }
+  }
+  final translated = slug.tr;
+  if (translated != slug) return translated;
+  // Typed by hand in a non-Latin script: it is already a readable label.
+  final hasLatin = RegExp(r'[A-Za-z]').hasMatch(slug);
+  return hasLatin ? '' : slug;
+}
+
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({required this.entry});
   final Map<String, dynamic> entry;
@@ -1668,7 +1708,7 @@ class _PlaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = localizedContentFromMap(entry, 'name', fallback: 'Place');
-    final category = (entry['category'] ?? '').toString();
+    final category = cityCategoryLabel((entry['category'] ?? '').toString());
     final city = localizedCity(entry['city']);
     final sub = [category, city].where((s) => s.isNotEmpty).join(' · ');
 
@@ -1762,7 +1802,7 @@ class _EntrySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = localizedContentFromMap(entry, 'name', fallback: 'Place');
-    final category = (entry['category'] ?? '').toString();
+    final category = cityCategoryLabel((entry['category'] ?? '').toString());
     final city = localizedCity(entry['city']);
     final phone = (entry['phone'] ?? '').toString().trim();
     final website = (entry['website'] ?? '').toString().trim();

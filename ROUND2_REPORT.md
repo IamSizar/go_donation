@@ -644,8 +644,15 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 
 ## 63. Profile: logout button at the very bottom collides with phone nav buttons → move up.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (verified by a test; I could not reproduce it on screen)
 
+**Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. I could not see the overlap on my emulator (its navigation bar sits outside the app window), so the fix is proven by a test that simulates a 56-point bar.
+
+**Fixed:** the page now clears the system inset plus a margin, so the logout row scrolls fully above the buttons. On phones with no inset nothing changes.
+- Test: with a 56-point bar the row ends 56 points higher than without; the same test fails on the old code (both gaps were identical).
+- On a real Android phone, scroll the profile page to the end and check: the logout row should sit clear above the buttons.
+
+![](round2_screens/63/android-profile-bottom.png)
 
 ## 64. «أثرنا» section doesn't work — where are its data/photos/details edited?
 
