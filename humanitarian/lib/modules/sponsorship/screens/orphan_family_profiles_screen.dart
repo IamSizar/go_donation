@@ -47,8 +47,9 @@ class _OrphanFamilyProfilesScreenState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
-              const _ProfilesIntroCard(),
-              const SizedBox(height: 18),
+              // R2 #68 — the «دليل الملفات» explanation card that sat here
+              // repeated the subtitle in a paragraph and pushed the actual
+              // profiles a quarter of a screen down. The details come first now.
               // The category filter stays OUTSIDE AppAsync deliberately. The
               // empty state here is usually "no profiles in THIS category",
               // and hiding the capsules along with the list would leave the
@@ -75,7 +76,7 @@ class _OrphanFamilyProfilesScreenState
                 builder: (list) => Column(
                   children: [
                     for (final item in list) ...[
-                      _ProfileCard(item: item),
+                      ProfileCard(item: item),
                       const SizedBox(height: 14),
                     ],
                   ],
@@ -89,40 +90,9 @@ class _OrphanFamilyProfilesScreenState
   }
 }
 
-class _ProfilesIntroCard extends StatelessWidget {
-  const _ProfilesIntroCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Profile directory'.tr,
-            style: TextStyle(
-              color: AppThemeConfig.text(context),
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Each profile gives donors a clearer understanding of who is being supported, what needs are active, and what progress has been shared recently.'
-                .tr,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.item});
+/// Public only so a widget test can pump it (R2 #68).
+class ProfileCard extends StatelessWidget {
+  const ProfileCard({super.key, required this.item});
 
   final Map<String, dynamic> item;
 
@@ -157,13 +127,16 @@ class _ProfileCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // R2 #68 — the title was cut to ONE line, and the
+                          // priority tag beside it took a third of the row, so
+                          // most titles ended in «…». The tag now sits underneath and
+                          // the title wraps freely, so the whole name always shows.
                           Text(
                             title.tr,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppThemeConfig.text(context),
                               fontSize: 18,
+                              height: 1.25,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -175,25 +148,26 @@ class _ProfileCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              _profileTag(priority).tr,
+                              style: TextStyle(
+                                color: color,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _profileTag(priority).tr,
-                        style: TextStyle(
-                          color: color,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
                       ),
                     ),
                   ],

@@ -17,6 +17,9 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'Urgent need': 'Urgent need',
+    'High priority': 'High priority',
+    'Ongoing support': 'Ongoing support',
     'View cart': 'View cart',
     'activity_use_my_location': 'Use my location',
     'activity_location_set': 'Location set',
@@ -188,14 +191,18 @@ class AppTranslations extends Translations {
     'Back to sign in': 'Back to sign in',
     'Go to sign in': 'Go to sign in',
     'Mark all as read': 'Mark all as read',
-    'Please confirm your phone number to upgrade your account.': 'Please confirm your phone number to upgrade your account.',
+    'Please confirm your phone number to upgrade your account.':
+        'Please confirm your phone number to upgrade your account.',
     'Sign in to donate or volunteer.': 'Sign in to donate or volunteer.',
     'Account type': 'Account type',
-    'Fields marked with a red * are required': 'Fields marked with a red * are required',
+    'Fields marked with a red * are required':
+        'Fields marked with a red * are required',
     'Create a password for your account': 'Create a password for your account',
-    'Minimum @n characters, letters and numbers': 'Minimum @n characters, letters and numbers',
+    'Minimum @n characters, letters and numbers':
+        'Minimum @n characters, letters and numbers',
     'Use letters and numbers.': 'Use letters and numbers.',
-    'Enter the verification code sent to': 'Enter the verification code sent to',
+    'Enter the verification code sent to':
+        'Enter the verification code sent to',
     'This number already has a password. Sign in with it instead.':
         'This number already has a password. Sign in with it instead.',
     'That verification expired. Request a new code and try again.':
@@ -3355,6 +3362,9 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'Urgent need': 'حاجة عاجلة',
+    'High priority': 'أولوية عالية',
+    'Ongoing support': 'دعم مستمر',
     'View cart': 'عرض السلة',
     'activity_use_my_location': 'تحديد موقعي',
     'activity_location_set': 'تم تحديد الموقع',
@@ -3516,12 +3526,15 @@ class AppTranslations extends Translations {
     'Back to sign in': 'العودة إلى تسجيل الدخول',
     'Go to sign in': 'متابعة تسجيل الدخول',
     'Mark all as read': 'تحديد الكل كمقروء',
-    'Please confirm your phone number to upgrade your account.': 'يرجى تأكيد رقم هاتفك لترقية الحساب',
+    'Please confirm your phone number to upgrade your account.':
+        'يرجى تأكيد رقم هاتفك لترقية الحساب',
     'Sign in to donate or volunteer.': 'سجّل الدخول للتبرع أو التطوع.',
     'Account type': 'نوع الحساب',
-    'Fields marked with a red * are required': 'الحقول المصحوبة بعلامة حمراء إجبارية',
+    'Fields marked with a red * are required':
+        'الحقول المصحوبة بعلامة حمراء إجبارية',
     'Create a password for your account': 'أنشئ كلمة مرور لحسابك',
-    'Minimum @n characters, letters and numbers': 'الحد الأدنى @n خانات تشمل أحرفاً وأرقاماً',
+    'Minimum @n characters, letters and numbers':
+        'الحد الأدنى @n خانات تشمل أحرفاً وأرقاماً',
     'Use letters and numbers.': 'استخدم أحرفاً وأرقاماً معاً.',
     'This number already has a password. Sign in with it instead.':
         'الرقم مسجل بالفعل، يرجى العودة لتسجيل الدخول',
@@ -8107,8 +8120,7 @@ class AppTranslations extends Translations {
     'No conversations yet': 'تاوەکو ئێستا هیچ گفتوگۆیەک نیە',
     'No donations yet for this campaign.':
         'تاوەکو ئێستا هیچ بەشداریێک بۆ ئەم کەمپەینە نیە.',
-    'No messages yet. Say hello! 👋':
-        'تاوەکو ئێستا هیچ پەیامێک نیە. سڵاو بکە!',
+    'No messages yet. Say hello! 👋': 'تاوەکو ئێستا هیچ پەیامێک نیە. سڵاو بکە!',
     'OTP ready': 'OTP ئامادەیە',
     'Once your project request is approved and published, donations will appear here.':
         'کاتێک داواکاری پڕۆژەکەت پەسەند و بڵاوکرایەوە، بەشدارییەکان لێرە دەردەکەون.',

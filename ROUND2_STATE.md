@@ -23,6 +23,8 @@ When all points are done: give the owner **the same notes file the client sent**
 
 - **#67 wallet: owner said the wallet system is complete — DO NOT change it (2026-10-17).** Recorded in the report; ask the client how their test wallet got a balance.
 
+- **Visual sweep (cont.):** Home hero tile «ما تم تقديمه حتى الآن» was cut to «حتـ…» → now 2 lines, tiles share one height (screenshot `round2_screens/extra/home-tile-label-fixed.png`). KNOWN, not changed: wheel labels on the top and bottom slices read sideways (radial layout) — decide if wanted horizontal.
+
 ## What this is
 Client (Zaid / Tawazzn charity app) sent `~/Downloads/الملاحظات.pdf` (20 pages) on 2026-10-16.
 All 91 points are numbered in `CLIENT_NOTES_ROUND2.md` (same order as the PDF), each tagged

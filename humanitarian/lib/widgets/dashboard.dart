@@ -216,7 +216,14 @@ class DashboardHomeSection extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(children: stats),
+                // IntrinsicHeight + stretch: the tiles share one height even when
+                // one label wraps to two lines and its neighbour does not.
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: stats,
+                  ),
+                ),
               ],
             ),
           ],
@@ -1508,16 +1515,21 @@ class _DashboardHeroStat extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 1),
+                // R2 visual sweep — «ما تم تقديمه حتى الآن» was cut to
+                // «ما تم تقديمه حتـ…» by maxLines: 1 in a half-width tile. Two
+                // lines show the whole label; the sibling tile stretches to
+                // match (see the Row's crossAxisAlignment).
                 Text(
                   label.tr,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppThemeConfig.onAccent(
                       context,
                     ).withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
-                    fontSize: 10.5,
+                    fontSize: 11,
+                    height: 1.2,
                   ),
                 ),
               ],

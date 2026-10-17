@@ -711,8 +711,21 @@ The balance showing 0 is correct for an empty wallet.
 
 ## 68. Home → browse by category: campaign details cut off → give the details more space.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** «تصفح حسب الفئة» opens the family-profiles screen. Its cards cut the title to one line («أرملة تعيل ثلاثة أطفال وتحتاج إلى دعم عاجل لتأمين الغذاء وال…») because the priority tag beside it took a third of the row. A big «دليل الملفات» explanation card above the list repeated the subtitle in a paragraph and pushed the profiles down. The tags read «Urgent need» / «High priority» in English.
+
+**Fixed:**
+- The title now shows in full (up to as many lines as it needs); the tag moved under the family line.
+- The explanation card was removed, so the filter chips and the profiles start straight after the title.
+- The three tags now read «حاجة عاجلة», «أولوية عالية», «دعم مستمر» (the existing «دعم مستقر» stays).
+- Tests: a long Arabic title is not ellipsised (fails on the old card), and every tag is Arabic.
+
+Note: the grey line under each tag («Monthly food basket…») is the case's own text typed in English by whoever created the case; it is data, not something the app translates.
+
+| Before | After |
+|---|---|
+| ![](round2_screens/68/before-cut-title-and-intro-card.png) | ![](round2_screens/68/after-full-title-arabic-tags.png) |
 
 ## 69. Home: «مشاركتي» opens a page titled «سجلي» — naming mistake?; shorten the circled phrases to one line, remove extra details; «استعلام بالرمز التعريفي» long unclear explanation — is this lookup approach right at all?
 
