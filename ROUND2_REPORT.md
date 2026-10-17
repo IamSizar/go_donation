@@ -952,3 +952,19 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 The same code appears in the dashboard (ID and reference columns) and in the app. Each section's letter can be changed from «Transaction codes» in the dashboard. Codes issued earlier stay as they are; only new ones are short.
 
 ![](round2_screens/92/hi_donations_short_codes.png)
+
+## 93. Ration card: remove the request to attach the card's back, since it is a one-sided card.
+
+**Status:** ✅ Fixed
+
+**Fixed:** the «Ration card (back)» field is gone from the registration form and the marriage form in the app, and from the account details in the dashboard. Only one photo of the ration card is asked for.
+
+## 94. App logo in phone notifications: too small, and its colour looks different from the approved main logo.
+
+**Status:** ✅ Fixed
+
+**Found:** the notification logo was small inside a royal-blue tile that did not match the approved logo's colours (teal and blue).
+
+**Fixed:** the logo is enlarged to fill the notification icon, and the tile behind it uses the same blue as the approved logo. (Android requires the small notification icon to be a single colour, so it appears white on blue.)
+
+While checking your screenshot we also fixed the wording of the approval notification for a donation with no campaign: it showed an English phrase («general donation») and a meaningless line («0 of 0 IQD»). It now states only the amount: «Your ... IQD donation was approved. Thank you!». The same applies to the confirmed, rejected and cancelled notifications.

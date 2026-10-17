@@ -714,6 +714,23 @@ func formatPercentKurd(raised, goal float64) string {
 // DonationCancelledByDonorMsg — confirmation when a grantor self-cancels a
 // pending donation (POST /api/donate/:id/cancel). Phase 23.
 func DonationCancelledByDonorMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
+	if strings.TrimSpace(campaignName) == "" {
+		return LocalizedMessage{
+			Type:              "donation_cancelled_by_donor",
+			RelatedEntityType: "donations",
+			RelatedEntityID:   donationID,
+			Title: LocalText{
+				En:  "Donation cancelled",
+				Ar:  "تم إلغاء التبرع",
+				Ckb: "بەخشینەکە هەڵوەشێنرایەوە",
+				Kmr: "بەخشین هاتە بەتالکرن",
+			},
+			Body: LocalText{
+				En: fmt.Sprintf("Your %s %s donation was cancelled.", amount, currency),
+				Ar: fmt.Sprintf("تم إلغاء تبرعك بمبلغ %s %s.", amount, currency),
+			},
+		}
+	}
 	return LocalizedMessage{
 		Type:              "donation_cancelled_by_donor",
 		RelatedEntityType: "donations",
@@ -738,6 +755,26 @@ func DonationCancelledByDonorMsg(amount, currency, campaignName string, donation
 // after this donation + percent funded. raisedAmount and goalAmount are
 // strings (the column types are varchar) but expected to parse as numbers.
 func DonationApprovedMsg(amount, currency, campaignName, raisedAmount, goalAmount string, donationID int64) LocalizedMessage {
+	// A general donation has no campaign: there is no name to quote and no goal
+	// to report progress against, so say only what is true. Kurdish text is left
+	// empty on purpose and falls back to English rather than being invented.
+	if strings.TrimSpace(campaignName) == "" {
+		return LocalizedMessage{
+			Type:              "donation_approved",
+			RelatedEntityType: "donations",
+			RelatedEntityID:   donationID,
+			Title: LocalText{
+				En:  "Donation approved",
+				Ar:  "تمت الموافقة على التبرع",
+				Ckb: "بەخشینەکە پەسەند کرا",
+				Kmr: "بەخشین قبوول کر",
+			},
+			Body: LocalText{
+				En: fmt.Sprintf("Your %s %s donation was approved. Thank you!", amount, currency),
+				Ar: fmt.Sprintf("تمت الموافقة على تبرعك بمبلغ %s %s. شكراً لك!", amount, currency),
+			},
+		}
+	}
 	// Parse numerics best-effort so we can compute percent + reformat with
 	// thousands separators. If they don't parse, fall back to the raw strings.
 	var raised, goal float64
@@ -781,6 +818,23 @@ func DonationApprovedMsg(amount, currency, campaignName, raisedAmount, goalAmoun
 // DonationRejectedMsg — admin rejected a donation entry. Body still shows the
 // amount + campaign so the grantor remembers which donation this is about.
 func DonationRejectedMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
+	if strings.TrimSpace(campaignName) == "" {
+		return LocalizedMessage{
+			Type:              "donation_rejected",
+			RelatedEntityType: "donations",
+			RelatedEntityID:   donationID,
+			Title: LocalText{
+				En:  "Donation rejected",
+				Ar:  "تم رفض التبرع",
+				Ckb: "بەخشینەکە ڕەتکرایەوە",
+				Kmr: "بەخشین هاتە رەتکرن",
+			},
+			Body: LocalText{
+				En: fmt.Sprintf("Your %s %s donation was rejected by the admin. Please contact support for details.", amount, currency),
+				Ar: fmt.Sprintf("تم رفض تبرعك بمبلغ %s %s من قِبَل المسؤول. يرجى التواصل مع الدعم للمزيد من التفاصيل.", amount, currency),
+			},
+		}
+	}
 	return LocalizedMessage{
 		Type:              "donation_rejected",
 		RelatedEntityType: "donations",
@@ -810,6 +864,23 @@ func DonationRejectedMsg(amount, currency, campaignName string, donationID int64
 // received/delivered) so both can land without dedup conflict; one is the
 // payment confirmation, the other is the field-delivery confirmation.
 func DonationPaymentConfirmedMsg(amount, currency, campaignName string, donationID int64) LocalizedMessage {
+	if strings.TrimSpace(campaignName) == "" {
+		return LocalizedMessage{
+			Type:              "donation_payment_confirmed",
+			RelatedEntityType: "donations",
+			RelatedEntityID:   donationID,
+			Title: LocalText{
+				En:  "Donation confirmed",
+				Ar:  "تم تأكيد التبرع",
+				Ckb: "بەخشینەکە پشتڕاست کرایەوە",
+				Kmr: "بەخشین هاتە پشتراستکرن",
+			},
+			Body: LocalText{
+				En: fmt.Sprintf("Your %s %s donation was confirmed by the team. Thank you for your support!", amount, currency),
+				Ar: fmt.Sprintf("تم تأكيد تبرعك بمبلغ %s %s من قِبَل الفريق. شكراً لدعمك!", amount, currency),
+			},
+		}
+	}
 	return LocalizedMessage{
 		Type:              "donation_payment_confirmed",
 		RelatedEntityType: "donations",

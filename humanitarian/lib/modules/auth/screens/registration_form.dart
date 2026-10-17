@@ -5636,18 +5636,6 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           assign: (p) =>
                                               _rationCardPhotoPath = p,
                                         ),
-                                        // 138 — the ration card's back side. OPTIONAL:
-                                        // its own rule key means no red `*`; it is
-                                        // hidden together with the front (below).
-                                        (
-                                          rule:
-                                              'volunteer_ration_card_photo_back',
-                                          label: 'reg_ration_card_photo_back',
-                                          path: _rationCardPhotoBackPath,
-                                          icon: Icons.credit_card_outlined,
-                                          assign: (p) =>
-                                              _rationCardPhotoBackPath = p,
-                                        ),
                                         (
                                           rule:
                                               'volunteer_residence_card_photo',
@@ -5701,15 +5689,7 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                                           assign: (p) => _cvPhotoPath = p,
                                         ),
                                       ]
-                                      .where(
-                                        (a) =>
-                                            !_isHidden(a.rule) &&
-                                            !(a.rule ==
-                                                    'volunteer_ration_card_photo_back' &&
-                                                _isHidden(
-                                                  'volunteer_ration_card_photo',
-                                                )),
-                                      )) ...[
+                                      .where((a) => !_isHidden(a.rule))) ...[
                                 const SizedBox(height: 16),
                                 _label(context, a.label, ruleKey: a.rule),
                                 const SizedBox(height: 6),

@@ -58,14 +58,13 @@ void main() {
     'reg_volunteer_id_photo_doc',
     'reg_id_photo_back',
     'reg_volunteer_ration_card_photo',
-    'reg_ration_card_photo_back',
     'reg_volunteer_residence_card_photo',
     'reg_residence_card_photo_back',
   ];
   const open = '{"required": [], "hidden": [], "searchable": []}';
 
   for (final locale in [AppLocaleService.english, AppLocaleService.arabic]) {
-    testWidgets('${locale.languageCode}: six document pickers, no golden square',
+    testWidgets('${locale.languageCode}: five document pickers, no golden square',
         (tester) async {
       await captureOverflowLocations(() async {
         await _pump(tester, locale, open);
@@ -73,6 +72,8 @@ void main() {
           expect(key.tr, isNot(key), reason: '$key has no translation');
           expect(find.text(key.tr), findsOneWidget, reason: key);
         }
+        // The ration card is one-sided: no back-side picker is offered.
+        expect(find.text('reg_ration_card_photo_back'.tr), findsNothing);
         expect(find.text('reg_volunteer_golden_square_photo'.tr), findsNothing);
       });
       Get.reset();

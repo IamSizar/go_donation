@@ -466,7 +466,7 @@ func (h *AdminStatusHandler) notifyDonationDecision(ctx context.Context, donatio
 	var raised, goal string
 	err := h.Pool.QueryRow(ctx, `
 		SELECT d.user_id, d.amount,
-		       COALESCE(c.title,         'general donation'),
+		       COALESCE(c.title,         ''),
 		       COALESCE(c.raised_amount, '0'),
 		       COALESCE(c.goal_amount,   '0')
 		  FROM donations d
@@ -522,7 +522,7 @@ func (h *AdminStatusHandler) notifyDonationPaymentDecision(ctx context.Context, 
 	var campaignName string
 	err := h.Pool.QueryRow(ctx, `
 		SELECT d.user_id, d.amount,
-		       COALESCE(c.title, 'general donation')
+		       COALESCE(c.title, '')
 		  FROM donations d
 		  LEFT JOIN campaigns c ON c.id = d.campaign_id
 		 WHERE d.id = $1`,

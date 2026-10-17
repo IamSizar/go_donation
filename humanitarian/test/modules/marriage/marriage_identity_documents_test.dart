@@ -60,12 +60,11 @@ void main() {
     'reg_volunteer_residence_card_photo',
     'reg_residence_card_photo_back',
     'reg_volunteer_ration_card_photo',
-    'reg_ration_card_photo_back',
   ];
 
   for (final locale in [AppLocaleService.english, AppLocaleService.arabic]) {
     testWidgets(
-      '${locale.languageCode}: six document pickers, no golden square',
+      '${locale.languageCode}: five document pickers, no golden square',
       (tester) async {
         await captureOverflowLocations(() async {
           await _pump(tester, locale, _rules);
@@ -74,6 +73,8 @@ void main() {
             expect(key.tr, isNot(key), reason: '$key has no translation');
             expect(find.text(key.tr), findsOneWidget, reason: key);
           }
+          // The ration card is one-sided: no back-side picker is offered.
+          expect(find.text('reg_ration_card_photo_back'.tr), findsNothing);
           expect(find.text('marriage_golden_square'.tr), findsNothing);
           // ID + residence require both sides, ration card the front only -> five markers.
           expect(find.text('*'), findsNWidgets(5));

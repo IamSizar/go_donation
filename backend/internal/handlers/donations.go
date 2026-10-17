@@ -269,7 +269,7 @@ func (h *DonationsHandler) notifyDonorOfSubmission(
 	if amountPtr != nil {
 		amount = *amountPtr
 	}
-	campaignName := "general donation"
+	campaignName := ""
 	if campaignID != nil {
 		var title string
 		if err := h.Notifier.Pool.QueryRow(bg,
@@ -380,7 +380,7 @@ func (h *DonationsHandler) Cancel(c *gin.Context) {
 	// Fire a confirmation notification to the donor (4 languages). Best-effort
 	// — a notification failure shouldn't fail the cancel response.
 	if h.Notifier != nil {
-		campaignName := "general donation"
+		campaignName := ""
 		if campaignID != nil {
 			var title string
 			if err := h.Notifier.Pool.QueryRow(c.Request.Context(),

@@ -1735,12 +1735,6 @@ class _MarriageFormScreenState extends State<MarriageFormScreen> {
               (u) => _rationCardUrl = u,
               requiredRule: 'ration_card_photo',
             ),
-            _attachmentTile(
-              'ration_card_photo_back',
-              'reg_ration_card_photo_back',
-              _rationCardBackUrl,
-              (u) => _rationCardBackUrl = u,
-            ),
           ],
           if (!_hidden.contains('graduation_cert'))
             _attachmentTile(

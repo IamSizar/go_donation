@@ -261,7 +261,6 @@ export const USER_PROFILE_GROUPS: ProfileGroup[] = [
       f('ration_card_photo_path', BENE_VOL, 'photo'),
       // Volunteer registration asks each card front AND back (migrations 127,
       // 138); these back columns were stored but never declared here.
-      f('ration_card_photo_back_path', VOL, 'photo'),
       f('residence_card_photo_path', VOL, 'photo'),
       f('residence_card_photo_back_path', VOL, 'photo'),
       f('passport_photo_path', VOL, 'photo'),
