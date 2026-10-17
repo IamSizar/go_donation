@@ -218,7 +218,7 @@ export default function DonationsPage() {
       // WHICH. A worded tag rather than a colour: the stripe already exists
       // and cannot do this job — see lib/needsAction.ts for the two reasons,
       // the sharper being that a failed payment paints a counted row RED.
-      cell: (d) => <IdWithNeedsAction id={d.id} row={d as unknown as Record<string, unknown>} table="donations" />,
+      cell: (d) => <IdWithNeedsAction id={d.id} code={d.reference_number} row={d as unknown as Record<string, unknown>} table="donations" />,
     },
     {
       key: 'ref',

@@ -14,7 +14,7 @@ import (
 
 // DonationCodesHandler manages the per-section transaction-code namespaces (#14):
 // list the sections and edit each section's code prefix. Reference numbers are
-// then issued as {PREFIX}-{seq} per section (e.g. CAM-000042).
+// then issued as {PREFIX}{seq} per section (e.g. Z1, Z2).
 type DonationCodesHandler struct {
 	Store *sectioncodes.Store
 }

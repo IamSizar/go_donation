@@ -218,7 +218,7 @@ export default function MediaPage() {
 
 
   const columns: Column<MediaPost>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id, 'W')}</strong> },
     {
       key: 'media',
       header: '',

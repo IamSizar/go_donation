@@ -140,7 +140,7 @@ export default function CommunityPage() {
   }
 
   const columns: Column<CommunityEntry>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id, 'W')}</strong> },
     {
       key: 'name', header: t('col.name'), cell: (e) => (
         <LocalizedCell row={e} field="name" locale={locale} />

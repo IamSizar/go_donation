@@ -22,7 +22,6 @@ type Draft = { prefix: string; phone: string; enabled: boolean }
 const KIND_ORDER = ['general', 'campaign', 'sponsorship', 'in_kind', 'operational']
 const PREFIX_RE = /^[A-Z0-9]{1,16}$/
 
-const pad6 = (n: number) => String(n).padStart(6, '0')
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '')
 
 export default function DonationCodesPage() {
@@ -119,7 +118,7 @@ export default function DonationCodesPage() {
       {!loading &&
         ordered.map((c) => {
           const draft = drafts[c.kind] ?? { prefix: '', phone: '', enabled: true }
-          const preview = `${(draft.prefix || '—').toUpperCase()}-${pad6(c.next_seq)}`
+          const preview = `${(draft.prefix || '—').toUpperCase()}${c.next_seq}`
           return (
             <div className="card" key={c.kind}>
               <h3>{kindLabel(c.kind)}</h3>

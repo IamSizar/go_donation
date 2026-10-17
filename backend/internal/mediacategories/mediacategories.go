@@ -10,9 +10,10 @@ import (
 	"regexp"
 	"strings"
 
-	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/karam-flutter/humanitarian-backend/internal/sectioncodes"
 )
 
 // Category is one media category with its 4-language display names.
@@ -173,8 +174,7 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 }
 
 // NextActivityCode issues the next Activity Code for a category ("Post
-// Information": a code identifying the post and its category, e.g.
-// HUM-000123). The prefix and sequence live on the category row, so a
+// Information": a short code such as W1, W2, W3). The prefix and sequence live on the category row, so a
 // category added from the Admin Panel gets its own namespace with no code
 // change.
 //
@@ -189,21 +189,17 @@ func (s *Store) NextActivityCode(ctx context.Context, q Querier, categorySlug st
 		return "", nil
 	}
 	var prefix string
-	var seq int64
 	err := q.QueryRow(ctx,
-		`UPDATE media_categories
-		    SET next_seq = next_seq + 1
-		  WHERE slug = $1
-		  RETURNING COALESCE(NULLIF(code_prefix, ''), 'ACT'), next_seq - 1`,
+		`SELECT COALESCE(NULLIF(code_prefix, ''), 'W') FROM media_categories WHERE slug = $1`,
 		slug,
-	).Scan(&prefix, &seq)
+	).Scan(&prefix)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s-%06d", prefix, seq), nil
+	return sectioncodes.NextForPrefix(ctx, q, prefix)
 }
 
 // Querier is the small subset of pgx satisfied by both *pgxpool.Pool and

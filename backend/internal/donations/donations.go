@@ -437,7 +437,7 @@ func sectionLabelAr(kind string) string {
 	}
 }
 
-// nextReference returns the next namespaced code for kind (e.g. CAM-000042),
+// nextReference returns the next namespaced code for kind (e.g. Z1, Z2),
 // falling back to the legacy DON-YYYYMMDD-HEX format when no namespace store is
 // wired or the kind has no config row. Pass the donation's tx as q so a
 // consumed number rolls back with a failed donation.

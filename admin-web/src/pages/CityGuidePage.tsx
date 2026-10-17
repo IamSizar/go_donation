@@ -285,7 +285,7 @@ export default function CityGuidePage() {
   const showAll = () => { setOnlyMissingCoords(false); sel.clear() }
 
   const columns: Column<CommunityEntry>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (e) => <strong>{fmtId(e.id, 'W')}</strong> },
     {
       key: 'name', header: t('cityGuide.col_place'), cell: (e) => (
 <LocalizedCell row={e} field="name" locale={locale} dir="rtl" />

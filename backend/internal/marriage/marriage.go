@@ -459,11 +459,12 @@ func (s *Store) Insert(ctx context.Context, userID int64,
 	default:
 		visibilityLevel = "employee_only"
 	}
-	rh, err := randHex(3)
+	// Short sequential code from the marriage letter (A1, A2, …), shared with
+	// the subscription-payment codes so none repeats.
+	code, err := sectioncodes.NextForPrefix(ctx, s.Pool, "A")
 	if err != nil {
 		return 0, "", err
 	}
-	code := "M-" + time.Now().UTC().Format("20060102") + "-" + strings.ToUpper(rh)
 	var id int64
 	err = s.Pool.QueryRow(ctx, `
 		INSERT INTO marriage_profiles

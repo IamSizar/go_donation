@@ -10,7 +10,7 @@
 // of lib/needsAction.ts. Short version — nothing says what amber means, and a
 // failed payment repaints a counted donation red, so colour can never be a
 // reliable index of the badge.
-import { fmtId } from '../lib/formatId'
+import { fmtId, type SectionLetter } from '../lib/formatId'
 import { useI18n } from '../lib/i18n'
 import { needsAction, type NeedsActionTable } from '../lib/needsAction'
 
@@ -36,12 +36,30 @@ export function NeedsActionTag({
   )
 }
 
+/** Which TAWAZN letter each badged list's ids carry. */
+const LETTER_BY_TABLE: Record<NeedsActionTable, SectionLetter> = {
+  donations: 'Z',
+  sponsorships: 'Z',
+  in_kind_donations: 'Z',
+  beneficiary_cases: 'Z',
+  beneficiary_project_requests: 'Z',
+  marketplace_orders: 'N',
+  marriage_profiles: 'A',
+  support_tickets: 'W',
+  volunteer_applications: 'W',
+  volunteer_mission_signups: 'W',
+  users: 'T',
+}
+
 export default function IdWithNeedsAction({
   id,
   row,
   table,
+  code,
 }: {
   id: number | string
+  /** A short code already issued to the row (Z3, N7 …); shown instead of the raw id. */
+  code?: string | null
   /** The whole row — the rule reads whichever status column its table uses. */
   row: Record<string, unknown> | null | undefined
   /** Which badge's rule applies. Keyed by the table pending_counts.go reads. */
@@ -49,7 +67,7 @@ export default function IdWithNeedsAction({
 }) {
   return (
     <span className="id-with-flag">
-      <strong>{fmtId(id)}</strong>
+      <strong>{code && /^[A-Z]\d+$/.test(code) ? `\u2066#${code}\u2069` : fmtId(id, LETTER_BY_TABLE[table] ?? 'T')}</strong>
       <NeedsActionTag row={row} table={table} />
     </span>
   )

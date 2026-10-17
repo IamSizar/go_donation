@@ -937,3 +937,18 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 **Fixed:** only the open page's sidebar item is highlighted; the parent group no longer looks selected together with a child (we checked on Push and Users).
 
+
+## 92. Section identifying codes: short, clear, auto-generated sequential codes — one letter per section taken from TAWAZN (Z1, Z2, Z3…) instead of long codes like COP00102.
+
+**Status:** ✅ Fixed
+
+**Fixed:** every new code is now one letter followed by an automatic running number:
+- **T** accounts (unchanged).
+- **Z** contributions and cases: Z1, Z2, Z3…, one shared counter across all contribution types so a code is never issued twice.
+- **N** shop purchases.
+- **A** marriage.
+- **W** every other section (Our Work, projects, achievements, and so on).
+
+The same code appears in the dashboard (ID and reference columns) and in the app. Each section's letter can be changed from «Transaction codes» in the dashboard. Codes issued earlier stay as they are; only new ones are short.
+
+![](round2_screens/92/hi_donations_short_codes.png)

@@ -168,7 +168,7 @@ export default function PartnersPage() {
 
 
   const columns: Column<Partner>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id, 'W')}</strong> },
     {
       key: 'logo',
       header: '',

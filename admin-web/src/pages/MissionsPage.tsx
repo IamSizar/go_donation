@@ -234,7 +234,7 @@ export default function MissionsPage() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<AdminMission>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (m) => <strong>{fmtId(m.id, 'W')}</strong> },
     {
       key: 'title',
       header: t('col.mission'),

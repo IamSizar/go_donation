@@ -137,7 +137,7 @@ export default function NotificationsPage() {
   )
 
   const columns: Column<AdminNotification>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (n) => <strong>{fmtId(n.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (n) => <strong>{fmtId(n.id, 'W')}</strong> },
     {
       key: 'target', header: t('col.target'),
       cell: (n) =>

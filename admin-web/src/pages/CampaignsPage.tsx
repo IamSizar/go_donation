@@ -212,7 +212,7 @@ export default function CampaignsPage() {
   const closeModal = () => { setEditing(null); setCreating(false) }
 
   const columns: Column<AdminCampaign>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (c) => <strong>{fmtId(c.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (c) => <strong>{fmtId(c.id, 'Z')}</strong> },
     {
       key: 'title',
       header: t('col.title'),

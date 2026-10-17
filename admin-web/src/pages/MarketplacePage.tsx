@@ -310,7 +310,7 @@ function ProductsTab() {
 
 
   const columns: Column<Product>[] = [
-    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '60px', cell: (p) => <strong>{fmtId(p.id, 'N')}</strong> },
     {
       key: 'img',
       header: '',

@@ -1187,7 +1187,7 @@ func (h *AdminCreateHandler) Donation(c *gin.Context) {
 		dtype = v
 	}
 	// #14 — when the admin didn't supply a reference, issue this section's next
-	// namespaced code (e.g. CAM-000042) instead of leaving it NULL.
+	// namespaced code (e.g. Z1, Z2) instead of leaving it NULL.
 	var reference any = optStringOrNil(req.ReferenceNumber)
 	if (req.ReferenceNumber == nil || strings.TrimSpace(*req.ReferenceNumber) == "") && h.Codes != nil {
 		if code, ok, genErr := h.Codes.NextReference(c.Request.Context(), h.Pool, kind); genErr == nil && ok {

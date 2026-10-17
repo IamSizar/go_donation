@@ -1,6 +1,7 @@
 // Package sectioncodes manages per-section donation transaction-code namespaces
 // (#14): each donation_kind has its own prefix and an independent running
-// sequence, producing references like CAM-000042. Prefixes are admin-editable;
+// sequence, producing short references like Z1, Z2, Z3 (sections that share a
+// letter share one counter). Prefixes are admin-editable;
 // numbers are issued atomically.
 package sectioncodes
 
@@ -47,8 +48,8 @@ func New(pool *pgxpool.Pool) *Store { return &Store{Pool: pool} }
 // List returns every section's code config, ordered by kind.
 func (s *Store) List(ctx context.Context) ([]SectionCode, error) {
 	rows, err := s.Pool.Query(ctx,
-		`SELECT kind, prefix, next_seq, COALESCE(notify_phone, ''), (notify_enabled = 1), updated_at
-		   FROM donation_section_codes ORDER BY kind`)
+		`SELECT d.kind, d.prefix, COALESCE(c.next_seq, 1), COALESCE(d.notify_phone, ''), (d.notify_enabled = 1), d.updated_at
+		   FROM donation_section_codes d LEFT JOIN code_sequences c ON c.prefix = d.prefix ORDER BY d.kind`)
 	if err != nil {
 		return nil, err
 	}
@@ -115,21 +116,38 @@ func (s *Store) GetNotify(ctx context.Context, kind string) (phone string, enabl
 // fall back to its legacy format.
 func (s *Store) NextReference(ctx context.Context, q Querier, kind string) (code string, ok bool, err error) {
 	var prefix string
-	var seq int64
 	scanErr := q.QueryRow(ctx,
-		`UPDATE donation_section_codes
-		    SET next_seq = next_seq + 1, updated_at = CURRENT_TIMESTAMP
-		  WHERE kind = $1
-		  RETURNING prefix, next_seq - 1`,
-		kind,
-	).Scan(&prefix, &seq)
+		`SELECT prefix FROM donation_section_codes WHERE kind = $1`, kind,
+	).Scan(&prefix)
 	if errors.Is(scanErr, pgx.ErrNoRows) {
 		return "", false, nil
 	}
 	if scanErr != nil {
 		return "", false, scanErr
 	}
-	return fmt.Sprintf("%s-%06d", prefix, seq), true, nil
+	code, err = NextForPrefix(ctx, q, prefix)
+	if err != nil {
+		return "", false, err
+	}
+	return code, true, nil
+}
+
+// NextForPrefix atomically consumes the next number of a prefix and returns the
+// short code ("Z1", "Z2", …). Every section that uses the same prefix draws
+// from the same counter, so a code is never issued twice. The row is created on
+// first use, so a prefix an admin has just typed in works straight away.
+func NextForPrefix(ctx context.Context, q Querier, prefix string) (string, error) {
+	var seq int64
+	err := q.QueryRow(ctx,
+		`INSERT INTO code_sequences (prefix, next_seq) VALUES ($1, 2)
+		 ON CONFLICT (prefix) DO UPDATE SET next_seq = code_sequences.next_seq + 1
+		 RETURNING next_seq - 1`,
+		prefix,
+	).Scan(&seq)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%d", prefix, seq), nil
 }
 
 // ArrivalNotifier issues a Transaction Code for a section and fires the

@@ -79,7 +79,7 @@ export default function WalletTopupsPage() {
   }
 
   const columns: Column<TopUpRequest>[] = [
-    { key: 'id', header: t('col.id'), width: '70px', cell: (r) => <strong>{fmtId(r.id)}</strong> },
+    { key: 'id', header: t('col.id'), width: '70px', cell: (r) => <strong>{fmtId(r.id, 'N')}</strong> },
     {
       key: 'user',
       header: t('col.user'),
