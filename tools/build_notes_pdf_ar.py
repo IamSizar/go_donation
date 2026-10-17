@@ -36,13 +36,15 @@ def img_tag(path, alt=''):
         return f'<div class="missing">[missing image: {html.escape(path)}]</div>'
     if full not in _img_cache:
         im = Image.open(full).convert('RGB')
-        w = 460
+        wide = im.width > im.height
+        w = 1800 if wide else 1100
         if im.width > w:
             im = im.resize((w, int(im.height * w / im.width)), Image.LANCZOS)
         buf = io.BytesIO()
-        im.save(buf, 'JPEG', quality=78)
-        _img_cache[full] = base64.b64encode(buf.getvalue()).decode()
-    return f'<img src="data:image/jpeg;base64,{_img_cache[full]}" alt="{html.escape(alt)}">'
+        im.save(buf, 'JPEG', quality=90, optimize=True)
+        _img_cache[full] = (base64.b64encode(buf.getvalue()).decode(), 'wide' if wide else 'tall')
+    data, kind = _img_cache[full]
+    return f'<img class="{kind}" src="data:image/jpeg;base64,{data}" alt="{html.escape(alt)}">'
 
 
 def inline(t):
@@ -68,6 +70,18 @@ def body_to_html(lines):
                 rows.append([c.strip() for c in lines[i].strip().strip('|').split('|')])
                 i += 1
             rows = [r for r in rows if not all(re.fullmatch(r':?-{2,}:?', c) for c in r)]
+            if any('![' in c for r in rows for c in r):
+                labels = rows[0] if not any('![' in c for c in rows[0]) else []
+                data_rows = rows[1:] if labels else rows
+                out.append('<div class="gal">')
+                for r in data_rows:
+                    for ci, c in enumerate(r):
+                        if not c.strip():
+                            continue
+                        cap = f'<figcaption>{inline(labels[ci])}</figcaption>' if ci < len(labels) and labels[ci].strip() else ''
+                        out.append(f'<figure>{inline(c)}{cap}</figure>')
+                out.append('</div>')
+                continue
             out.append('<table class="shots">')
             for ri, r in enumerate(rows):
                 tag = 'th' if ri == 0 and not any('![' in c for c in r) else 'td'
@@ -80,6 +94,13 @@ def body_to_html(lines):
                 out.append('<li dir="rtl">' + inline(re.sub(r'^\s*[-*] ', '', lines[i])) + '</li>')
                 i += 1
             out.append('</ul>')
+            continue
+        if re.fullmatch(r'(\s*!\[[^\]]*\]\([^)]+\)\s*)+', ln):
+            imgs = []
+            while i < len(lines) and re.fullmatch(r'(\s*!\[[^\]]*\]\([^)]+\)\s*)+', lines[i]):
+                imgs.append(lines[i])
+                i += 1
+            out.append('<div class="gal">' + ''.join(f'<figure>{inline(x)}</figure>' for x in imgs) + '</div>')
             continue
         para = [ln]
         i += 1
@@ -140,6 +161,12 @@ p img { max-width: 48%; vertical-align: top; }
 code { background:#eee; padding: 0 4px; border-radius: 4px; font-size: 9.5pt; direction:ltr; unicode-bidi: embed; }
 ul { margin: 4px 0; padding-inline-start: 22px; }
 table.shots td { text-align:center; }
+.gal { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0; justify-content:flex-start; }
+.gal figure { margin:0; flex:0 0 auto; page-break-inside:avoid; break-inside:avoid; }
+.gal figure:has(img.wide) { flex:1 1 100%; }
+.gal img.wide { width:100%; max-width:100%; }
+.gal img.tall { width:auto; max-width:100%; max-height:150mm; }
+.gal figcaption { font-size:9.5pt; color:#555; text-align:center; margin-top:3px; }
 """
 
 

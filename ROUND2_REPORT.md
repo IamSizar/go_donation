@@ -3,14 +3,13 @@
 Source: client PDF «الملاحظات» (20 pages, 2026-10-16). Every point in PDF order.
 Legend: ✅ fixed & verified · ⏳ waiting (new feature — needs the original scope) · ❌ not fixed (reason given) · ℹ️ info only
 
-All testing on a local copy (local server + test database + iPhone simulator). Nothing was changed on the live system.
+All changes were tested on a separate test copy. Nothing was changed on the live system.
 
 ## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options. (Umbrella — concrete work is #47–#55.)
 
 **Status:** ✅ Fixed (summary of the whole round)
 
-**Fixed:** this is the umbrella point. The concrete de-cluttering was done screen by screen in the points below: shorter titles and removed duplicate/hero sentences (e.g. #62, #63, #65, #68, #71, #86), cleaner cards and sheets (#64, #68, #69), profile menu and dashboard tidy-ups, plus a sweep for cut-off words and misaligned text on every screen touched.
-
+**Fixed:** this is the general point. The de-cluttering was done screen by screen in the other points of this document: shorter titles, duplicate and long explanatory sentences removed, cleaner cards and sheets, a tidier profile menu and dashboard, plus a pass over every screen touched for cut-off words and misaligned text. The donation flow is now a single organized screen with all its fields kept.
 
 ## 2. **Where are attendance / activity details in app + dashboard?** (a) daily attendance/leave log for staff & volunteers; (b) participant registration form per activity/campaign; (c) aid-delivery documentation — volunteer/staff uploads report + proof (photo or signature).
 
@@ -24,8 +23,8 @@ All testing on a local copy (local server + test database + iPhone simulator). N
 
 **Not available yet:** an attendance log for staff members, and uploading the delivery proof (photo or signature) from the app by a volunteer or staff member.
 
-![](round2_screens/02/1_volunteer_checkin_checkout.jpg)
-![](round2_screens/02/2_aid_receipts.jpg)
+![](round2_screens/02/hi_volunteer_board.png)
+![](round2_screens/02/hi_receipts.png)
 
 ## 3. **Group chats management:** how does the supervisor create custom group rooms from the dashboard: staff-only, volunteers-only, staff + donor + some beneficiaries, staff + suitor + fiancée (+ maybe her guardian).
 
@@ -35,10 +34,10 @@ Dashboard → التواصل والدعم → **المجموعات الحوار�
 - **مجموعة فريق** (real names) — staff-only room ✅, volunteers room ✅
 - **مجموعة بأسماء مستعارة** (aliases, contact details hidden) — staff + donor + beneficiaries ✅
 - Khotba (suitor + girl + staff): request arrives in الفعاليات → **طلبات الفعاليات** → «موافقة» → supervised chat opens in **محادثات الفعاليات** ✅
-- Adding the girl's guardian to the khotba chat: not possible today → ⏳ new feature (see #4).
+- Adding the girl's guardian to the khotba chat: not possible today → ⏳ new feature.
 
 ![](round2_screens/03/1_create_dialog_team.jpg)
-![](round2_screens/03/2_groups_list.jpg)
+![](round2_screens/03/hi_groups_list.png)
 ![](round2_screens/03/3_event_request_approve.jpg)
 ![](round2_screens/03/4_event_chat_opened.jpg)
 
@@ -66,7 +65,6 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 
 **Note:** the khotba chat (محادثات الفعاليات) has open / archive / delete but no add / remove member, so the girl's guardian can't be added → ⏳ new feature, waiting for scope.
 
-Files: `admin-web/src/lib/groupAlias.ts` (new), `components/chatGroups/GroupRoster.tsx`, `GroupMessages.tsx`, `GroupComposer.tsx`, `components/AskDialog.tsx`, `lib/dialogs.tsx`, `lib/chatGroupsApi.ts`, locales ar/en; tests updated (40/40 pass).
 
 ## 5. **Calling feature:** voice/video calls in all private + group chats for all roles (staff, volunteer, donor, beneficiary, general user, events/khotba), supervisor can switch calling on/off entirely.
 
@@ -79,9 +77,9 @@ Files: `admin-web/src/lib/groupAlias.ts` (new), `components/chatGroups/GroupRost
 
 **Status:** ✅ Already possible — made simpler
 
-- A volunteer (once approved) messages the team instantly: Messages → «التواصل مع الدعم» now opens the volunteers' support chat in **one tap** (no popup, no explanation screens — see #56).
+- A volunteer (once approved) messages the team instantly: Messages → «التواصل مع الدعم» now opens the volunteers' support chat in **one tap** (no popup, no explanation screens).
 - Staff talk to each other in the dashboard under «محادثة الموظفين».
-- Staff can put volunteers and staff in a team room (المجموعات الحوارية → «مجموعة فريق», see #3), and pause / archive / delete stay with the admin (see #4).
+- Staff can put volunteers and staff in a team room (المجموعات الحوارية → «مجموعة فريق»), and pause / archive / delete stay with the admin.
 
 **Note:** volunteers messaging *each other* directly (without staff) is not open — that was a deliberate earlier decision (members only talk through supervised rooms). If the client wants that, it is a new feature → ask first.
 
@@ -178,7 +176,7 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 - Visitor home now shows the real public content: browse by category, featured campaigns, latest news / our work (the store and the khotba posts were already open).
 - City guide opens for visitors (viewing only — adding a place still needs an account).
 - Visitors can open a support chat and send support tickets.
-- Safety kept: a visitor can only talk in a **support** chat with **staff** — every other chat stays closed to visitors (new server check + tests).
+- Safety kept: a visitor can only talk in a **support** chat with **staff** — every other chat stays closed to visitors (new check on the server).
 - Small clean-ups seen on the way: the visitor's name shows as «زائر» (was "Guest" in English); the 👋 emoji was removed from the empty chat text.
 
 Before → After:
@@ -189,7 +187,7 @@ Before → After:
 ![](round2_screens/16-19/after_city_guide_open.png)
 ![](round2_screens/16-19/after_guest_support_chat.png)
 
-**Note:** on the local test copy the city-guide map shows an «API KEY REQUIRED» watermark from the map provider (CartoDB). To check on the live app; if it shows there too, the map needs a provider key.
+**Note:** on the test copy the city-guide map shows a watermark from the map provider. To check on the live app; if it shows there too, the map needs a provider key.
 
 ## 17. Visitor «ترقية الحساب»: error when filling data, English message "Failed to send verification code".
 
@@ -221,7 +219,7 @@ Long hint («سنرسل لك رمزاً لمرة واحدة…») → **«يرج
 
 **Status:** ✅ Fixed
 
-The dark ring around the logo was too big. Ring 168 → 136, logo 116 → 120 on a white disc with a soft shadow, so the logo stands out. The same logo is now used on the launch screen too (see #24).
+The dark ring around the logo was too big. Ring 168 → 136, logo 116 → 120 on a white disc with a soft shadow, so the logo stands out. The same logo is now used on the launch screen too.
 
 Before → After:
 
@@ -268,7 +266,6 @@ Launch screen → welcome screen:
 ![](round2_screens/20-24/after_launch.png)
 ![](round2_screens/20-24/after_welcome.png)
 
-Video of the hand-over: `round2_screens/20-24/launch.mp4`
 
 **Note:** the iPhone simulator kept an old cached launch picture for the first frame; on a fresh install on a real phone the new one shows.
 
@@ -384,7 +381,7 @@ Before → After:
 ![](round2_screens/34-38/after_role_dropdown.png)
 ![](round2_screens/34-38/after_volunteer_selected.png)
 
-**Waiting (new feature):** a fourth account type **«مستخدم عام»** as the default does not exist in the system today — the server only accepts donor / beneficiary / volunteer. Adding it means a new account type in the app, the server and the dashboard (this is also #37 and #38). Waiting for the original scope before building it.
+**Waiting (new feature):** a fourth account type **«مستخدم عام»** as the default does not exist in the system today — the server only accepts donor / beneficiary / volunteer. Adding it means a new account type in the app, the server and the dashboard. Waiting for the original scope before building it.
 
 ## 36. Remove every «(اختياري)»; one sentence at the top: «الحقول المصحوبة بعلامة حمراء إجبارية».
 
@@ -409,7 +406,7 @@ The rights the client describes (browse everything, message support, but no khot
 
 **Scope:** Needs the «general user» account type, which is not in the proposal (§6).
 
-A dashboard section for general users only makes sense once that account type exists. (The general list of all accounts is already under المستخدمون; #81 covers separating the lists per role.)
+A dashboard section for general users only makes sense once that account type exists. (The general list of all accounts is already under المستخدمون)
 
 ## 39. Filter tiles (الكل / غير مقروء / مقروء) unequal; «غير مقروء» wraps badly → equal size, one line or two stacked centered words.
 
@@ -424,7 +421,7 @@ They are also the filter itself: tap a tile to show that list (the selected tile
 
 **Status:** ✅ Fixed
 
-«مسح N مقروءة» is now a full button in the centre, with a larger icon and text (see the screenshot under #39).
+«مسح N مقروءة» is now a full button in the centre, with a larger icon and text (see the screenshot).
 
 ## 41. Category/Type dropdowns change look when a value is picked; no linkage → stable design; Type list filtered by chosen Category.
 
@@ -442,7 +439,7 @@ Example: Category «دفع» → the Type list shows only «شحن المحفظ�
 **Status:** ✅ Fixed
 
 The list is sorted strictly by date and time, newest first. Before, urgent and payment notifications were pinned to the top, which made the order look random.
-Screenshot under #39: 5 minutes → 2 hours → 1 day.
+Screenshot: 5 minutes → 2 hours → 1 day.
 
 ## 43. Where is "mark all as read"?
 
@@ -481,7 +478,7 @@ The button already existed in the green box at the top, but its label was just �
 
 The explanation line under each title was removed (style rule).
 
-Note: a real finger-scratch effect is part of #44 (an addition, ⏳ waiting for scope).
+Note: a real finger-scratch effect is part of the same addition (an addition, ⏳ waiting for scope).
 
 | Before | After |
 |---|---|
@@ -515,19 +512,19 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ✅ Fixed — inside the one screen (see #47)
+**Status:** ✅ Fixed — inside the one screen
 
 **Fixed:** balance transfer is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ✅ Fixed — inside the one screen (see #47)
+**Status:** ✅ Fixed — inside the one screen
 
 **Fixed:** direct cash is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ✅ Fixed — inside the one screen (see #47)
+**Status:** ✅ Fixed — inside the one screen
 
 **Fixed:** in-kind is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
@@ -549,7 +546,7 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 **Found:** «sent and pending» is correct by design (an admin confirms the payment and approves it). The real bug was different: any gift of 1,000,000 IQD or more was saved with an EMPTY amount and still answered "success", so it showed as 0 for the donor and in the dashboard.
 
-**Fixed:** the limit is now 1,000,000,000 IQD, and an amount that is not usable is refused with a clear message instead of saving an empty row. The pending / approval / wallet logic is unchanged. Test added.
+**Fixed:** the limit is now 1,000,000,000 IQD, and an amount that is not usable is refused with a clear message instead of saving an empty row. The pending / approval / wallet logic is unchanged.
 
 **Check on the live system:** look for donations with an empty amount.
 
@@ -583,13 +580,13 @@ Before → After:
 **Status:** ✅ Fixed
 
 The English ticket text came from the app itself: the events-services request built "Event service request: Hall booking / Name: … / Phone: …". It now writes Arabic: **«طلب خدمة فعالية: …»**, «الاسم:», «الهاتف:», and the ticket is routed to the events support desk. (Old tickets already saved keep their old text.)
-Also: chat sender "Guest" now shows as «زائر»; upgrade-screen errors are Arabic (see #17).
+Also: chat sender "Guest" now shows as «زائر»; upgrade-screen errors are Arabic.
 
 ## 58. Staff & volunteers: direct instant messaging, no friction. (↪ with #6)
 
-**Status:** ✅ Same as #6 (merged)
+**Status:** ✅ Fixed — covered by the same change as the staff and volunteer messaging
 
-See #6: volunteers reach staff in one tap; staff ↔ staff via «محادثة الموظفين»; team rooms for staff + volunteers.
+Volunteers reach staff — volunteers reach staff in one tap; staff ↔ staff via «محادثة الموظفين»; team rooms for staff + volunteers.
 
 ## 59. Beneficiaries / khotba / general user / visitor: start with a support ticket; staff replies; staff can convert the ticket into a chat with specific people; can close it; ticket feature stays.
 
@@ -598,8 +595,8 @@ See #6: volunteers reach staff in one tap; staff ↔ staff via «محادثة ا
 **Scope:** Part exists (see below). Turning a ticket into a chat is an addition: §18 only lists contacting support from inside the app.
 
 What works today:
-- Beneficiaries / visitors / anyone can open a support **ticket** (and visitors now too — #16), and staff answer it in the dashboard (الدعم → Reply). Staff can mark it open / in progress / resolved / **closed**.
-- Staff can open a supervised room with specific people (المجموعات الحوارية, #3).
+- Beneficiaries / visitors / anyone can open a support **ticket** (and visitors now too), and staff answer it in the dashboard (الدعم → Reply). Staff can mark it open / in progress / resolved / **closed**.
+- Staff can open a supervised room with specific people (المجموعات الحوارية).
 
 Missing (new feature): a button on the ticket that converts it directly into a chat with chosen people. Waiting for scope.
 
@@ -612,23 +609,23 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 Exists and checked in the code:
 - Rooms between donor / beneficiary are opened **only by staff** (connect request → staff approval, or staff creates the room).
 - Members see only a nickname («مانح 1», «مستحق 1») — **no real names, no phone numbers**; a message containing a phone number or email is **blocked** automatically and logged.
-- Staff can pause / archive / delete (#4).
+- Staff can pause / archive / delete.
 
 Not in the system yet (new features → waiting for scope):
 1. Message **encryption** at rest (messages are stored as normal text today).
 2. Sending **files / photos** in chats (today nobody can — text only; the client wants staff only).
-3. Adding the girl's **guardian** to the khotba chat (see #3/#4).
+3. Adding the girl's **guardian** to the khotba chat.
 
 ## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete. (Related #4)
 
-**Status:** ✅ Exists (tested in #4) · ➕ the rest is an addition — not in the original scope (put aside)
+**Status:** ✅ Exists · ➕ the rest is an addition — not in the original scope (put aside)
 
 **Scope:** Pause / stop modes and Block are additions: not in the proposal.
 
 - **Full stop**: «إغلاق المحادثة» — members can only read until staff reopen it. ✅
 - **Temporary pause where the client can still write**: simply leave the chat open — members never see "read" marks (the app has no read receipts for members), so staff can read without the client knowing. ✅
 - **Archive** ✅ · **Delete** ✅ (moves to trash, password-confirmed).
-- **Block** a person from a chat: not as a separate button today (staff can remove the member — «إزالة», #4 — or suspend the account). A dedicated "block" is a new feature → waiting for scope.
+- **Block** a person from a chat: not as a separate button today (staff can remove the member — «إزالة» — or suspend the account). A dedicated "block" is a new feature → waiting for scope.
 
 ## 62. City guide «إضافة نشاط»: no photo option; why lat/long fields (just attach GPS); submit button sits under the phone nav buttons → move it up.
 
@@ -640,7 +637,7 @@ Not in the system yet (new features → waiting for scope):
 - **Photos:** a «الصور» row where the user adds up to 6 photos (camera or gallery, with the resize / crop step). They upload only when the form is sent. Staff see them in the dashboard city-guide review.
 - **GPS:** the two number boxes are gone. One button, «تحديد موقعي», takes the phone's GPS (it says «تم تحديد الموقع» when done, with «إزالة الموقع» to undo). If location is off or refused, it says why in words.
 - **Submit button:** «إرسال للمراجعة» is now pinned at the bottom of the screen, clear of the phone's buttons, and always visible while the form scrolls.
-- **Server:** it now accepts the photos and keeps only paths its own upload endpoint issued (anything else is dropped), at most 6. Tests cover this.
+- **Server:** it now accepts the photos and keeps only photos uploaded through the app itself (anything else is dropped), at most 6.
 
 Checked end to end on the local copy: the suggestion arrived as «قيد المراجعة» with the GPS coordinates and the uploaded photo.
 
@@ -654,12 +651,11 @@ Checked end to end on the local copy: the suggestion arrived as «قيد الم�
 
 ## 63. Profile: logout button at the very bottom collides with phone nav buttons → move up.
 
-**Status:** ✅ Fixed (verified by a test; it could not be reproduced on screen)
+**Status:** ✅ Fixed (it could not be reproduced on screen)
 
-**Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. I could not see the overlap on my emulator (its navigation bar sits outside the app window), so the fix is proven by a test that simulates a 56-point bar.
+**Found:** the profile page ended with a flat 24 points of space and ignored the phone's system navigation bar. On Android phones that draw the app edge to edge, the bar overlaps the bottom of the screen, so the last row, «تسجيل الخروج», stopped underneath the buttons. The overlap does not show on every test device (some keep the navigation bar outside the app window), so the fix was checked by simulating a 56-point bar.
 
 **Fixed:** the page now clears the system inset plus a margin, so the logout row scrolls fully above the buttons. On phones with no inset nothing changes.
-- Test: with a 56-point bar the row ends 56 points higher than without; the same test fails on the old code (both gaps were identical).
 - On a real Android phone, scroll the profile page to the end and check: the logout row should sit clear above the buttons.
 
 ![](round2_screens/63/android-profile-bottom.png)
@@ -682,7 +678,7 @@ If the client wants the section editable (photos, custom text), that is a new fe
 
 ## 65. Store: selecting a product froze the page, cancel didn't respond, logout/login didn't fix; cart only appeared after several tries.
 
-**Status:** ✅ Fixed (the cause I could reproduce); the "froze for good" case needs your phone to confirm
+**Status:** ✅ Fixed (the cause that could be reproduced); the "froze for good" case needs your phone to confirm
 
 **Found:** tapping a product opens a sheet that covered most of the screen and could only be dismissed by swiping it down or tapping the dim strip above it. Nothing on it said so: no close button. After «إضافة» the sheet stayed open, and it hid the cart bar behind it, so the cart only showed up once the sheet was finally dismissed. That matches «selecting a product froze the page, cancel didn't respond, the cart only appeared after several tries». Logging out and back in doesn't help because it is not a stuck state, just a sheet with no visible exit.
 
@@ -690,7 +686,6 @@ If the client wants the section editable (photos, custom text), that is a new fe
 - A visible **✕** in the sheet's header (checked on iPhone and Android).
 - Once the product is in the cart the sheet shows **«عرض السلة · N عنصر»**, which closes it and opens the cart.
 - After closing, the cart bar («1 عنصر · 15,000 د.ع») is visible immediately.
-- Tests: the ✕ dismisses the sheet; no cart button when the cart is empty; the cart button appears after adding.
 
 **Could not reproduce:** a page that stays frozen with no way out at all. If it still happens on the client's phone, please send the phone model and what was on screen.
 
@@ -725,7 +720,6 @@ The wallet top-up works through the admin confirming the proof of transfer.
 - The title now shows in full (up to as many lines as it needs); the tag moved under the family line.
 - The explanation card was removed, so the filter chips and the profiles start straight after the title.
 - The three tags now read «حاجة عاجلة», «أولوية عالية», «دعم مستمر» (the existing «دعم مستقر» stays).
-- Tests: a long Arabic title is not ellipsised (fails on the old card), and every tag is Arabic.
 
 Note: the grey line under each tag («Monthly food basket…») is the case's own text typed in English by whoever created the case; it is data, not something the app translates.
 
@@ -784,15 +778,14 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Found:** Receipts, City Guide, Marriage meeting requests, Profile changes and Trash had no export; Partners, Campaigns, Community, Missions, Receipts and Trash had no date/time column.
 
-**Fixed:** every table now has an Export button and a stacked date + time column. The backend now returns the creation time for receipts, partners and campaigns (new migration 141 adds it for campaigns; old campaigns show «—»). Community now reads the admin list so it has the date too.
+**Fixed:** every table now has an Export button and a stacked date + time column. The system now returns the creation time for receipts, partners and campaigns (older campaigns show «—»). Community now reads the admin list so it has the date too.
 
-**Screenshots:** round2_screens/74/
-
+![](round2_screens/74/hi_city_guide.png)
 ## 75. Sticky table header in every section. (Round-1 #49021 did this — re-verify all pages.)
 
 **Status:** ✅ Verified — already works everywhere
 
-**Found:** the header is made sticky by one shared script that every table uses; no table has its own markup. Nothing overrides it and the existing test passes, so no change was needed.
+**Found:** the header is made sticky by one shared script that every table uses; no table has its own markup. Nothing overrides it, so no change was needed.
 
 ## 76. Unify the top bar design across all sections.
 
@@ -800,16 +793,15 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Fixed:** one shared page header on every section: title + count at the start, then search, filters, Export and «New» on the same row, one control height. Works in Arabic (mirrored) and light/dark.
 
-**Screenshots:** round2_screens/76/
-
+![](round2_screens/76/hi_users_head.png)
 ## 77. «حذف الحساب» moves INTO the user edit page, not the outside dropdown.
 
 **Status:** ✅ Fixed
 
 **Fixed:** «حذف الحساب» moved out of the row menu into a red Danger zone at the bottom of the account Edit window (Super-Admin only). The password confirmation is still required, and asked once.
 
-**Screenshots:** round2_screens/77/
-
+![](round2_screens/77/hi_row_menu.png)
+![](round2_screens/77/hi_edit_modal_bottom.png)
 ## 78. Account data parity: same fields/options when creating an account in the app, in the dashboard, or editing.
 
 **Status:** ✅ Fixed (with notes)
@@ -824,12 +816,11 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Status:** ✅ Fixed
 
-**Found:** the password endpoint worked, but dashboard sign-in uses a username and the Edit window had no username box, so staff accounts without one could never sign in.
+**Found:** saving the password worked, but dashboard sign-in uses a username and the Edit window had no username box, so staff accounts without one could never sign in.
 
-**Fixed:** Edit now has Username + New password in an Account section; saving a password on a staff account with no username is refused with a clear message. Username must be valid and unique. Tests sign in for real after setting a password.
+**Fixed:** Edit now has Username + New password in an Account section; saving a password on a staff account with no username is refused with a clear message. Username must be valid and unique.
 
-**Screenshots:** round2_screens/79/
-
+![](round2_screens/77/hi_edit_modal_bottom.png)
 ## 80. Supervisor permissions: where to assign roles to dashboard staff with per-section permissions?
 
 **Status:** ❓ Answered
@@ -863,8 +854,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Fixed:** search, filters, dates, Export and «New» sit on one row on desktop. On mid-size screens the controls wrap to a second line instead of being squeezed or cut; phones keep the stacked layout.
 
-**Screenshots:** round2_screens/84/
-
+![](round2_screens/76/hi_users_head.png)
 ## 85. Create-notification language tabs (EN / عربي / سوراني / باديني) don't translate anything; plus a language switch at the top — what are these for?
 
 **Status:** ✅ Clarified + fixed
@@ -873,24 +863,22 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Fixed:** the page now says this, marks empty tabs, shows the English fallback, and warns that a push banner goes in one language only.
 
-**Screenshots:** round2_screens/85/
-
+![](round2_screens/85/hi_push.png)
 ## 86. Dashboard font is bad too (e.g. «المدن والأقضية والنواحي», «الأقضية») — letters hard to read.
 
 **Status:** ✅ Fixed
 
 The dashboard used «Kurdfont» — a single-weight font, so every bold heading was a fake bold that smudged the letters («المدن والأقضية والنواحي», «الأقضية»). It now uses the same **Noto Sans Arabic** as the app (real weights), and letter-spacing is forced to zero for all Arabic text in the dashboard.
 
-![](round2_screens/08/after_dashboard_font.jpg)
+![](round2_screens/08/hi_dashboard.png)
 
 ## 87. Change password not working in edit account (↪ #79).
 
-**Status:** ✅ Fixed (same as #79)
+**Status:** ✅ Fixed
 
-**Fixed:** see #79 — the Edit window now has the username the sign-in needs.
+**Fixed:** the Edit window now has the username the sign-in needs.
 
-**Screenshots:** round2_screens/87/
-
+![](round2_screens/77/hi_edit_modal_bottom.png)
 ## 88. City guide: clicking the warning banner («...لا تظهر على خريطة التطبيق») doesn't jump to the offending entries.
 
 **Status:** ✅ Fixed
@@ -905,15 +893,14 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 **Fixed:** the Actions header is pinned above the others and the leftover rule is removed.
 
-**Screenshots:** round2_screens/89/
-
+![](round2_screens/74/hi_city_guide.png)
 ## 90. Sidebar notification counts: open the section and there's no badge/marker showing WHICH sub-item has the notifications.
 
 **Status:** ✅ Fixed (sidebar) / ➕ per-tab counts inside pages not done
 
 **Fixed:** each open sidebar section now shows a count badge on the exact sub-item that has pending items (e.g. Recipient 1, Volunteers 2, Notifications, Support).
 
-**Not done:** counts on the tabs inside a page (e.g. Beneficiaries status tabs) need new backend per-tab counts — put aside as an addition.
+**Not done:** counts on the tabs inside a page (e.g. Beneficiaries status tabs) need new per-tab counts — put aside as an addition.
 
 ## 91. Sidebar bug: two items look selected at once (المجموعات الحوارية + طلبات التواصل) while only one is open.
 
