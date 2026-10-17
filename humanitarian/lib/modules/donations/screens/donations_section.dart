@@ -6,9 +6,9 @@ import 'package:flutter_application_1/core/app_haptics.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/data/featured_campaigns.dart';
 import 'package:flutter_application_1/modules/dashboard/controllers/featured_campaigns_controller.dart';
-import 'package:flutter_application_1/modules/donations/models/donation_draft.dart';
 import 'package:flutter_application_1/modules/donations/screens/campaign_detail_screen.dart';
-import 'package:flutter_application_1/modules/donations/screens/donation_kind_screen.dart';
+import 'package:flutter_application_1/modules/donations/models/donation_channel.dart';
+import 'package:flutter_application_1/modules/donations/screens/continue_donation_screen.dart';
 import 'package:flutter_application_1/modules/donations/screens/my_donations_page.dart';
 import 'package:flutter_application_1/modules/donations/screens/saved_campaigns_screen.dart';
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
@@ -330,7 +330,8 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                   children: DonationsSection._quickAmounts.map((amount) {
                     final isSelected = amount == _selectedAmount;
                     return _DonationAmountChip(
-                      label: '${formatAmount(amount)} ${localizedCurrency('IQD')}',
+                      label:
+                          '${formatAmount(amount)} ${localizedCurrency('IQD')}',
                       isSelected: isSelected,
                       onTap: () {
                         AppHaptics.selection();
@@ -347,26 +348,22 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
                 paymentMethod: _selectedPaymentMethod,
                 onContinue: () {
                   AppHaptics.selection();
-                  // M3 — Continue no longer lands on checkout. It asks what
-                  // KIND of donation this is first, because two of the five
-                  // answers (goods, supporting the organization) do not go to
-                  // the money form at all, and the other three decide which
-                  // payment methods checkout may offer.
+                  // R2 #47 — one screen: the kind of donation is chosen on the
+                  // checkout itself instead of on a step of its own.
                   Get.to(
-                    () => DonationKindScreen(
-                      draft: DonationDraft(
-                        amount: _selectedAmount,
-                        campaignsId: _selectedCampaignId,
-                        optionTitle: selectedOption.title,
-                        optionSummary: selectedOption.summary,
-                        optionTypeLabel: selectedOption.typeLabel,
-                        optionSupportNote: selectedOption.supportNote,
-                        optionIcon: selectedOption.icon,
-                        optionColor:
-                            selectedOption.color ??
-                            AppThemeConfig.accent(context),
-                        paymentMethod: _selectedPaymentMethod,
-                      ),
+                    () => ContinueDonationScreen(
+                      amount: _selectedAmount,
+                      campaignsId: _selectedCampaignId,
+                      optionTitle: selectedOption.title,
+                      optionSummary: selectedOption.summary,
+                      optionTypeLabel: selectedOption.typeLabel,
+                      optionSupportNote: selectedOption.supportNote,
+                      optionIcon: selectedOption.icon,
+                      optionColor:
+                          selectedOption.color ??
+                          AppThemeConfig.accent(context),
+                      paymentMethod: _selectedPaymentMethod,
+                      channel: DonationChannel.cash,
                     ),
                   )?.then((submitted) {
                     if (!mounted) return;

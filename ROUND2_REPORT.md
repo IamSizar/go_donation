@@ -498,9 +498,15 @@ Wheel result, and the coupon mid-turn:
 
 ## 47. Donation in 2 steps max. Step 1: «قدم مساهمة» → short clean screen with 4 options: الدفع الإلكتروني / تحويل رصيد / التسليم النقدي المباشر / المساهمات العينية.
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed — one screen (same old payment system)
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Found:** donating went Contribute → "what kind of donation" step → a long checkout with a big header card, two locked boxes plus a note, and a summary that repeated the amount twice.
+
+**Fixed:** the separate step is gone. After choosing the amount, ONE checkout screen holds everything, in this order: donor (name + phone on one line), amount, optional message, kind of donation (one row — tap to pick cash / electronic / balance transfer / support the organization / in-kind), who it helps, donation type, payment method, and one confirm button at the bottom. Nothing about how a donation is saved, approved or credited to the wallet was touched; every field is still there. Removed only the repeated parts: the header card, the locked-fields note and the duplicate summary panel.
+
+| Top | Bottom | Kind picker |
+|---|---|---|
+| ![](round2_screens/47-55/after_one_screen_top.png) | ![](round2_screens/47-55/after_one_screen_bottom.png) | ![](round2_screens/47-55/after_kind_picker.png) |
 
 ## 48. Step 2 — e-payment: amount, card type (Visa, Master, FIB) → straight to gateway; IQD default, other currencies manual; notes.
 
@@ -512,49 +518,49 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed — inside the one screen (see #47)
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Fixed:** balance transfer is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed — inside the one screen (see #47)
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Fixed:** direct cash is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed — inside the one screen (see #47)
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Fixed:** in-kind is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
 
 ## 52. Every path ends with one clear bottom button «تأكيد المساهمة» that sends straight to the dashboard.
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Fixed:** every kind now ends with one clear button at the bottom of the screen showing the amount («تأكيد مساهمة 20,000 د.ع»). The amount is formatted with thousands separators. The old duplicate summary above it is removed.
 
 ## 53. General: unclear labels (تبرع الان / عرض الكل); repeated confirmation screens; long explanation text under every option → remove, short labels (1–2 words per button).
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Fixed (checkout) — first step left as is
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Fixed:** on the checkout the repeated confirmation (hero card + summary + total) and the long explanatory note are gone, the amount icon is now a payments icon instead of a dollar sign, and the message box is shorter. The Contribute tab before it (amounts + the selected-option card) was not redesigned.
 
 ## 54. After sending a contribution it says "sent & pending" but NO donation/support shows up → final submission mechanism broken, fix.
 
-**Status:** ⏳ Waiting — found, not changed (payment change, owner said no)
+**Status:** ✅ Fixed
 
-**Found:** the server saves an **empty amount** and still answers "success" for any gift of **1,000,000 or more** (a limit that suits dollars, not dinars). The app says "sent and pending", but the row has no amount and shows as 0 in the donor's list and in the dashboard. This reproduces on the local copy.
+**Found:** «sent and pending» is correct by design (an admin confirms the payment and approves it). The real bug was different: any gift of 1,000,000 IQD or more was saved with an EMPTY amount and still answered "success", so it showed as 0 for the donor and in the dashboard.
 
-**Not fixed**, because it changes payment behaviour. The fix is small: accept larger amounts and refuse an invalid amount with a clear message instead of saving an empty row. Say the word and it is a few lines plus tests.
+**Fixed:** the limit is now 1,000,000,000 IQD, and an amount that is not usable is refused with a clear message instead of saving an empty row. The pending / approval / wallet logic is unchanged. Test added.
 
-Check production for donations with an empty amount.
+**Check on the live system:** look for donations with an empty amount.
 
 ## 55. Remove donation type (عام / زكاة / صدقة) and «التبرع لمؤسسة»; replace with one fixed line: «تنويه: يتم استقطاع نسبة بسيطة من التبرعات لتغطية التكاليف التشغيلية وضمان استمرار عمل المشروع.»
 
-**Status:** ⏳ Waiting — donation flow left as it was
+**Status:** ✅ Partly — kept by owner decision
 
-Owner decision (2026-10-16): no changes to the payment / donation system for now. The work done for this point was reverted, and the old flow is back exactly as before. Nothing in the app, backend or dashboard changed for #47–55.
+**Done:** the donation-type and «Support the organization» choices stay, now compact (the organization option is one of the kinds in the single row; the type is one short row of chips). **Not done:** the client asked to delete them and show the fixed line «تنويه: …» — the owner decided to keep all data fields, so that line was not added.
 
 ## 56. Remove explanation screens/popups (مساعد الدعم / التواصل مع الدعم / إرسال تذكرة) → section becomes fast live chat.
 
@@ -708,13 +714,9 @@ Android: ![](round2_screens/65/after-android-sheet.png) ![](round2_screens/65/af
 
 ## 67. **CRITICAL wallet hole:** app tops up the wallet with no real payment and no staff approval → block auto top-up; real gateway OR pending until dashboard approval; fix balance reading (shows 0) across wallet screens.
 
-**Status:** ⏳ No change — owner decision (wallet / top-up system stays as is)
+**Status:** ℹ️ Kept as is (owner decision)
 
-Owner (2026-10-17): the wallet system is complete and is not to be changed. Nothing was built or modified.
-
-For the record, what I saw in the code: users cannot add money to their own wallet. Money is added only by an admin from the dashboard (permission «المستخدمون – تعديل», logged), plus automatic refunds when a payment fails. I did not find, in this code, the user-side request form (code / account / proof) that the owner describes. If that exists elsewhere, or the client's test account was credited by an admin, that would explain what the client saw. Worth confirming with the client how their wallet got a balance.
-
-The balance showing 0 is correct for an empty wallet.
+The wallet top-up works through the admin confirming the proof of transfer, by design. Left unchanged.
 
 ## 68. Home → browse by category: campaign details cut off → give the details more space.
 

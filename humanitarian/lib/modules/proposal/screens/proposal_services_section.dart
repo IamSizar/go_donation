@@ -161,7 +161,7 @@ List<Widget> _roleSpecificTiles(BuildContext context, String roleId) {
       // duplicating the Contribute tab's entry point (Contribute -> Continue
       // -> "What kind of donation is this?" -> In-kind donation, added by M3
       // specifically to make this reachable from Contribute -- see the
-      // comment atop donation_kind_screen.dart). It's a form of giving, not a
+      // comment atop continue_donation_screen.dart). It's a form of giving, not a
       // service being requested, so Services keeps only the one destination
       // Reports still needs; the same InKindDonationFormScreen this used to
       // open is unchanged and still reachable from Contribute.

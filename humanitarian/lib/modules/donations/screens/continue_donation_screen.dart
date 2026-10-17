@@ -16,6 +16,8 @@ import 'package:flutter_application_1/modules/donations/controllers/continue_don
 import 'package:flutter_application_1/modules/donations/models/donation_channel.dart';
 import 'package:flutter_application_1/modules/donations/widgets/aid_target_field.dart';
 import 'package:flutter_application_1/modules/donations/widgets/donation_type_field.dart';
+import 'package:flutter_application_1/modules/proposal/screens/proposal_services_section.dart'
+    show InKindDonationFormScreen;
 import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
 import 'package:flutter_application_1/api/project_categories_api.dart';
 import 'package:get/get.dart';
@@ -73,6 +75,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
 
   late final ContinueDonationController _submitController;
 
+  /// The kind of donation. Starts as the one handed in and is changed on this
+  /// same screen (R2 #47) — it used to be a separate step before checkout.
+  late DonationChannel _channel;
+
   int _selectedPaymentIndex = 0;
   String _donationType = 'general';
   // M4 — where a cause donation lands: null is مساعدات عامة (staff distribute
@@ -90,7 +96,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   // payment list. M3 moved the question one screen earlier, where it is one of
   // the five kinds of donation, so asking it twice would be the duplication
   // the client reported. It is now derived, never re-asked.
-  String? get _donationKind => widget.channel.donationKind;
+  String? get _donationKind => _channel.donationKind;
 
   // #19 — payment methods are admin-managed (fetched from /api/payment-methods).
   // These two are the offline fallback so the donate form always works.
@@ -150,11 +156,66 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
   /// see [_displayMethods], which refuses to leave the donor with no way to
   /// pay.
   List<_PaymentMethodData> get _channelMethods => [
-    if (widget.channel.includesAppWallet) _walletMethod,
-    ..._paymentMethods.where(
-      (m) => widget.channel.acceptsMethodType(m.methodType),
-    ),
+    if (_channel.includesAppWallet) _walletMethod,
+    ..._paymentMethods.where((m) => _channel.acceptsMethodType(m.methodType)),
   ];
+
+  /// The money channels this organization can actually take right now: a
+  /// channel is offered only when at least one method belongs to it, so the
+  /// donor is never shown a route with nothing behind it.
+  List<DonationChannel> get _availableChannels => [
+    for (final c in const [
+      DonationChannel.cash,
+      DonationChannel.electronic,
+      DonationChannel.balanceTransfer,
+      DonationChannel.supportOrganization,
+    ])
+      if (_paymentMethods.any((m) => c.acceptsMethodType(m.methodType))) c,
+  ];
+
+  /// Opens the picker of the five kinds of donation. Goods leave this screen
+  /// for their own form; the money kinds just swap the methods listed below.
+  Future<void> _pickChannel() async {
+    AppHaptics.selection();
+    final options = [..._availableChannels, DonationChannel.inKind];
+    final picked = await showModalBottomSheet<DonationChannel>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            for (final c in options)
+              ListTile(
+                leading: Icon(
+                  c == _channel
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  color: widget.optionColor,
+                ),
+                title: Text(
+                  c.titleKey.tr,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(c.subtitleKey.tr),
+                onTap: () => Navigator.of(ctx).pop(c),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (!picked.isMoney) {
+      await Get.to<void>(() => const InKindDonationFormScreen());
+      return;
+    }
+    setState(() {
+      _channel = picked;
+      _selectedProject = picked.allowsProjectChoice ? _selectedProject : null;
+      _selectPreferredMethod();
+    });
+  }
 
   /// True when the chosen channel matched nothing in the list we ended up
   /// with, so the donor is being shown every method instead of that family.
@@ -180,6 +241,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       Get.delete<ContinueDonationController>();
     }
     _submitController = Get.put(ContinueDonationController());
+    _channel = widget.channel;
     _selectPreferredMethod();
     _moneyController.text = widget.amount.toString();
     _loadPaymentMethods();
@@ -264,6 +326,10 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       ];
       // The list just changed under the selection, so re-resolve it rather
       // than leaving an index pointing at whatever now sits in that slot.
+      final offered = _availableChannels;
+      if (offered.isNotEmpty && !offered.contains(_channel)) {
+        _channel = offered.first;
+      }
       _selectPreferredMethod();
     });
   }
@@ -318,9 +384,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
       // Belt and braces: the project section is hidden on the channels that
       // cannot target one, and the slug is dropped here too, so a stale
       // selection can never travel with an operational gift and mis-file it.
-      projectSlug: widget.channel.allowsProjectChoice
-          ? _selectedProject?.slug
-          : null,
+      projectSlug: _channel.allowsProjectChoice ? _selectedProject?.slug : null,
       donationKind: _donationKind,
     );
 
@@ -419,56 +483,24 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _CheckoutHeroCard(
-                        amount: widget.amount,
-                        optionTitle: widget.optionTitle,
-                        optionSummary: widget.optionSummary,
-                        optionTypeLabel: widget.optionTypeLabel,
-                        optionIcon: widget.optionIcon,
-                        optionColor: widget.optionColor,
-                      ),
-                      const SizedBox(height: 22),
                       const SectionLabel(title: 'Donor details'),
                       const SizedBox(height: 12),
                       GlassPanel(
                         child: Column(
                           children: [
-                            // Name and phone are taken from the signed-in
-                            // account and are never sent with the donation, so
-                            // they are shown as locked rows rather than as
-                            // disabled text fields: a box you cannot type into
-                            // still looks like a box you should type into, and
-                            // the tap that goes nowhere is the bug. The note
-                            // beneath the pair explains where the values come
-                            // from and where to change them.
-                            _LockedAccountRow(
-                              label: 'Full name',
-                              value: _accountName,
-                              icon: Icons.person_rounded,
+                            // Name and phone come from the verified account
+                            // (changed in Profile), so they are shown as one
+                            // quiet line instead of two boxes plus a note.
+                            _DonorLine(
+                              name: _accountName,
+                              phone: _accountPhone,
                             ),
-                            const SizedBox(height: 14),
-                            _LockedAccountRow(
-                              label: 'Phone',
-                              value: _accountPhone,
-                              icon: Icons.phone_rounded,
-                              // Phone numbers are read left-to-right even in
-                              // Arabic/Kurdish, so the digits must not mirror.
-                              forceLtr: true,
-                            ),
-                            const SizedBox(height: 10),
-                            const _LockedFieldsNote(
-                              text:
-                                  'Name and phone come from your verified '
-                                  'account. Change them in Profile > Edit '
-                                  'profile.',
-                            ),
-
                             const SizedBox(height: 14),
                             _CheckoutTextField(
                               controller: _moneyController,
                               label: 'Amount',
                               hintText: 'Enter amount',
-                              icon: Icons.attach_money_rounded,
+                              icon: Icons.payments_rounded,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: false,
@@ -497,7 +529,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                               label: 'Message (optional)',
                               hintText: 'Add a note for this donation',
                               icon: Icons.edit_note_rounded,
-                              maxLines: 3,
+                              maxLines: 2,
                               textInputAction: TextInputAction.newline,
                             ),
                           ],
@@ -511,9 +543,9 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       // change it — the tiles that used to sit here are that
                       // step now.
                       _ChosenKindRow(
-                        channel: widget.channel,
+                        channel: _channel,
                         accentColor: widget.optionColor,
-                        onChange: () => Get.back<void>(),
+                        onChange: _pickChannel,
                       ),
                       // M4 — the two paths, named. Skipped entirely for a
                       // campaign donation (its destination is already the
@@ -521,7 +553,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       // are not a project), so the question is only asked
                       // where it has two real answers.
                       if (widget.campaignsId == null &&
-                          widget.channel.allowsProjectChoice) ...[
+                          _channel.allowsProjectChoice) ...[
                         const SizedBox(height: 22),
                         const SectionLabel(title: 'Who should this help?'),
                         const SizedBox(height: 12),
@@ -566,7 +598,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                       // methods we ended up with. Never silently widen the
                       // list — say what happened.
                       if (_channelHasNoMethods) ...[
-                        _ChannelFallbackNote(channel: widget.channel),
+                        _ChannelFallbackNote(channel: _channel),
                         const SizedBox(height: 12),
                       ],
                       ...List.generate(_displayMethods.length, (index) {
@@ -596,65 +628,6 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                         ),
                       ],
                       const SizedBox(height: 22),
-                      const SectionLabel(title: 'Contribution summary'),
-                      const SizedBox(height: 12),
-                      GlassPanel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                TileIcon(
-                                  icon: widget.optionIcon,
-                                  color: widget.optionColor,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.optionTitle.tr,
-                                        style: TextStyle(
-                                          color: AppThemeConfig.text(context),
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        widget.optionSupportNote.tr,
-                                        style: TextStyle(
-                                          color: AppThemeConfig.mutedText(
-                                            context,
-                                          ),
-                                          height: 1.45,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 18),
-                            _SummaryLine(
-                              label: 'Contribution amount',
-                              value: '$donationAmount ${localizedCurrency('IQD')}',
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              child: Divider(height: 1),
-                            ),
-                            _SummaryLine(
-                              label: 'Total',
-                              value: '$donationAmount ${localizedCurrency('IQD')}',
-                              isEmphasized: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
                         child: Obx(() {
@@ -679,7 +652,7 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
                               loading
                                   ? 'Submitting…'.tr
                                   : 'Confirm @amount IQD donation'.trParams({
-                                      'amount': donationAmount.toString(),
+                                      'amount': _formatIQD(donationAmount),
                                     }),
                             ),
                             style: FilledButton.styleFrom(
@@ -700,141 +673,6 @@ class _ContinueDonationScreenState extends State<ContinueDonationScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CheckoutHeroCard extends StatelessWidget {
-  const _CheckoutHeroCard({
-    required this.amount,
-    required this.optionTitle,
-    required this.optionSummary,
-    required this.optionTypeLabel,
-    required this.optionIcon,
-    required this.optionColor,
-  });
-
-  final int amount;
-  final String optionTitle;
-  final String optionSummary;
-  final String optionTypeLabel;
-  final IconData optionIcon;
-  final Color optionColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        // Flat. The third stop here was a raw 0xFF2563EB blue that had no
-        // relationship to optionColor, so the card faded from the option's own
-        // colour into an unrelated blue regardless of which option it was.
-        color: optionColor,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: optionColor.withValues(alpha: 0.24),
-            blurRadius: 26,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(optionIcon, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  optionTypeLabel.tr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Review your donation'.tr,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            optionSummary.tr,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.90),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _HeroMetricChip(icon: Icons.favorite_rounded, label: optionTitle),
-              _HeroMetricChip(
-                icon: Icons.payments_rounded,
-                label: '@amount IQD ready'.trParams({
-                  'amount': amount.toString(),
-                }),
-              ),
-              const _HeroMetricChip(
-                icon: Icons.shield_rounded,
-                label: 'Secure step',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetricChip extends StatelessWidget {
-  const _HeroMetricChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(
-            label.tr,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -902,133 +740,6 @@ class _AccountCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A donor detail the checkout shows but never lets the user edit.
-///
-/// It deliberately is NOT a disabled [_CheckoutTextField] (which is why that
-/// widget no longer takes an `enabled` flag): a disabled field carries the
-/// same rounded box, hint and caret affordance as a real input, so the user
-/// taps it, nothing happens, and nothing tells them why. This renders the
-/// same value as a labelled row with a padlock — it
-/// reads as information, not as an input — while keeping the panel's fill,
-/// border and radius so the layout does not shift.
-class _LockedAccountRow extends StatelessWidget {
-  const _LockedAccountRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.forceLtr = false,
-  });
-
-  /// Translated via `.tr`.
-  final String label;
-
-  /// The account value. Empty renders as an em dash — a guest session may not
-  /// have a name on file yet.
-  final String value;
-
-  final IconData icon;
-
-  /// Forces left-to-right for values (phone numbers) whose digit order must
-  /// not mirror under an RTL locale.
-  final bool forceLtr;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasValue = value.isNotEmpty;
-    final valueText = Text(
-      hasValue ? value : '—',
-      style: TextStyle(
-        color: hasValue
-            ? AppThemeConfig.text(context)
-            : AppThemeConfig.mutedText(context),
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.tr,
-          style: TextStyle(
-            color: AppThemeConfig.text(context),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppThemeConfig.softSurface(context),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppThemeConfig.border(context)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppThemeConfig.mutedText(context)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: forceLtr
-                    ? Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: valueText,
-                        ),
-                      )
-                    : valueText,
-              ),
-              const SizedBox(width: 8),
-              // The padlock is the "why can't I type here" answer at a glance;
-              // the note under the pair of rows is the long form.
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 18,
-                color: AppThemeConfig.mutedText(context),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// One quiet line explaining why the rows above it are locked and where the
-/// user can actually change those values.
-class _LockedFieldsNote extends StatelessWidget {
-  const _LockedFieldsNote({required this.text});
-
-  /// Translated via `.tr`.
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          Icons.info_outline_rounded,
-          size: 15,
-          color: AppThemeConfig.mutedText(context),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text.tr,
-            style: TextStyle(
-              color: AppThemeConfig.mutedText(context),
-              fontSize: 12.5,
-              height: 1.35,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1202,47 +913,6 @@ class _PaymentMethodCard extends StatelessWidget {
   }
 }
 
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({
-    required this.label,
-    required this.value,
-    this.isEmphasized = false,
-  });
-
-  final String label;
-  final String value;
-  final bool isEmphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isEmphasized
-        ? AppThemeConfig.text(context)
-        : AppThemeConfig.mutedText(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label.tr,
-            style: TextStyle(
-              color: color,
-              fontWeight: isEmphasized ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: AppThemeConfig.text(context),
-            fontWeight: isEmphasized ? FontWeight.w800 : FontWeight.w700,
-            fontSize: isEmphasized ? 18 : 15,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PaymentMethodData {
   const _PaymentMethodData({
     required this.title,
@@ -1269,72 +939,6 @@ class _PaymentMethodData {
   final String submitName; // canonical name (name_en) sent to the backend
 }
 
-/// Reports the kind of donation chosen on the step before this one, and offers
-/// the way back to change it.
-///
-/// The two tiles that used to stand here asked "where should this go?" —
-/// cause or organization — directly above the payment list, and nothing on the
-/// screen read the payment choice. That question is one of the five kinds of
-/// donation now (M3), asked once, one screen earlier. What is left here is the
-/// answer, plus the affordance that makes it changeable: a summary with no way
-/// back would be a worse dead end than asking twice.
-class _ChosenKindRow extends StatelessWidget {
-  const _ChosenKindRow({
-    required this.channel,
-    required this.accentColor,
-    required this.onChange,
-  });
-
-  final DonationChannel channel;
-  final Color accentColor;
-  final VoidCallback onChange;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          TileIcon(icon: Icons.category_rounded, color: accentColor),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  channel.titleKey.tr,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14.5,
-                    color: AppThemeConfig.text(context),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  channel.subtitleKey.tr,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.4,
-                    color: AppThemeConfig.mutedText(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () {
-              AppHaptics.selection();
-              onChange();
-            },
-            child: Text('Change'.tr),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Says why the payment list is wider than the channel the donor picked.
 ///
 /// Only shown when the filter matched nothing — which happens when the
@@ -1355,6 +959,90 @@ class _ChannelFallbackNote extends StatelessWidget {
         color: AppThemeConfig.mutedText(context),
         fontSize: 12.5,
         height: 1.4,
+      ),
+    );
+  }
+}
+
+/// Name and phone of the signed-in donor on one quiet line. Both come from the
+/// verified account and are changed in Profile, so there is nothing to type
+/// and no explanation is needed.
+class _DonorLine extends StatelessWidget {
+  const _DonorLine({required this.name, required this.phone});
+
+  final String name;
+  final String phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppThemeConfig.mutedText(context);
+    final text = AppThemeConfig.text(context);
+    return Row(
+      children: [
+        Icon(Icons.person_rounded, size: 20, color: muted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            name.isEmpty ? '—' : name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: text, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Digits read left-to-right even in Arabic/Kurdish.
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text(
+            phone.isEmpty ? '—' : phone,
+            style: TextStyle(color: muted, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The chosen kind of donation as one tappable row; tapping opens the picker.
+class _ChosenKindRow extends StatelessWidget {
+  const _ChosenKindRow({
+    required this.channel,
+    required this.accentColor,
+    required this.onChange,
+  });
+
+  final DonationChannel channel;
+  final Color accentColor;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: InkWell(
+        onTap: onChange,
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            Icon(Icons.category_rounded, size: 22, color: accentColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                channel.titleKey.tr,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.5,
+                  color: AppThemeConfig.text(context),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.unfold_more_rounded,
+              size: 22,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ],
+        ),
       ),
     );
   }
