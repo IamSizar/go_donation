@@ -13,6 +13,7 @@ import (
 	"github.com/karam-flutter/humanitarian-backend/internal/auth"
 	"github.com/karam-flutter/humanitarian-backend/internal/chatlifecycle"
 	"github.com/karam-flutter/humanitarian-backend/internal/marriagechat"
+	"github.com/karam-flutter/humanitarian-backend/internal/moderation"
 	"github.com/karam-flutter/humanitarian-backend/internal/notify"
 	"github.com/karam-flutter/humanitarian-backend/internal/permissions"
 	"github.com/karam-flutter/humanitarian-backend/internal/sensitive"
@@ -315,6 +316,22 @@ func (h *MarriageChatHandler) PostMessage(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Body) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Message body is required."})
 		return
+	}
+	// #60 — "no personal data (numbers, real names)" in the marriage chat. The
+	// two parties never learn each other's identity, so a phone number or an
+	// email typed into a message would undo that. Refused here, on the write,
+	// like the supervised donor/beneficiary thread does. Staff relaying contact
+	// on someone's behalf are the supervised channel working as designed.
+	if permissions.TierFrom(user.StaffTier) == permissions.TierUser {
+		if finding := moderation.ScanContact(req.Body); finding.Blocked() {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"success": false,
+				"code":    contactBlockedCode,
+				"kind":    string(finding.Kind),
+				"error":   contactBlockedMessage(finding.Kind),
+			})
+			return
+		}
 	}
 	msg, _, err := h.Store.PostMessage(c.Request.Context(), id, user.UserID, thread.RoleFor(user.UserID), req.Body)
 	if err != nil {

@@ -586,8 +586,9 @@ class ModuleApi {
 
   /// Every active city, district (قضاء) and sub-district (ناحية) of one
   /// governorate, in the dashboard's order (migration 136).
-  Future<List<Map<String, dynamic>>> areas(String governorate) =>
-      getItems('$areasUrl?governorate=${Uri.encodeQueryComponent(governorate)}');
+  Future<List<Map<String, dynamic>>> areas(String governorate) => getItems(
+    '$areasUrl?governorate=${Uri.encodeQueryComponent(governorate)}',
+  );
 
   Future<Map<String, dynamic>> submitCommunity(Map<String, dynamic> body) =>
       postJson(communitySubmitUrl, body);
@@ -918,10 +919,15 @@ class ModuleApi {
   Future<Map<String, dynamic>> marriageChatMessages(int threadId) =>
       getObject('$marriageChatsUrl/$threadId/messages');
 
+  // Through [_sendCodedJson] so the server's named refusal (a phone number or
+  // email in the message: `contact_details_blocked`) reaches the screen as a
+  // code instead of a generic failure.
   Future<Map<String, dynamic>> sendMarriageChatMessage(
     int threadId,
     String body,
-  ) => postJson('$marriageChatsUrl/$threadId/messages', {'body': body});
+  ) => _sendCodedJson('POST', '$marriageChatsUrl/$threadId/messages', {
+    'body': body,
+  });
 
   // OPOS #25284 — staff-mediated masked/team group chats.
   Future<List<Map<String, dynamic>>> chatGroups() => getItems(chatGroupsUrl);

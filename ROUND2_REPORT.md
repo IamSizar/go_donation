@@ -604,19 +604,23 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 
 ## 60. Encrypted group chats: aid section (staff + donor(s)/beneficiary); khotba (staff + suitor + girl + guardian). Opens only with staff approval; no personal data shown (numbers, real names); files/photos only by staff; staff can pause / archive / delete.
 
-**Status:** 🟡 Mostly exists · ➕ the rest is an addition — not in the original scope (put aside)
+**Status:** 🟡 Partly · ➕ the rest is an addition — not in the original scope (put aside)
 
-**Scope:** Mostly exists (see below). The extra parts (encryption, staff file sending, block button) are additions: not in the proposal.
+**Scope:** the marriage service in the proposal is private accounts, hidden data and contact only through staff (§16). Encryption, staff file sending and a block button are not in it.
 
-Exists, and we checked it:
-- Rooms between donor / beneficiary are opened **only by staff** (connect request → staff approval, or staff creates the room).
-- Members see only a nickname («مانح 1», «مستحق 1») — **no real names, no phone numbers**; a message containing a phone number or email is **blocked** automatically and logged.
-- Staff can pause / archive / delete.
+**Marriage chat (events section) — what exists:**
+- The chat **does not open until staff approve**: a meeting request is reviewed by staff, then the profile owner accepts, and only then can either side write.
+- Staff take part in the chat and can write in it.
+- The two sides **never see each other's real name or phone number**: messages carry only a role label (requester / owner / staff).
+- **New:** a message containing a phone number or an email address is refused with a clear message and is not stored, so personal contact details cannot be passed through the chat. Staff are exempt, since they act as the mediator.
+- **Staff only** can pause, archive or delete the chat (from the dashboard) — members have no such buttons.
 
-Not in the system yet (new features, postponed):
-1. Message **encryption** at rest (messages are stored as normal text today).
-2. Sending **files / photos** in chats (today nobody can — text only; you asked for staff only).
-3. Adding the girl's **guardian** to the khotba chat.
+**Not available yet (new features, put aside):**
+1. A **group** chat with more people — the suitor's mother, the girl's guardian — the marriage chat is between the two sides and staff.
+2. **Sending files / photos** — the chat is text only, so staff-only file sending is not there.
+3. **Encrypting** the stored messages — they are stored as ordinary text today.
+
+**Aid section:** staff can already open a supervised room with several donors and beneficiaries, opened by staff only, with masked nicknames (e.g. «مانح 1»), phone numbers and emails refused, and pause / archive / delete by staff only.
 
 ## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete.
 

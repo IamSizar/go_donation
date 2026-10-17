@@ -143,9 +143,17 @@ class _MarriageChatConversationScreenState
       await _load(silent: true);
     } catch (e) {
       if (mounted) {
+        // A phone number or email is refused by the server: say so in plain
+        // words instead of the generic send failure.
+        final blocked =
+            e is ApiCodedException && e.code == 'contact_details_blocked';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(failureMessage(e, 'error_message_send_failed')),
+            content: Text(
+              blocked
+                  ? 'chat_group_send_contact_blocked'.tr
+                  : failureMessage(e, 'error_message_send_failed'),
+            ),
           ),
         );
         _input.text = text;
@@ -227,8 +235,7 @@ class _MarriageChatConversationScreenState
               deciding: _deciding,
               // OPOS 48992: the chat STARTS closed (waiting for the admin),
               // so closed must not block accepting — only an ended chat does.
-              canAccept:
-                  !_acceptClosed && _lifecycle != ChatLifecycle.ended,
+              canAccept: !_acceptClosed && _lifecycle != ChatLifecycle.ended,
               onAnswer: _decide,
             )
           else if (_status == 'pending' && !isOwner)
