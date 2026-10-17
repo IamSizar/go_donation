@@ -36,7 +36,7 @@ export type UsersListInput = {
 
 export function usersListParams(i: UsersListInput): Record<string, string | number | undefined> {
   const guestsOnly = i.kind === 'guest'
-  const roleId = guestsOnly ? undefined : (i.roleId ?? (i.kind ? KIND_ROLE_ID[i.kind] : undefined))
+  const roleId = guestsOnly ? undefined : (i.roleId ?? (i.kind && i.kind !== 'guest' ? KIND_ROLE_ID[i.kind] : undefined))
   return {
     page: i.page,
     per_page: i.perPage,

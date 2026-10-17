@@ -126,6 +126,12 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
   // display honest: nothing highlighted until the operator actually picks one,
   // and isNewUserFieldVisible below already treats "no role" as "show nothing
   // profile-specific yet", exactly what the blank state now visibly means.
+  // `status.general` / `status.marriage` already mean the contribution kind and the
+  // media type, so the two account types carry their own keys.
+  const roleLabelOverrides = useMemo(
+    () => ({ general: t('status.role_general'), marriage: t('status.role_marriage') }),
+    [t],
+  )
   const newUserFields = useMemo(() => {
     const fields = buildNewUserFields(newUserFieldState)
     return fields.map((f) =>
@@ -133,11 +139,11 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
         ? {
             ...f,
             options: ['', ...(f.options ?? [])],
-            optionLabels: { '': t('page.users.role_placeholder'), ...(f.optionLabels ?? {}) },
+            optionLabels: { '': t('page.users.role_placeholder'), ...roleLabelOverrides, ...(f.optionLabels ?? {}) },
           }
         : f,
     )
-  }, [newUserFieldState, t])
+  }, [newUserFieldState, t, roleLabelOverrides])
   // Owner #15 — the Edit form obeys the SAME rules the app's registration form
   // obeys, resolved for the role of the account being edited. USER_FIELDS (the
   // ungated list) is still what renders while the rules load, for an account
@@ -429,6 +435,7 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
         <StatusCell
           value={roleLabel(u.role_id)}
           allowed={ROLE_LABELS}
+          labelOverrides={roleLabelOverrides}
           onSave={async (next) => {
             await verifyPin() // Global notice #b — PIN before a role change.
             await api.post(`/api/admin/users/${u.user_id}/role`, { role_id: roleLabelToId(next) })
