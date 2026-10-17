@@ -400,6 +400,8 @@ func mapRoleKey(roleID int) string {
 		return "beneficiary"
 	case 3:
 		return "volunteer"
+	case 6:
+		return "general"
 	default:
 		return "user"
 	}

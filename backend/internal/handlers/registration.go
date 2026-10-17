@@ -191,11 +191,12 @@ func (h *RegistrationHandler) Submit(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Full name is required."})
 		return
 	}
-	if address == "" {
+	// A general user gives the minimum (a name): no address is asked for.
+	if address == "" && req.RoleID != users.RoleGeneral {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Address is required."})
 		return
 	}
-	if req.RoleID < 1 || req.RoleID > 3 {
+	if (req.RoleID < 1 || req.RoleID > 3) && req.RoleID != users.RoleGeneral {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "Please select a valid role."})
 		return
 	}

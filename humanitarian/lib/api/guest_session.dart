@@ -45,6 +45,11 @@ final Map<String, bool> guestScreenConfig = <String, bool>{};
 /// True when the app is running as a signed-out guest.
 bool isGuestMode() => sharedPreferences.getBool(kGuestModePrefsKey) ?? false;
 
+/// True for a signed-in general user («مستخدم عام», role 6): a real account
+/// with limited access that is upgraded by choosing a real role. This is NOT
+/// the guest mode — a guest has no sign-in at all.
+bool isGeneralUser() => sharedPreferences.getString('role_id') == '6';
+
 /// Leave guest mode (e.g. when the guest chooses to sign in).
 Future<void> exitGuestMode() async {
   await sharedPreferences.setBool(kGuestModePrefsKey, false);
@@ -264,6 +269,21 @@ Future<bool> requireSignIn(BuildContext context) async {
 /// signup fills in); a non-guest passes straight through, same shape as
 /// [requireSignIn].
 Future<bool> requireUpgrade(BuildContext context, {String? reason}) async {
+  // A general user is already signed in and verified: upgrading means choosing
+  // a real account type in the registration form, not verifying a phone again.
+  if (isGeneralUser()) {
+    final go = await showAdaptiveConfirm(
+      context,
+      title: 'Upgrade Account'.tr,
+      message: 'Choose an account type to use this feature.'.tr,
+      confirmLabel: 'Upgrade Account'.tr,
+      cancelLabel: 'Not now'.tr,
+    );
+    if (go) {
+      Get.toNamed(AppRoutes.registration);
+    }
+    return false;
+  }
   if (!isGuestMode()) return true;
   final go = await showAdaptiveConfirm(
     context,

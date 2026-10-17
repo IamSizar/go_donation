@@ -10,7 +10,7 @@
 //   • the guests list contains guests only, whatever their role.
 // No new role is introduced: these are the existing role ids + is_guest.
 
-export type UsersKind = '' | 'donor' | 'beneficiary' | 'volunteer' | 'employee' | 'marriage' | 'guest'
+export type UsersKind = '' | 'donor' | 'beneficiary' | 'volunteer' | 'employee' | 'marriage' | 'general' | 'guest'
 
 /** role id of each kind (guest has none: it is is_guest, not a role). */
 export const KIND_ROLE_ID: Record<Exclude<UsersKind, '' | 'guest'>, number> = {
@@ -19,6 +19,7 @@ export const KIND_ROLE_ID: Record<Exclude<UsersKind, '' | 'guest'>, number> = {
   volunteer: 3,
   employee: 4,
   marriage: 5,
+  general: 6,
 }
 
 export type UsersListInput = {

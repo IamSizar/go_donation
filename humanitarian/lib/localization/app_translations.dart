@@ -17,6 +17,8 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'General user': 'General user',
+    'Choose an account type to use this feature.': 'Choose an account type to use this feature.',
     'No products yet': 'No products yet',
     'Nothing has been added to this section yet.': 'Nothing has been added to this section yet.',
     'Urgent need': 'Urgent need',
@@ -49,7 +51,7 @@ class AppTranslations extends Translations {
     // families and one legacy value still present in production data
     'admin_announcement': 'Admin announcement',
     'admin_new_beneficiary_case': 'New beneficiary case',
-    'admin_new_guest_account': 'New general user account',
+    'admin_new_guest_account': 'New guest account',
     'admin_new_marriage_profile': 'New event profile',
     'admin_new_project_request': 'New project request',
     'beneficiary_case_approved': 'Beneficiary case approved',
@@ -1941,7 +1943,7 @@ class AppTranslations extends Translations {
     'Search country': 'Search country',
     'Sign in': 'Sign in',
     'Create account': 'Create account',
-    'Continue as guest': 'Continue as a general user',
+    'Continue as guest': 'Continue as guest',
     'Create your account': 'Create your account',
     'Join the platform': 'Join the platform',
     'Create your account to support communities, track your actions, and stay connected to every mission.':
@@ -2825,7 +2827,7 @@ class AppTranslations extends Translations {
     'Beneficiaries': 'Eligible Recipients',
     'Open profile': 'Open profile',
     'Profile menu': 'Profile menu',
-    'Guest': 'General user',
+    'Guest': 'Guest',
     'Successful donations': 'Successful contributions',
     'Pending payments': 'Pending payments',
     'Mission records': 'Mission records',
@@ -3305,7 +3307,7 @@ class AppTranslations extends Translations {
     // 5.7 — says what happened and what to do; the server's own wording goes
     // to the log, not to the user.
     'guest_start_failed':
-        "Couldn't start browsing as a general user. Check your connection and try again.",
+        "Couldn't start guest browsing. Check your connection and try again.",
     'Use a different number': 'Use a different number',
     'User': 'User',
     // Names a 1:1 thread's other party the server sent no name for, keeping
@@ -3316,8 +3318,8 @@ class AppTranslations extends Translations {
     'Verify your phone': 'Verify your phone',
     'We sent a 6-digit code to @phone': 'We sent a 6-digit code to @phone',
     'Welcome': 'Welcome',
-    'You are a guest': 'You are a general user',
-    'You are browsing as a guest.': 'You are browsing as a general user.',
+    'You are a guest': 'You are a guest',
+    'You are browsing as a guest.': 'You are browsing as a guest.',
     'Username': 'Username',
 
     // Added so every visible string resolves in all four languages.
@@ -3364,6 +3366,8 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'General user': 'مستخدم عام',
+    'Choose an account type to use this feature.': 'اختر نوع حسابك لتتمكن من استخدام هذه الميزة.',
     'No products yet': 'لا توجد منتجات بعد',
     'Nothing has been added to this section yet.': 'لم تتم إضافة شيء إلى هذا القسم بعد.',
     'Urgent need': 'حاجة عاجلة',
@@ -3395,7 +3399,7 @@ class AppTranslations extends Translations {
     // families and one legacy value still present in production data
     'admin_announcement': 'إعلان إداري',
     'admin_new_beneficiary_case': 'حالة مستحق جديدة',
-    'admin_new_guest_account': 'حساب مستخدم عام جديد',
+    'admin_new_guest_account': 'حساب زائر جديد',
     'admin_new_marriage_profile': 'ملف زواج جديد',
     'admin_new_project_request': 'طلب مشروع جديد',
     'beneficiary_case_approved': 'قبول حالة مستحق',
@@ -5017,7 +5021,7 @@ class AppTranslations extends Translations {
     'Search country': 'ابحث عن دولة',
     'Sign in': 'تسجيل الدخول',
     'Create account': 'انشئ حسابا',
-    'Continue as guest': 'المتابعة كمستخدم عام',
+    'Continue as guest': 'الدخول كزائر',
     'Create your account': 'أنشئ حسابك',
     'Join the platform': 'انضم إلى المنصة',
     'Create your account to support communities, track your actions, and stay connected to every mission.':
@@ -5853,7 +5857,7 @@ class AppTranslations extends Translations {
     'Beneficiaries': 'المستحقون',
     'Open profile': 'فتح الملف الشخصي',
     'Profile menu': 'قائمة الملف الشخصي',
-    'Guest': 'مستخدم عام',
+    'Guest': 'زائر',
     'Successful donations': 'المساهمات الناجحة',
     'Pending payments': 'الدفعات المعلقة',
     'Mission records': 'سجلات المهام',
@@ -6271,7 +6275,7 @@ class AppTranslations extends Translations {
     'Upgrade Account': 'ترقية الحساب',
     // انظر التعليق نفسه في الخريطة الإنجليزية.
     'guest_start_failed':
-        'تعذّر بدء التصفح كمستخدم عام. تحقّق من اتصالك وحاول مرة أخرى.',
+        'تعذّر بدء التصفح كزائر. تحقّق من اتصالك وحاول مرة أخرى.',
     'Use a different number': 'استخدم رقمًا مختلفًا',
     'User': 'مستخدم',
     // انظر التعليق نفسه في الخريطة الإنجليزية.
@@ -6281,8 +6285,8 @@ class AppTranslations extends Translations {
     'We sent a 6-digit code to @phone':
         'أرسلنا رمزًا مكوّنًا من ٦ أرقام إلى @phone',
     'Welcome': 'أهلاً بك',
-    'You are a guest': 'أنت مستخدم عام',
-    'You are browsing as a guest.': 'أنت تتصفح كمستخدم عام.',
+    'You are a guest': 'أنت زائر',
+    'You are browsing as a guest.': 'أنت تتصفح كزائر.',
     'Username': 'اسم المستخدم',
 
     // Added so every visible string resolves in all four languages.

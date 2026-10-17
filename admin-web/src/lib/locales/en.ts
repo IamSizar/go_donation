@@ -79,7 +79,7 @@ const en = {
     push: 'Push',
     staff: 'Staff',
     permissions: 'Permissions',
-    guest_access: 'General User Access',
+    guest_access: 'Guest Access',
     terms: 'Terms & Conditions',
     about: 'About Us',
     humanitarian_work: 'Our Humanitarian Work',
@@ -259,8 +259,8 @@ const en = {
     // Guest events had no entry, so the feed printed their raw machine
     // names — `guest_register` — at an operator. Note #40 added one-tap
     // guest entry to the app; the feed was never told about it.
-    guest_register: 'General user created',
-    guest_login: 'General user sign-in',
+    guest_register: 'Guest created',
+    guest_login: 'Guest sign-in',
     comment_submit: 'New comment',
     campaign_comment_submit: 'New campaign comment',
     marriage_comment_submit: 'New event comment',
@@ -438,12 +438,12 @@ const en = {
   },
 
   guest: {
-    title: 'General User Access',
-    subtitle: 'Choose which app screens a general user (skipped sign-in) can browse. Each change is PIN-confirmed. Account actions like donating or volunteering always require sign-in.',
+    title: 'Guest Access',
+    subtitle: 'Choose which app screens a signed-out guest (skip sign-in) can browse. Each change is PIN-confirmed. Account actions like donating or volunteering always require sign-in.',
     restricted: 'This module is restricted to the Primary Administrator (Super Admin).',
-    saved: 'General user access updated.',
+    saved: 'Guest access updated.',
     col_screen: 'App screen',
-    col_visible: 'Visible to general users',
+    col_visible: 'Visible to guests',
     shown: 'Shown',
     hidden: 'Hidden',
     always_blocked: 'Always blocked',
@@ -976,7 +976,7 @@ const en = {
     bdg_marketplace: 'Marketplace', bdg_volunteer: 'Volunteer', bdg_support: 'Support',
     bdg_inkind: 'In-kind', bdg_marriage: 'Events', bdg_notification: 'Notification', bdg_event: 'Event',
     bdg_user: 'User',
-    bdg_guest: 'General user',
+    bdg_guest: 'Guest',
     cat_core: 'Core', cat_people: 'People', cat_money: 'Money', cat_review: 'Review',
     cat_orders: 'Orders', cat_activity: 'Activity',
     push_inapp_bold: 'In-app notifications still work',
@@ -1169,9 +1169,9 @@ const en = {
                     completed_month: 'Completed amount · this month', active_campaigns: 'Active campaigns',
                     open_missions: 'Open missions', open_tickets: 'Open tickets',
                     vs_last_month: 'vs {n} last month', donations_30d: 'Contributions · last 30 days' },
-    users:        { view_active: 'Active accounts', hide_guests: 'Hide general users', view_archived: 'Archived', title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
+    users:        { view_active: 'Active accounts', hide_guests: 'Hide guests', view_archived: 'Archived', title: 'Users',          new_user: '+ New user', search_placeholder: 'search phone / full name',
                     role_placeholder: '— Choose user type —',
-                    guest_badge: 'General user',
+                    guest_badge: 'Guest',
                     pending_change_badge: 'Pending review',
                     pending_change_hint: 'This user has a name/photo change waiting for your approval — click to review it.',
     wallet_topup: 'Top up wallet',
@@ -1181,7 +1181,7 @@ const en = {
                     force_logout: 'Force logout', force_logout_ok: 'All sessions revoked — the user is signed out.', force_logout_fail: 'Could not force logout.',
                     archive: 'Archive', unarchive: 'Un-archive',
                     archived_ok: '{noun} archived.', unarchived_ok: '{noun} restored from archive.',
-                    kind_all: 'All accounts', kind_beneficiary: 'Beneficiaries', kind_volunteer: 'Volunteers', kind_employee: 'Employees (app role)', kind_marriage: 'Engagement & marriage', kind_guest: 'General users',
+                    kind_all: 'All accounts', kind_beneficiary: 'Beneficiaries', kind_volunteer: 'Volunteers', kind_employee: 'Employees (app role)', kind_marriage: 'Engagement & marriage', kind_general: 'General users', kind_guest: 'Visitors (guests)',
                     danger_zone: 'Danger zone', danger_zone_hint: 'Deleting the account moves it to the Trash and asks for your password. Super-Admin only.', delete_account: 'Delete account',
                     delete_body: '{name} will be moved to the Trash. You can restore it from there. Contributions and other records linked to this user will block the delete (a clear error message will appear if so).',
                     password_non_staff_warning: 'This account is not a staff/admin account. The mobile app has no screen for a regular user to enter a password — setting one here will require a password on their NEXT phone login, and they will be locked out with no way back in through the app. Continue anyway?',
@@ -1677,7 +1677,7 @@ const en = {
     // fails if any loses its English or Arabic. server_error reuses
     // error.server. connect_request_not_found is for the one refusal still
     // sent without a code: a plain 404 for a missing connect request.
-    guest_member_not_allowed: 'General user accounts cannot join a chat group. Remove the general user account from the members and try again.',
+    guest_member_not_allowed: 'Guest accounts cannot join a chat group. Remove the guest account from the members and try again.',
     team_member_role_not_allowed: 'A team group shows real names, so only volunteers and staff can join one. Put a grantor or a recipient in a masked group instead.',
     connect_context_not_found: 'The case or donation this request is about could not be found, so no group was opened for it.',
     group_member_conflict: 'One of these people is already a member of this group. Remove the repeated person and try again.',
@@ -1756,8 +1756,8 @@ const en = {
     body: {
       login: 'Signed in with {method}',
       register: 'Created an account with {method}',
-      guest_login: 'General user signed in',
-      guest_register: 'General user account created',
+      guest_login: 'Guest signed in',
+      guest_register: 'Guest account created',
       role_select: 'Chose an account type',
       profile_update: 'Updated their profile',
       beneficiary_case_submit: 'Submitted a case',
@@ -1974,6 +1974,8 @@ const en = {
     donor: 'Grantor',
     beneficiary: 'Recipient',
     volunteer: 'Volunteer',
+    general: 'General user',
+    marriage: 'Family file',
     none: 'None',
     yes: 'Yes',
     no: 'No',
@@ -1996,7 +1998,7 @@ const en = {
     // Listed for a translator in TRANSLATION_REQUEST.md.
     admin_announcement: 'Admin announcement',
     admin_new_beneficiary_case: 'New beneficiary case',
-    admin_new_guest_account: 'New general user account',
+    admin_new_guest_account: 'New guest account',
     admin_new_marriage_profile: 'New event profile',
     admin_new_project_request: 'New project request',
     beneficiary_case_approved: 'Beneficiary case approved',
@@ -2235,7 +2237,7 @@ const en = {
     //   wallet_balance_iqd ← col.wallet
     hours: 'Hours (JSON)',
     opening_hours: 'Opening Hours',
-    is_guest: 'General user',
+    is_guest: 'Guest',
     wallet_balance_iqd: 'Wallet',
     brand: 'Brand',
     // K15 — العروض والخصومات. Whole percent off; empty or 0 means no offer.

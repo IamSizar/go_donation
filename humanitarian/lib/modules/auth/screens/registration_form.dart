@@ -76,6 +76,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
   int? _dobMonth;
   int? _dobYear;
   int? _roleId;
+
+  /// role_id of the «مستخدم عام» (general user) — a signed-in account with
+  /// limited access, not the guest mode.
+  static const int _generalRoleId = 6;
   bool _loading = false;
   String? _error;
   bool _agreeToTerms = false;
@@ -659,6 +663,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     _addressController.text = sharedPreferences.getString('address_user') ?? '';
     final rid = int.tryParse(sharedPreferences.getString('role_id') ?? '');
     if (rid != null && rid >= 1 && rid <= 3) _roleId = rid;
+    // A new account starts as the general user (limited access, no review).
+    // A general user who opens the form again is upgrading, so it starts
+    // empty and offers only the real roles.
+    if (!widget.editMode && (rid == null || rid == 0)) {
+      _roleId = _generalRoleId;
+    }
     // Editing an existing profile: pull the whole row and fill the form in,
     // so the person is looking at what they already gave rather than at a
     // blank registration. The two lines above have already seeded name and
@@ -688,6 +698,8 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
 
   // #43 — returns the label key of the first required-but-empty field, or null.
   String? _firstMissingRequired() {
+    // The general user is asked for a name only.
+    if (_roleId == _generalRoleId) return null;
     bool blank(String v) => v.trim().isEmpty;
     final checks = <String, ({bool applies, bool filled, String labelKey})>{
       'gender': (
@@ -2398,7 +2410,10 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                               validator: (v) {
                                 // Grantor registration spec — residential
                                 // address is optional for the grantor role.
-                                if (_roleId == 1) return null;
+                                // The general user gives the minimum: a name.
+                                if (_roleId == 1 || _roleId == _generalRoleId) {
+                                  return null;
+                                }
                                 return (v == null || v.trim().isEmpty)
                                     ? 'Please enter your address'.tr
                                     : null;
@@ -2529,7 +2544,12 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
                           ),
                           hint: Text('Select your role'.tr),
                           items: [
-                            for (final r in const [
+                            for (final r in [
+                              // Not offered to an account that is already a
+                              // general user: it is upgrading away from it.
+                              if (sharedPreferences.getString('role_id') !=
+                                  '$_generalRoleId')
+                                (_generalRoleId, 'General user'),
                               (1, 'Donor'),
                               (2, 'Beneficiary'),
                               (3, 'Volunteer'),

@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -108,6 +109,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       Get.snackbar('add_activity'.tr, 'activity_need_fields'.tr);
       return;
     }
+    if (!await requireUpgrade(context)) return;
     setState(() => _busy = true);
     try {
       // Photos first: the submission carries the paths the server issued. If

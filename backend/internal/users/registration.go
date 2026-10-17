@@ -18,6 +18,11 @@ import (
 // (re-submit after a rejection) all succeed.
 var ErrRegistrationNotSubmittable = errors.New("registration not submittable in current status")
 
+// RoleGeneral is the role_id of the «مستخدم عام» (general user): a signed-in
+// account with limited access that can later be upgraded to a real role. It is
+// not the guest mode — a guest has no sign-in at all (users.is_guest).
+const RoleGeneral = 6
+
 // SubmitRegistration is the new-user onboarding write: it stores the profile
 // fields the registration form collects (name, date of birth, address),
 // assigns the chosen role, and moves the user to 'pending' so an admin can
@@ -132,7 +137,7 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 	if fullName == "" {
 		return "", errors.New("full_name required")
 	}
-	if roleID < 1 || roleID > 3 {
+	if (roleID < 1 || roleID > 3) && roleID != RoleGeneral {
 		return "", errors.New("invalid role_id")
 	}
 
@@ -237,22 +242,41 @@ func (s *Store) SubmitRegistration(ctx context.Context, userID int64, fullName, 
 		}
 	}
 
-	// Assign role + move to pending — UNLESS the user is already approved
-	// (a grandfathered account completing its role/profile), in which case the
-	// approval is preserved. RETURNING gives us the resulting status; no row
-	// means the user id doesn't exist.
+	// Assign role + decide the status.
+	//
+	//   - General user (RoleGeneral): a signed-in account with limited access.
+	//     It needs no review, so it is approved at once. It can only be chosen
+	//     by an account that has no role yet (or is already a general user);
+	//     an approved donor/beneficiary/volunteer is never downgraded by it.
+	//   - Anyone else: moves to pending for staff review — UNLESS the account is
+	//     already approved in a real role (a grandfathered account completing
+	//     its profile), in which case the approval is kept. A general user
+	//     asking for a real role is NOT in that group: that is an upgrade, and
+	//     staff approve it like any new registration.
+	//
+	// RETURNING gives the resulting status; no row means the user id doesn't
+	// exist (or, for the general role, the account already has a real role).
 	var newStatus string
 	err = tx.QueryRow(ctx,
 		`UPDATE users
 		    SET role_id = $1,
-		        registration_status        = CASE WHEN registration_status = 'approved' THEN 'approved' ELSE 'pending' END,
-		        registration_submitted_at  = CASE WHEN registration_status = 'approved' THEN registration_submitted_at ELSE NOW() END,
-		        registration_reviewed_at   = CASE WHEN registration_status = 'approved' THEN registration_reviewed_at ELSE NULL END,
-		        registration_reviewed_by   = CASE WHEN registration_status = 'approved' THEN registration_reviewed_by ELSE NULL END,
+		        registration_status        = CASE WHEN $1::int = $3 THEN 'approved'
+		                                          WHEN registration_status = 'approved' AND role_id IS DISTINCT FROM $3 THEN 'approved'
+		                                          ELSE 'pending' END,
+		        registration_submitted_at  = CASE WHEN $1::int = $3 THEN NOW()
+		                                          WHEN registration_status = 'approved' AND role_id IS DISTINCT FROM $3 THEN registration_submitted_at
+		                                          ELSE NOW() END,
+		        registration_reviewed_at   = CASE WHEN $1::int = $3 THEN NOW()
+		                                          WHEN registration_status = 'approved' AND role_id IS DISTINCT FROM $3 THEN registration_reviewed_at
+		                                          ELSE NULL END,
+		        registration_reviewed_by   = CASE WHEN $1::int = $3 THEN NULL
+		                                          WHEN registration_status = 'approved' AND role_id IS DISTINCT FROM $3 THEN registration_reviewed_by
+		                                          ELSE NULL END,
 		        registration_reject_reason = NULL
 		  WHERE id = $2
+		    AND ($1::int <> $3 OR role_id IS NULL OR role_id IN (0, $3))
 		  RETURNING registration_status`,
-		roleID, userID,
+		roleID, userID, RoleGeneral,
 	).Scan(&newStatus)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -180,6 +180,18 @@ func RequireNotGuest() gin.HandlerFunc {
 			})
 			return
 		}
+		// The general user (role 6) is a signed-in account with limited access:
+		// it holds the same restrictions as a guest until it is upgraded to a
+		// real role, but its upgrade goes through the registration form (the
+		// phone is already verified), so the app is told with its own code.
+		if u.RoleID == 6 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"status": "error",
+				"error":  "This action requires a full account. Please upgrade your account.",
+				"code":   "general_user_restricted",
+			})
+			return
+		}
 		c.Next()
 	}
 }

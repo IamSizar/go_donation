@@ -46,7 +46,7 @@ const GUEST_PLACEHOLDER_NAME = 'Guest'
 // the current value as an extra <option> whenever it isn't in `allowed`, so
 // the dropdown falls back to showing 'none' (بلا) for those rows without it
 // being a selectable target for anyone else.
-const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage']
+const ROLE_LABELS = ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'general']
 
 // Phase 18's field lists moved to lib/userEditFields.ts when the Edit form
 // grew from 15 boxes to the whole registration profile — this file was already
@@ -70,6 +70,7 @@ function roleLabelToId(label: string): number {
   if (label === 'volunteer') return 3
   if (label === 'employee') return 4
   if (label === 'marriage') return 5
+  if (label === 'general') return 6
   return 0
 }
 
@@ -739,6 +740,7 @@ export default function UsersPage({ roleId: onlyRoleId }: { roleId?: number } = 
               <option value="volunteer">{t('page.users.kind_volunteer')}</option>
               <option value="employee">{t('page.users.kind_employee')}</option>
               <option value="marriage">{t('page.users.kind_marriage')}</option>
+              <option value="general">{t('page.users.kind_general')}</option>
               <option value="guest">{t('page.users.kind_guest')}</option>
             </select>
           )}

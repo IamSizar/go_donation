@@ -159,17 +159,18 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 **Status:** ✅ Fixed (app + server)
 
-**What we found:** the limited account (general user, formerly labelled "visitor / guest") was blocked in several places:
+**What we found:** the visitor («زائر», the guest mode: entering without signing in) was blocked in several places:
 - Home showed only a «سجّل الدخول» card — no campaigns, no categories, no our-work.
 - The city guide was blocked («يتطلب عرض دليل المدينة إكمال التسجيل») by the app **and** the server.
 - Support chat and support tickets were refused by the server, and the app asked to sign in first.
 
 **Fixed:**
-- The general user's home now shows the real public content: browse by category, featured campaigns, latest news / our work (the store and the khotba posts were already open).
-- The city guide opens for them (view only — adding a place needs a full account).
-- They can open a support chat and send support tickets.
-- Safety kept: they can only talk in a **support** chat with **staff**; every other chat stays closed to them.
-- Small clean-ups: the name shows as «مستخدم عام», and the 👋 emoji was removed from the empty chat text.
+- The visitor's home now shows the real public content: browse by category, featured campaigns, latest news / our work (the store and the khotba posts were already open).
+- The city guide opens for visitors (view only — adding a place needs a full account).
+- Visitors can open a support chat and send support tickets.
+- Safety kept: a visitor can only talk in a **support** chat with **staff**; every other chat stays closed to them.
+- The visitor also cannot comment in the khotba section or join volunteer work until they create an account.
+- Small clean-ups: the 👋 emoji was removed from the empty chat text.
 
 Before / After:
 
@@ -363,8 +364,9 @@ Before → After:
 
 **Done:**
 - The three big role cards (donor / beneficiary / volunteer) became **one dropdown** called «نوع الحساب».
-- Choosing a role opens only that role's extra section below. Everything already typed (name, date of birth, address, gender, city, occupation) **stays filled in**, so nothing is typed twice when the role changes.
-- The **general user** is the account everyone can start with («المتابعة كمستخدم عام»): it has limited rights and is upgraded later from the same form by choosing a role (see the rights listed under the general-user point).
+- **«مستخدم عام» (general user)** is now the first option and the default for a new account. It asks only for a name — no address, no review — and the account opens at once with limited access.
+- Choosing donor, beneficiary or volunteer opens only that role's extra section below. Everything already typed (name, date of birth, address, gender, city, occupation) **stays filled in**, so nothing is typed twice when the role changes.
+- A general user who later opens the form again sees only the real roles (donor, beneficiary, volunteer), fills that role's data, and staff approve the upgrade like any new registration.
 
 ![](round2_screens/34-38/after_role_dropdown.png)
 ![](round2_screens/34-38/after_volunteer_selected.png)
@@ -382,19 +384,23 @@ One line at the top instead: **«\* الحقول المصحوبة بعلامة �
 
 **Status:** ✅ Fixed
 
-**General user** (the account created by «المتابعة كمستخدم عام», previously labelled "visitor / guest") now matches the described rights:
-- **Can:** browse everything — humanitarian work, the store, the city guide and the khotba section — and message support (chat and tickets).
-- **Cannot, until the account is upgraded:** comment in the khotba section, send khotba requests, request humanitarian aid, join volunteer work, donate or buy. Each of these shows the «ترقية الحساب» prompt, and the server refuses it as well.
-- Volunteer notifications reach volunteer accounts only, so a general user does not receive them until upgraded to a volunteer.
-- **Upgrading:** «ترقية الحساب» → phone verification → the registration form with the role dropdown.
+The **general user** («مستخدم عام») is a signed-in account with limited access. It is different from the visitor («زائر»), who enters without an account.
 
-The name «زائر» is now «مستخدم عام» everywhere in the app and the dashboard.
+- **Can:** browse everything — humanitarian work, the store, the city guide and the khotba section — and message support (chat and tickets).
+- **Cannot, until the account is upgraded:** comment in the khotba section, send khotba requests, request humanitarian aid, join volunteer work, donate, buy, add a place, sponsor, or send an in-kind gift. Each of these shows an «ترقية الحساب» prompt that opens the registration form, and the server refuses the action as well.
+- Volunteer notifications reach volunteer accounts only, so a general user does not receive them until upgraded to a volunteer.
+- **Upgrading:** «ترقية الحساب» → the registration form with the role dropdown (donor, beneficiary, volunteer) → staff approval.
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
 **Status:** ✅ Fixed
 
-General users are now a named group in the dashboard: the Users page has the filter «المستخدمون العامون» and a «مستخدم عام» badge, they can be hidden from the list, a new general user is announced as «حساب مستخدم عام جديد», and their data can be edited and archived like any other account. The «General User Access» page controls which app screens they can browse. Users create their own accounts in the app, either by registering or by entering as a general user, so no manual creation is needed from the dashboard.
+The general user is a full account type in the dashboard:
+- **New User** now creates every account type: donor, beneficiary, volunteer, employee, family file and **general user** («مستخدم عام»).
+- The Users page has a filter «المستخدمون العامون»; the role can be changed from the row like any other type; their data can be edited and archived.
+- The visitor («زائر») stays separate, with its own filter and the «Guest Access» page that controls which screens a visitor can browse.
+
+![](round2_screens/38/hi_new_user_roles.png)
 
 ## 39. Filter tiles (الكل / غير مقروء / مقروء) unequal; «غير مقروء» wraps badly → equal size, one line or two stacked centered words.
 

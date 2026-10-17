@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/api/guest_session.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/localization/money.dart';
@@ -738,6 +739,7 @@ class _SponsorshipFormScreenState extends State<SponsorshipFormScreen> {
       Get.snackbar('Error'.tr, 'Enter a valid monthly amount.'.tr);
       return;
     }
+    if (!await requireUpgrade(context)) return;
     setState(() => _loading = true);
     try {
       await const ModuleApi().postJson(sponsorshipsUrl, {
@@ -894,6 +896,7 @@ class _InKindDonationFormScreenState extends State<InKindDonationFormScreen> {
   }
 
   Future<void> _submit() async {
+    if (!await requireUpgrade(context)) return;
     setState(() => _loading = true);
     try {
       await const ModuleApi().postJson(inKindDonationsUrl, {
@@ -1031,14 +1034,16 @@ class ReportsScreen extends StatelessWidget {
                   SectionTile(
                     icon: Icons.payments_rounded,
                     title: 'Completed donations',
-                    subtitle: '${donations['completed_amount'] ?? '0'} ${localizedCurrency('IQD')}',
+                    subtitle:
+                        '${donations['completed_amount'] ?? '0'} ${localizedCurrency('IQD')}',
                     color: AppThemeConfig.accent(context),
                   ),
                   const SizedBox(height: 12),
                   SectionTile(
                     icon: Icons.hourglass_bottom_rounded,
                     title: 'Pending donations',
-                    subtitle: '${donations['pending_amount'] ?? '0'} ${localizedCurrency('IQD')}',
+                    subtitle:
+                        '${donations['pending_amount'] ?? '0'} ${localizedCurrency('IQD')}',
                     color: AppThemeConfig.pending(context),
                   ),
                   const SizedBox(height: 12),

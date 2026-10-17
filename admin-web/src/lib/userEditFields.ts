@@ -213,7 +213,7 @@ export function buildNewUserFields(state: Record<string, FieldRuleState>): Field
     // never touches the select could create an account with role_id 0 (no
     // role at all — an internal/guest state, not something staff should be
     // able to hand out from this form).
-    { key: 'role', label: 'Role', labelKey: 'col.role', type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee'], required: true, section: ACCOUNT_SECTION },
+    { key: 'role', label: 'Role', labelKey: 'col.role', type: 'select', options: ['donor', 'beneficiary', 'volunteer', 'employee', 'marriage', 'general'], required: true, section: ACCOUNT_SECTION },
     { key: 'username', label: 'Username', labelKey: 'auth.username', type: 'text', placeholder: 'supervisor', section: ACCOUNT_SECTION },
     { key: 'password', label: 'Password', labelKey: 'auth.password', type: 'password', section: ACCOUNT_SECTION },
     // 'email' is NOT declared again here — it is already in PROFILE_EDIT_FIELDS

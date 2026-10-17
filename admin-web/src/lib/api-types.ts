@@ -783,6 +783,9 @@ export function roleLabel(roleId: number): string {
     case 5:
       // Account type: the marriage / engagement service.
       return 'marriage'
+    case 6:
+      // «مستخدم عام»: a signed-in account with limited access (not a guest).
+      return 'general'
     case 0:
       // D1 — "no role yet". This used to return the literal em dash '—', which
       // is what put TWO entries for the same state in the نوع المستخدم
