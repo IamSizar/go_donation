@@ -544,6 +544,8 @@ type CommunitySubmission struct {
 	Sectors      []string
 	OpeningHours string
 	SubmittedBy  *int64
+	// Gallery is the already-validated photo paths (R2 #62); nil means none.
+	Gallery []string
 }
 
 // SubmitCommunity inserts a user-submitted place with status='pending' (#30),
@@ -558,17 +560,20 @@ func (s *Store) SubmitCommunity(ctx context.Context, sub CommunitySubmission) (i
 		}
 		return v
 	}
+	if sub.Gallery == nil {
+		sub.Gallery = []string{}
+	}
 	var id int64
 	err := s.Pool.QueryRow(ctx, `
 		INSERT INTO city_directory_entries
 		  (name, name_ar, name_sorani, name_badini, category, city, address, phone, website,
-		   latitude, longitude, sectors, opening_hours, status, submitted_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',$14)
+		   latitude, longitude, sectors, opening_hours, status, submitted_by, gallery)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',$14,$15)
 		RETURNING id`,
 		sub.Name, nilIfEmpty(sub.NameAr), nilIfEmpty(sub.NameSorani), nilIfEmpty(sub.NameBadini),
 		sub.Category, nilIfEmpty(sub.City), nilIfEmpty(sub.Address), nilIfEmpty(sub.Phone),
 		nilIfEmpty(sub.Website), nilIfEmpty(sub.Latitude), nilIfEmpty(sub.Longitude),
-		sub.Sectors, nilIfEmpty(sub.OpeningHours), sub.SubmittedBy,
+		sub.Sectors, nilIfEmpty(sub.OpeningHours), sub.SubmittedBy, sub.Gallery,
 	).Scan(&id)
 	return id, err
 }

@@ -167,6 +167,9 @@ type communitySubmitReq struct {
 	Longitude    string   `json:"longitude"`
 	Sectors      []string `json:"sectors"`
 	OpeningHours string   `json:"opening_hours"`
+	// Gallery — photo paths from POST /api/uploads (R2 #62). Filtered by
+	// cleanCityPhotos; anything that is not an uploaded path is dropped.
+	Gallery []string `json:"gallery"`
 }
 
 // SubmitCommunity — POST /api/community/submit (#30). An approved app user
@@ -202,6 +205,7 @@ func (h *ListingsHandler) SubmitCommunity(c *gin.Context) {
 		Category: strings.TrimSpace(req.Category), City: req.City, Address: req.Address, Phone: req.Phone,
 		Website: req.Website, Latitude: req.Latitude, Longitude: req.Longitude,
 		Sectors: req.Sectors, OpeningHours: req.OpeningHours, SubmittedBy: submittedBy,
+		Gallery: cleanCityPhotos(req.Gallery),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Database error: " + err.Error()})

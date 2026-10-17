@@ -622,8 +622,25 @@ Not in the system yet (new features → waiting for scope):
 
 ## 62. City guide «إضافة نشاط»: no photo option; why lat/long fields (just attach GPS); submit button sits under the phone nav buttons → move it up.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** the add-activity form had no way to add a photo, asked the user to type a latitude and longitude by hand, and its submit button was the last item of the scrolling list, so it sat under the phone's navigation buttons.
+
+**Fixed:**
+- **Photos:** a «الصور» row where the user adds up to 6 photos (camera or gallery, with the resize / crop step). They upload only when the form is sent. Staff see them in the dashboard city-guide review.
+- **GPS:** the two number boxes are gone. One button, «تحديد موقعي», takes the phone's GPS (it says «تم تحديد الموقع» when done, with «إزالة الموقع» to undo). If location is off or refused, it says why in words.
+- **Submit button:** «إرسال للمراجعة» is now pinned at the bottom of the screen, clear of the phone's buttons, and always visible while the form scrolls.
+- **Server:** it now accepts the photos and keeps only paths its own upload endpoint issued (anything else is dropped), at most 6. Tests cover this.
+
+Checked end to end on the local copy: the suggestion arrived as «قيد المراجعة» with the GPS coordinates and the uploaded photo.
+
+| Before (top) | Before (bottom: button at the edge) |
+|---|---|
+| ![](round2_screens/62/before-1-top.png) | ![](round2_screens/62/before-2-bottom.png) |
+
+| After | With GPS + photo | Sent |
+|---|---|---|
+| ![](round2_screens/62/after-1-form.png) | ![](round2_screens/62/after-2-gps-photo-submit.png) | ![](round2_screens/62/after-3-submitted.png) |
 
 ## 63. Profile: logout button at the very bottom collides with phone nav buttons → move up.
 

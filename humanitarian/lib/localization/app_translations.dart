@@ -17,6 +17,11 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'activity_use_my_location': 'Use my location',
+    'activity_location_set': 'Location set',
+    'activity_remove_location': 'Remove location',
+    'activity_photos': 'Photos',
+    'activity_add_photo': 'Add',
     'My account': 'My account',
     'About & support': 'About & support',
     'Save changes': 'Save changes',
@@ -3347,6 +3352,11 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'activity_use_my_location': 'تحديد موقعي',
+    'activity_location_set': 'تم تحديد الموقع',
+    'activity_remove_location': 'إزالة الموقع',
+    'activity_photos': 'الصور',
+    'activity_add_photo': 'إضافة',
     'My account': 'حسابي',
     'About & support': 'عن التطبيق والدعم',
     'Save changes': 'حفظ التغييرات',

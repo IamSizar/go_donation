@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
+import 'package:flutter_application_1/core/widgets/app_screen.dart';
 import 'package:flutter_application_1/core/widgets/app_states.dart';
 import 'package:flutter_application_1/localization/content_localizer.dart';
 import 'package:flutter_application_1/localization/failure_message.dart';
 import 'package:flutter_application_1/modules/community/controllers/community_controller.dart';
-import 'package:flutter_application_1/shared/widgets/glass_ui.dart';
+import 'package:flutter_application_1/shared/utils/image_pick.dart';
 import 'package:get/get.dart';
 
 /// OPOS #25280 — the translation key for a failed submission's snackbar.
@@ -42,9 +46,19 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   final _address = TextEditingController();
   final _phone = TextEditingController();
   final _hours = TextEditingController();
-  final _lat = TextEditingController();
-  final _lng = TextEditingController();
   final _selected = <String>{};
+
+  /// R2 #62 — the place's position, taken from the phone's GPS with one tap.
+  /// It replaces two boxes asking the user to type a latitude and a longitude,
+  /// which nobody knows by heart. Null until the user taps «تحديد موقعي».
+  Position? _position;
+  bool _locating = false;
+  String? _locationError;
+
+  /// R2 #62 — local paths of the photos the user picked. They are uploaded only
+  /// when the form is submitted, so an abandoned form uploads nothing.
+  final _photos = <String>[];
+  static const _maxPhotos = 6;
 
   /// The chosen sub-category's slug (K16). Null until one is picked, which is
   /// what `_submit` validates — the field is required, exactly as the free-text
@@ -70,7 +84,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _city, _address, _phone, _hours, _lat, _lng]) {
+    for (final c in [_name, _city, _address, _phone, _hours]) {
       c.dispose();
     }
     super.dispose();
@@ -96,6 +110,13 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     }
     setState(() => _busy = true);
     try {
+      // Photos first: the submission carries the paths the server issued. If
+      // one upload fails the whole submit stops, so the user is never told a
+      // place was suggested without the photos they added.
+      final gallery = <String>[];
+      for (final path in _photos) {
+        gallery.add(await const ModuleApi().uploadPhoto(File(path)));
+      }
       await const ModuleApi().submitCommunity({
         'name': _name.text.trim(),
         // The SLUG, not a typed name: it is stable across languages, and the
@@ -105,9 +126,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         'address': _address.text.trim(),
         'phone': _phone.text.trim(),
         'opening_hours': _hours.text.trim(),
-        'latitude': _lat.text.trim(),
-        'longitude': _lng.text.trim(),
+        'latitude': _position?.latitude.toStringAsFixed(7) ?? '',
+        'longitude': _position?.longitude.toStringAsFixed(7) ?? '',
         'sectors': _selected.toList(),
+        'gallery': gallery,
       });
       if (!mounted) return;
       Get.back();
@@ -122,38 +144,228 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     }
   }
 
+  /// Takes the phone's current position. Every failure is reported in words:
+  /// a location button that silently does nothing reads as a broken one.
+  Future<void> _useMyLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _locationError = null;
+    });
+    try {
+      // Service check first: with location off at the OS level the permission
+      // prompt never appears and the request just hangs.
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          setState(() => _locationError = 'location_services_disabled'.tr);
+        }
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _locationError = 'location_permission_required'.tr);
+        }
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      if (mounted) setState(() => _position = position);
+    } catch (e) {
+      debugPrint('[add-activity] location failed: $e');
+      if (mounted) setState(() => _locationError = 'location_failed'.tr);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _addPhoto() async {
+    if (_photos.length >= _maxPhotos) return;
+    // A place is looked at, so these are display photos: resized and
+    // compressed, with the usual camera-or-gallery choice.
+    final picked = await pickCroppedImage(context);
+    if (picked != null && mounted) setState(() => _photos.add(picked));
+  }
+
+  Widget _locationRow(BuildContext context) {
+    final set = _position != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _locating ? null : _useMyLocation,
+            icon: _locating
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    set
+                        ? Icons.check_circle_rounded
+                        : Icons.my_location_rounded,
+                  ),
+            label: Text(
+              set ? 'activity_location_set'.tr : 'activity_use_my_location'.tr,
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              foregroundColor: AppThemeConfig.text(context),
+              side: BorderSide(color: AppThemeConfig.border(context)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          if (set)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                onPressed: () => setState(() => _position = null),
+                child: Text('activity_remove_location'.tr),
+              ),
+            ),
+          if (_locationError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _locationError!,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoStrip(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'activity_photos'.tr,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppThemeConfig.text(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < _photos.length; i++)
+                SizedBox(
+                  width: 84,
+                  height: 84,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(File(_photos[i]), fit: BoxFit.cover),
+                      ),
+                      PositionedDirectional(
+                        top: 2,
+                        end: 2,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _photos.removeAt(i)),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_photos.length < _maxPhotos)
+                InkWell(
+                  onTap: _addPhoto,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: AppThemeConfig.softSurface(context),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppThemeConfig.border(context)),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_a_photo_rounded,
+                          color: AppThemeConfig.mutedText(context),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'activity_add_photo'.tr,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppThemeConfig.mutedText(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SectionScaffold(
+    return AppScreen(
       title: 'add_activity'.tr,
       subtitle: 'activity_subtitle'.tr,
+      // The page itself carries no side gutter (the list supplies it), and the
+      // submit button is pinned below the list. It used to be the last item
+      // IN the list, which left it under the phone's navigation buttons.
+      padded: false,
+      bottomBar: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _busy ? null : _submit,
+          child: Text(_busy ? 'activity_submitting'.tr : 'activity_submit'.tr),
+        ),
+      ),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
           _field(_name, 'activity_name'.tr, required: true),
           _field(_city, 'activity_city'.tr),
           _field(_address, 'activity_address'.tr),
           _field(_phone, 'activity_phone'.tr, keyboard: TextInputType.phone),
           _field(_hours, 'city_opening_hours'.tr),
-          Row(
-            children: [
-              Expanded(
-                child: _field(
-                  _lat,
-                  'activity_latitude'.tr,
-                  keyboard: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _field(
-                  _lng,
-                  'activity_longitude'.tr,
-                  keyboard: TextInputType.number,
-                ),
-              ),
-            ],
-          ),
+          _locationRow(context),
+          _photoStrip(context),
           const SizedBox(height: 8),
           Obx(() {
             final sectors = _controller.sectors.toList();
@@ -244,16 +456,6 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
               ],
             );
           }),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _busy ? null : _submit,
-              child: Text(
-                _busy ? 'activity_submitting'.tr : 'activity_submit'.tr,
-              ),
-            ),
-          ),
         ],
       ),
     );
