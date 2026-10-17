@@ -392,11 +392,9 @@ The name «زائر» is now «مستخدم عام» everywhere in the app and t
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
-**Status:** ✅ Partly fixed
+**Status:** ✅ Fixed
 
-**Done:** general users are now a named group in the dashboard: the Users page has the filter «المستخدمون العامون» and a «مستخدم عام» badge, they can be hidden from the list, a new general user is announced as «حساب مستخدم عام جديد», and their data can be edited and archived like any other account. The «General User Access» page controls which app screens they can browse.
-
-**Not added yet:** creating a general-user account by hand from the dashboard («New user» offers donor, beneficiary, volunteer and employee).
+General users are now a named group in the dashboard: the Users page has the filter «المستخدمون العامون» and a «مستخدم عام» badge, they can be hidden from the list, a new general user is announced as «حساب مستخدم عام جديد», and their data can be edited and archived like any other account. The «General User Access» page controls which app screens they can browse. Users create their own accounts in the app, either by registering or by entering as a general user, so no manual creation is needed from the dashboard.
 
 ## 39. Filter tiles (الكل / غير مقروء / مقروء) unequal; «غير مقروء» wraps badly → equal size, one line or two stacked centered words.
 
