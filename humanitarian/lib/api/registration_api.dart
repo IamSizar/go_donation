@@ -32,14 +32,53 @@ class FieldRuleSets {
 /// Note #33 — like fetchRequiredFields, but also returns the `hidden` list so
 /// a form can skip rendering fields the admin switched off entirely. Empty on
 /// error/offline (so forms fall back to showing every field, none required).
+// R2 #15 — the registration form used to open with every field visible and
+// then re-layout when this answer arrived (and a stalled connection left it
+// that way forever, the request having no timeout). The last good answer is
+// now remembered on the device so the form opens already correct, and the
+// request gives up after 8 s instead of hanging.
+const _fieldRulesCacheKey = 'registration_field_rules_cache';
+
+/// The last field-rules answer stored on this device, or null on first run.
+FieldRuleSets? cachedFieldRuleSets() {
+  try {
+    final raw = sharedPreferences.getString(_fieldRulesCacheKey);
+    if (raw == null) return null;
+    return _parseFieldRules(jsonDecode(raw));
+  } catch (_) {
+    return null;
+  }
+}
+
+FieldRuleSets? _parseFieldRules(dynamic decoded) {
+  if (decoded is! Map) return null;
+  Set<String> set(String k) => decoded[k] is List
+      ? (decoded[k] as List).map((e) => e.toString()).toSet()
+      : <String>{};
+  return FieldRuleSets(
+    required: set('required'),
+    hidden: set('hidden'),
+    searchable: set('searchable'),
+  );
+}
+
 Future<FieldRuleSets> fetchFieldRuleSets() async {
   try {
-    final resp = await http.get(
-      Uri.parse(fieldRulesUrl),
-      headers: const {'Accept': 'application/json'},
-    );
-    if (resp.statusCode != 200) return FieldRuleSets.empty;
+    final resp = await http
+        .get(
+          Uri.parse(fieldRulesUrl),
+          headers: const {'Accept': 'application/json'},
+        )
+        .timeout(const Duration(seconds: 8));
+    if (resp.statusCode != 200) {
+      return cachedFieldRuleSets() ?? FieldRuleSets.empty;
+    }
     final decoded = jsonDecode(resp.body);
+    final parsed = _parseFieldRules(decoded);
+    if (parsed != null) {
+      await sharedPreferences.setString(_fieldRulesCacheKey, resp.body);
+      return parsed;
+    }
     if (decoded is Map) {
       final required = decoded['required'] is List
           ? (decoded['required'] as List).map((e) => e.toString()).toSet()
@@ -66,7 +105,7 @@ Future<FieldRuleSets> fetchFieldRuleSets() async {
     // silently wrong save. Deliberately not a throw: this feeds the signup
     // form, and failing it would lock a new user out over a config fetch.
   }
-  return FieldRuleSets.empty;
+  return cachedFieldRuleSets() ?? FieldRuleSets.empty;
 }
 
 /// Result of POSTing the registration form.
@@ -387,7 +426,10 @@ Future<RegistrationPhotosResult> uploadRegistrationPhotos({
       if (e.value != null && e.value!.isNotEmpty) e.key: e.value!,
   };
   if (pending.isEmpty) {
-    return const RegistrationPhotosResult(reachedServer: true, failedFields: []);
+    return const RegistrationPhotosResult(
+      reachedServer: true,
+      failedFields: [],
+    );
   }
   try {
     final dio = Dio(

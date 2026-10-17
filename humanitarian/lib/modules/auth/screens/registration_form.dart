@@ -669,6 +669,11 @@ class _RegistrationFormPageState extends State<RegistrationFormPage> {
     }
     // #43 / Note 33 — load the admin-configured field rules: which optional
     // fields are required, and which are switched off entirely.
+    final cachedRules = cachedFieldRuleSets();
+    if (cachedRules != null) {
+      _required = cachedRules.required;
+      _hidden = cachedRules.hidden;
+    }
     fetchFieldRuleSets().then((rules) {
       if (mounted) {
         setState(() {

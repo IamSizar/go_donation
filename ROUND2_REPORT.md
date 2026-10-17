@@ -160,10 +160,13 @@ The one deliberate exception is the volunteer's **check-in photo** at a mission:
 
 ## 15. Fix slowness during registration.
 
-**Status:** ❌ Not reproduced on the local test copy — needs a timing on the live system
+**Status:** ✅ Improved (real cause on the live system still to be timed)
 
-On the local copy every registration request answers in a few milliseconds and the form opens instantly, so the slowness is not in the app's own code path. Likely causes on the live system: the live server's response time / region, or large photos on a slow connection (photos are already resized to 1600px before upload).
-Next step: time the registration screens against the live server (read-only) or with the client's phone to find which step is slow.
+**Found:** on the local copy every registration request answers in a few ms, so the slowness can't be reproduced here. Reading the code showed two real weak spots on a slow connection: the form opened with every field visible and then re-arranged itself when the field-rules answer arrived, and that request had no time limit (a stalled connection left the form in the wrong state forever). Photos are already uploaded in the background after the registration is saved, and resized before upload.
+
+**Fixed:** the form now remembers the last field-rules answer on the device so it opens already correct, and the request gives up after 8 seconds instead of hanging.
+
+**Still open:** if the client still feels slowness, we need to time the live server from their phone to see which step it is (server response time vs. the SMS code arriving).
 
 ## 16. Fix bug that stops a VISITOR from messaging support and viewing sections (humanitarian, store, city guide, khotba posts).
 
