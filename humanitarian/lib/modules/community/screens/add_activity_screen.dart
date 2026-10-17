@@ -2,7 +2,9 @@ import 'package:flutter_application_1/api/guest_session.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_application_1/api/module_api.dart';
 import 'package:flutter_application_1/core/theme/app_theme_config.dart';
 import 'package:flutter_application_1/core/widgets/app_screen.dart';
@@ -52,7 +54,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   /// R2 #62 — the place's position, taken from the phone's GPS with one tap.
   /// It replaces two boxes asking the user to type a latitude and a longitude,
   /// which nobody knows by heart. Null until the user taps «تحديد موقعي».
-  Position? _position;
+  LatLng? _point;
+
+  /// Drives the picker map so the GPS button can move it to the user.
+  final _mapController = MapController();
   bool _locating = false;
   String? _locationError;
 
@@ -128,8 +133,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         'address': _address.text.trim(),
         'phone': _phone.text.trim(),
         'opening_hours': _hours.text.trim(),
-        'latitude': _position?.latitude.toStringAsFixed(7) ?? '',
-        'longitude': _position?.longitude.toStringAsFixed(7) ?? '',
+        'latitude': _point?.latitude.toStringAsFixed(7) ?? '',
+        'longitude': _point?.longitude.toStringAsFixed(7) ?? '',
         'sectors': _selected.toList(),
         'gallery': gallery,
       });
@@ -180,7 +185,15 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           timeLimit: Duration(seconds: 12),
         ),
       );
-      if (mounted) setState(() => _position = position);
+      if (!mounted) return;
+      final here = LatLng(position.latitude, position.longitude);
+      setState(() => _point = here);
+      // Show the pin: centre the picker map on the user.
+      try {
+        _mapController.move(here, 16);
+      } catch (_) {
+        // The map is not laid out yet; the pin still shows on the next frame.
+      }
     } catch (e) {
       debugPrint('[add-activity] location failed: $e');
       if (mounted) setState(() => _locationError = 'location_failed'.tr);
@@ -198,7 +211,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   }
 
   Widget _locationRow(BuildContext context) {
-    final set = _position != null;
+    final set = _point != null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -233,10 +246,61 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: TextButton(
-                onPressed: () => setState(() => _position = null),
+                onPressed: () => setState(() => _point = null),
                 child: Text('activity_remove_location'.tr),
               ),
             ),
+          const SizedBox(height: 10),
+          Text(
+            'activity_tap_map'.tr,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: AppThemeConfig.mutedText(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // R2 #62 — pick the place by tapping the map: the coordinates are
+          // filled in automatically, nobody types a latitude or a longitude.
+          SizedBox(
+            height: 240,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  // Iraq, until the user picks a spot or uses their location.
+                  initialCenter: _point ?? const LatLng(33.2232, 43.6793),
+                  initialZoom: _point == null ? 5.5 : 16,
+                  minZoom: 3,
+                  maxZoom: 18,
+                  onTap: (_, point) => setState(() => _point = point),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.tawazzn.app',
+                  ),
+                  if (_point != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _point!,
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.topCenter,
+                          child: Icon(
+                            Icons.location_on_rounded,
+                            size: 44,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
           if (_locationError != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),

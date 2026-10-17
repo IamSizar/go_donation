@@ -642,7 +642,7 @@ Missing (new feature): a button on the ticket that converts it directly into a c
 
 **Fixed:**
 - **Photos:** a «الصور» row where the user adds up to 6 photos (camera or gallery, with the resize / crop step). They upload only when the form is sent. Staff see them in the dashboard city-guide review.
-- **GPS:** the two number boxes are gone. One button, «تحديد موقعي», takes the phone's GPS (it says «تم تحديد الموقع» when done, with «إزالة الموقع» to undo). If location is off or refused, it says why in words.
+- **Location:** the two number boxes are gone. The user either taps «تحديد موقعي» (takes the phone's GPS) or **taps the spot on a small map** — a pin drops and the coordinates are filled in automatically. The form says «تم تحديد الموقع» with «إزالة الموقع» to undo. Nobody types a latitude or a longitude.
 - **Submit button:** «إرسال للمراجعة» is now pinned at the bottom of the screen, clear of the phone's buttons, and always visible while the form scrolls.
 - **Server:** it now accepts the photos and keeps only photos uploaded through the app itself (anything else is dropped), at most 6.
 
@@ -655,6 +655,10 @@ We checked this end to end on a test copy: the suggestion arrived as «قيد ا
 | After | With GPS + photo | Sent |
 |---|---|---|
 | ![](round2_screens/62/after-1-form.png) | ![](round2_screens/62/after-2-gps-photo-submit.png) | ![](round2_screens/62/after-3-submitted.png) |
+
+| Tap-on-the-map picker | Pin dropped (location set) |
+|---|---|
+| ![](round2_screens/62/after-4-map-picker.png) | ![](round2_screens/62/after-5-map-pin.png) |
 
 ## 63. Profile: logout button at the very bottom collides with phone nav buttons → move up.
 
