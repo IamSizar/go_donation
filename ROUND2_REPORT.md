@@ -1,13 +1,13 @@
 # Tawazzn — Round 2 client notes: fix report
 
 Source: client PDF «الملاحظات» (20 pages, 2026-10-16). Every point in PDF order.
-Legend: ✅ fixed & verified · ⏳ waiting (new feature — needs the original scope) · ❌ not fixed (reason given) · ℹ️ info only
+Legend: ✅ fixed · ➕ addition outside the original scope (postponed) · ℹ️ information
 
 We tested all changes on a separate test copy. Nothing was changed on the live system.
 
-## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options. (Umbrella — concrete work is #47–#55.)
+## 1. **Simplify & de-clutter UI.** Repeated details, long explanations across sections; donation takes up to 6 screens. Shorten everything, make donation fast/easy with many payment options.
 
-**Status:** ✅ Fixed (summary of the whole round)
+**Status:** ✅ Fixed (general summary)
 
 **Fixed:** this is the general point. The de-cluttering was done screen by screen in the other points of this document: shorter titles, duplicate and long explanatory sentences removed, cleaner cards and sheets, a tidier profile menu and dashboard, plus a pass over every screen touched for cut-off words and misaligned text. The donation flow is now a single organized screen with all its fields kept.
 
@@ -34,7 +34,7 @@ Dashboard → التواصل والدعم → **المجموعات الحوار�
 - **مجموعة فريق** (real names) — staff-only room ✅, volunteers room ✅
 - **مجموعة بأسماء مستعارة** (aliases, contact details hidden) — staff + donor + beneficiaries ✅
 - Khotba (suitor + girl + staff): request arrives in الفعاليات → **طلبات الفعاليات** → «موافقة» → supervised chat opens in **محادثات الفعاليات** ✅
-- Adding the girl's guardian to the khotba chat: not possible today → ⏳ new feature.
+- Adding the girl's guardian to the khotba chat: not possible today → a new feature, postponed.
 
 ![](round2_screens/03/1_create_dialog_team.jpg)
 ![](round2_screens/03/hi_groups_list.png)
@@ -63,7 +63,7 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 ![](round2_screens/04/9_after_single_remove_dialog.jpg)
 ![](round2_screens/04/10_after_member_removed.jpg)
 
-**Note:** the khotba chat (محادثات الفعاليات) has open / archive / delete but no add / remove member, so the girl's guardian can't be added → ⏳ new feature, waiting for scope.
+**Note:** the khotba chat (محادثات الفعاليات) has open / archive / delete but no add / remove member, so the girl's guardian can't be added → a new feature, postponed.
 
 
 ## 5. **Calling feature:** voice/video calls in all private + group chats for all roles (staff, volunteer, donor, beneficiary, general user, events/khotba), supervisor can switch calling on/off entirely.
@@ -81,7 +81,7 @@ All 5 buttons are on every room (المجموعات الحوارية → open a 
 - Staff talk to each other in the dashboard under «محادثة الموظفين».
 - Staff can put volunteers and staff in a team room (المجموعات الحوارية → «مجموعة فريق»), and pause / archive / delete stay with the admin.
 
-**Note:** volunteers messaging *each other* directly (without staff) is not open — that was a deliberate earlier decision (members only talk through supervised rooms). If the client wants that, it is a new feature → ask first.
+**Note:** volunteers messaging *each other* directly (without staff) is not open, on purpose, to protect privacy (members only talk through supervised rooms). If the client wants it, it can be added as a new feature.
 
 ![](round2_screens/56-57/after_volunteer_one_tap_chat.png)
 
@@ -102,11 +102,11 @@ Before → After:
 
 **Found — two causes:**
 1. The app used **Noto Kufi Arabic**, a geometric "Kufi" style; in bold, «لا» and some joined letters look like other letters.
-2. Many texts had **letter-spacing** (designed for English). Negative spacing pushes Arabic letters into each other (the overlap the client saw); positive spacing pulls joined letters apart.
+2. Many texts had **letter spacing** (designed for English). Negative spacing pushes Arabic letters into each other (the overlap the client saw); positive spacing pulls joined letters apart.
 
 **Fix:**
 - Switched the app's Arabic/Kurdish font to **Noto Sans Arabic** — the clean, highly readable member of the same font family, with all Kurdish letters (ڕ ڵ ۆ ێ ڤ گ) and real bold weights.
-- Arabic text now never gets letter-spacing anywhere in the app (theme + 20 hard-coded places removed).
+- Arabic text no longer gets any letter spacing anywhere in the app.
 
 Before (left) → After (right):
 
@@ -143,7 +143,7 @@ We used the markings you placed inside the images to find the screen each note r
 
 **Status:** ✅ Already in place (we checked)
 
-Every photo the app asks for — personal photo, ID card front/back, residence card, ration card, extra documents, events/khotba profile photos — goes through the same picker that first asks «التقاط صورة / اختيار من المعرض» and then opens the **crop / resize** screen (done in the previous round). There is no upload left that skips it.
+Every photo the app asks for — personal photo, ID card front/back, residence card, ration card, extra documents, events/khotba profile photos — goes through the same picker that first asks «التقاط صورة / اختيار من المعرض» and then opens the **crop / resize** screen. We checked that no upload skips this step.
 The one deliberate exception is the volunteer's **check-in photo** at a mission: it is proof of presence taken live with the camera, so it must not be edited.
 
 ## 14. Extra-files field (attach files, documents, other photos) in registration for all roles (donor, volunteer, khotba, beneficiary, general user) — exists? With image resize.
@@ -232,7 +232,7 @@ Before → After:
 
 «توازن واستقرار من أجل حياة أفضل!» (two lines, start-aligned) → «توازن لمستقبل أفضل», centred, always one line.
 Also removed the small «توازن» badge that sat right above it (the name was written twice in a row).
-Kurdish texts were left as they are (no Kurdish written by us — waiting for the client's translator).
+Kurdish texts were left as they are, pending the client's approved translation.
 
 ![](round2_screens/20-24/after_welcome.png)
 
@@ -259,7 +259,7 @@ The welcome screen no longer scrolls — every element is fixed in place (we tes
 **Fix:**
 - The animated splash (square, green arcs, loading bar, 2.4 s wait) is removed. The app now shows **one** launch screen and goes straight on.
 - The phone's own launch screen (iOS + Android, light + dark) now draws the **same** logo as the welcome screen, on the app's own background colour.
-- The logo is at **exactly the same spot** on the launch screen and the welcome screen (measured: same pixels), so only the text and button fade in around it — the logo itself never moves.
+- The logo is at **exactly the same spot** on the launch screen and the welcome screen (we checked that the position is identical), so only the text and button fade in around it — the logo itself never moves.
 
 Launch screen → welcome screen:
 
@@ -381,7 +381,7 @@ Before → After:
 ![](round2_screens/34-38/after_role_dropdown.png)
 ![](round2_screens/34-38/after_volunteer_selected.png)
 
-**Waiting (new feature):** a fourth account type **«مستخدم عام»** as the default does not exist in the system today — the server only accepts donor / beneficiary / volunteer. Adding it means a new account type in the app, the server and the dashboard. Waiting for the original scope before building it.
+**Postponed (new feature):** a fourth account type **«مستخدم عام»** as the default does not exist in the system today — the server only accepts donor / beneficiary / volunteer. Adding it means a new account type in the app, the server and the dashboard. It will be built once it is approved within the scope.
 
 ## 36. Remove every «(اختياري)»; one sentence at the top: «الحقول المصحوبة بعلامة حمراء إجبارية».
 
@@ -398,7 +398,7 @@ One line at the top instead: **«\* الحقول المصحوبة بعلامة �
 
 **Scope:** Needs the «general user» account type, which is not in the proposal (§6 has a limited-permissions visitor only).
 
-The rights the client describes (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Waiting for the scope.
+The rights the client describes (browse everything, message support, but no khotba comments / aid requests / volunteering until the account is upgraded) belong to a "general user" account type that does not exist yet. Postponed until it is approved within the scope.
 
 ## 38. Dashboard: separate section «المستخدم العام» (or better name) with admin controls (edit data, add user) matching the registration fields.
 
@@ -445,7 +445,7 @@ Screenshot: 5 minutes → 2 hours → 1 day.
 
 **Status:** ✅ Fixed
 
-The button already existed in the green box at the top, but its label was just «تحديد الكل». It now reads **«تحديد الكل كمقروء»**. It only appears when there are unread notifications (screenshot under #39).
+The button already existed in the green box at the top, but its label was just «تحديد الكل». It now reads **«تحديد الكل كمقروء»**. It only appears when there are unread notifications.
 
 ## 44. App: result → action link (e.g. «اكفل عائلة هذا الشهر» → opens donation section); share result instantly; real finger-scratch effect instead of tap-to-reveal video.
 
@@ -478,7 +478,7 @@ The button already existed in the green box at the top, but its label was just �
 
 The explanation line under each title was removed (style rule).
 
-Note: a real finger-scratch effect is part of the same addition (an addition, ⏳ waiting for scope).
+Note: a real finger-scratch effect is part of the same addition (a postponed addition).
 
 | Before | After |
 |---|---|
@@ -512,21 +512,29 @@ The app has no payment gateway, so "straight to the gateway" cannot be built. A 
 
 ## 49. Step 2 — balance transfer, ONE fixed page, two toggles at top «تعبئة / تحويل مباشر» vs «إرسال كرت». Transfer: network (Asia, Zain, Korek), amount, org phone with copy button, screenshot attach, notes. Card: network, photograph card with camera, serial field, value, notes. Fixed bottom: attach + notes + «تأكيد المساهمة». Toggle switches fields in place. Phone/address auto-filled, editable.
 
-**Status:** ✅ Fixed — inside the one screen
+**Status:** ✅ Partly — inside the one screen
 
-**Fixed:** balance transfer is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
+**Done:** «balance transfer» is now one of the kinds picked from the single row in the unified donation screen. Choosing it shows only the payment methods that belong to it (recharge cards and the transfer numbers set by the organization), with the organization's number and a «copy» button. The notes field and the confirm button stay fixed at the bottom.
+
+**Not added yet:** choosing the network (Asiacell, Zain, Korek), attaching a transfer screenshot, photographing the recharge card and the serial field, and the top switch between «direct transfer» and «send a card»; they add new fields to the current payment flow.
+
+![](round2_screens/47-55/after_electronic_methods.png)
 
 ## 50. Step 2 — direct cash: amount, address, phone, optional visit-time note; phone/address auto-filled, editable.
 
-**Status:** ✅ Fixed — inside the one screen
+**Status:** ✅ Partly — inside the one screen
 
-**Fixed:** direct cash is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
+**Done:** «direct cash» is now one of the kinds picked from the single row in the unified donation screen; choosing it shows only the cash payment method. The donor's name and phone appear automatically from the account on one line, with the amount, the optional note and the confirm button at the bottom.
+
+**Not added yet:** a home-address field and a preferred-visit-time note for the representative, and editing the phone by hand on this screen; they add new fields to the current payment flow.
 
 ## 51. Step 2 — in-kind: material type, phone, address (auto-filled, editable), optional photo of the items.
 
-**Status:** ✅ Fixed — inside the one screen
+**Status:** ✅ Partly — inside the one screen
 
-**Fixed:** in-kind is now one of the kinds picked in the single checkout row. Choosing it shows only the payment methods and fields that belong to it, all the existing fields kept. In-kind opens its own existing form. No change to how donations are processed.
+**Done:** «in-kind» is now one of the options in the same kind-of-donation row of the unified donation screen; choosing it opens its form with: category, item name, quantity and pickup address.
+
+**Not added yet:** a phone number field and an option to attach a photo of the items; they are new fields in the current form.
 
 ## 52. Every path ends with one clear bottom button «تأكيد المساهمة» that sends straight to the dashboard.
 
@@ -582,7 +590,7 @@ Before → After:
 The English ticket text came from the app itself: the events-services request built "Event service request: Hall booking / Name: … / Phone: …". It now writes Arabic: **«طلب خدمة فعالية: …»**, «الاسم:», «الهاتف:», and the ticket is routed to the events support desk. (Old tickets already saved keep their old text.)
 Also: chat sender "Guest" now shows as «زائر»; upgrade-screen errors are Arabic.
 
-## 58. Staff & volunteers: direct instant messaging, no friction. (↪ with #6)
+## 58. Staff & volunteers: direct instant messaging, no friction.
 
 **Status:** ✅ Fixed — covered by the same change as the staff and volunteer messaging
 
@@ -598,9 +606,9 @@ What works today:
 - Beneficiaries / visitors / anyone can open a support **ticket** (and visitors now too), and staff answer it in the dashboard (الدعم → Reply). Staff can mark it open / in progress / resolved / **closed**.
 - Staff can open a supervised room with specific people (المجموعات الحوارية).
 
-Missing (new feature): a button on the ticket that converts it directly into a chat with chosen people. Waiting for scope.
+Missing (new feature): a button on the ticket that converts it directly into a chat with chosen people. Postponed until it is approved within the scope.
 
-## 60. Encrypted group chats: aid section (staff + donor(s)/beneficiary); khotba (staff + suitor + girl + guardian). Opens only with staff approval; no personal data shown (numbers, real names); files/photos only by staff; staff can pause / archive / delete. (Related #3, #4)
+## 60. Encrypted group chats: aid section (staff + donor(s)/beneficiary); khotba (staff + suitor + girl + guardian). Opens only with staff approval; no personal data shown (numbers, real names); files/photos only by staff; staff can pause / archive / delete.
 
 **Status:** ✅ Mostly exists · ➕ the rest is an addition — not in the original scope (put aside)
 
@@ -611,12 +619,12 @@ Exists, and we checked it:
 - Members see only a nickname («مانح 1», «مستحق 1») — **no real names, no phone numbers**; a message containing a phone number or email is **blocked** automatically and logged.
 - Staff can pause / archive / delete.
 
-Not in the system yet (new features → waiting for scope):
+Not in the system yet (new features, postponed):
 1. Message **encryption** at rest (messages are stored as normal text today).
 2. Sending **files / photos** in chats (today nobody can — text only; the client wants staff only).
 3. Adding the girl's **guardian** to the khotba chat.
 
-## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete. (Related #4)
+## 61. Staff chat controls: **temporary pause** (client can still send, staff sees it, no read receipt until reply); **full stop** (lock, client can't send); admin buttons Archive / Block / Delete.
 
 **Status:** ✅ Exists · ➕ the rest is an addition — not in the original scope (put aside)
 
@@ -625,7 +633,7 @@ Not in the system yet (new features → waiting for scope):
 - **Full stop**: «إغلاق المحادثة» — members can only read until staff reopen it. ✅
 - **Temporary pause where the client can still write**: simply leave the chat open — members never see "read" marks (the app has no read receipts for members), so staff can read without the client knowing. ✅
 - **Archive** ✅ · **Delete** ✅ (moves to trash, password-confirmed).
-- **Block** a person from a chat: not as a separate button today (staff can remove the member — «إزالة» — or suspend the account). A dedicated "block" is a new feature → waiting for scope.
+- **Block** a person from a chat: not as a separate button today (staff can remove the member — «إزالة» — or suspend the account). A dedicated "block" is a new feature, postponed.
 
 ## 62. City guide «إضافة نشاط»: no photo option; why lat/long fields (just attach GPS); submit button sits under the phone nav buttons → move it up.
 
@@ -781,11 +789,12 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Fixed:** every table now has an Export button and a stacked date + time column. The system now returns the creation time for receipts, partners and campaigns (older campaigns show «—»). Community now reads the admin list so it has the date too.
 
 ![](round2_screens/74/hi_city_guide.png)
-## 75. Sticky table header in every section. (Round-1 #49021 did this — re-verify all pages.)
+
+## 75. Sticky table header in every section. 
 
 **Status:** ✅ Already works everywhere (we verified)
 
-**Found:** the header is made sticky by one shared script that every table uses; no table has its own markup. Nothing overrides it, so no change was needed.
+**Found:** the header is made sticky by one shared mechanism that every table uses; no table has its own markup. Nothing overrides it, so no change was needed.
 
 ## 76. Unify the top bar design across all sections.
 
@@ -794,6 +803,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Fixed:** one shared page header on every section: title + count at the start, then search, filters, Export and «New» on the same row, one control height. Works in Arabic (mirrored) and light/dark.
 
 ![](round2_screens/76/hi_users_head.png)
+
 ## 77. «حذف الحساب» moves INTO the user edit page, not the outside dropdown.
 
 **Status:** ✅ Fixed
@@ -802,6 +812,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 ![](round2_screens/77/hi_row_menu.png)
 ![](round2_screens/77/hi_edit_modal_bottom.png)
+
 ## 78. Account data parity: same fields/options when creating an account in the app, in the dashboard, or editing.
 
 **Status:** ✅ Fixed (with notes)
@@ -810,7 +821,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 **Fixed:** both screens now use one shared rule for which fields are shown per role.
 
-**Notes:** a few fields exist only in the app form (grantor social links, some passport/residence photos) and have no rule row in the dashboard, so they can't be made required/hidden from there. Marriage and employee roles have no registration form, so New User shows no profile boxes for them.
+**Notes:** a few fields exist only in the app form (grantor social links, some passport/residence photos) and have no setting in the dashboard, so they can't be made required/hidden from there. Marriage and employee roles have no registration form, so New User shows no profile boxes for them.
 
 ## 79. Change-password in dashboard (edit user modal, «كلمة مرور جديدة») doesn't work → fix.
 
@@ -821,6 +832,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Fixed:** Edit now has Username + New password in an Account section; saving a password on a staff account with no username is refused with a clear message. Username must be valid and unique.
 
 ![](round2_screens/77/hi_edit_modal_bottom.png)
+
 ## 80. Supervisor permissions: where to assign roles to dashboard staff with per-section permissions?
 
 **Status:** ❓ Answered
@@ -855,6 +867,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Fixed:** search, filters, dates, Export and «New» sit on one row on desktop. On mid-size screens the controls wrap to a second line instead of being squeezed or cut; phones keep the stacked layout.
 
 ![](round2_screens/76/hi_users_head.png)
+
 ## 85. Create-notification language tabs (EN / عربي / سوراني / باديني) don't translate anything; plus a language switch at the top — what are these for?
 
 **Status:** ✅ Clarified + fixed
@@ -864,6 +877,7 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 **Fixed:** the page now says this, marks empty tabs, shows the English fallback, and warns that a push banner goes in one language only.
 
 ![](round2_screens/85/hi_push.png)
+
 ## 86. Dashboard font is bad too (e.g. «المدن والأقضية والنواحي», «الأقضية») — letters hard to read.
 
 **Status:** ✅ Fixed
@@ -872,13 +886,14 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 ![](round2_screens/08/hi_dashboard.png)
 
-## 87. Change password not working in edit account (↪ #79).
+## 87. Change password not working in edit account.
 
 **Status:** ✅ Fixed
 
 **Fixed:** the Edit window now has the username the sign-in needs.
 
 ![](round2_screens/77/hi_edit_modal_bottom.png)
+
 ## 88. City guide: clicking the warning banner («...لا تظهر على خريطة التطبيق») doesn't jump to the offending entries.
 
 **Status:** ✅ Fixed
@@ -894,6 +909,7 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 **Fixed:** the Actions header is pinned above the others and the leftover rule is removed.
 
 ![](round2_screens/74/hi_city_guide.png)
+
 ## 90. Sidebar notification counts: open the section and there's no badge/marker showing WHICH sub-item has the notifications.
 
 **Status:** ✅ Fixed (sidebar) / ➕ per-tab counts inside pages not done

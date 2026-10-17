@@ -176,7 +176,7 @@ def main():
     notes_md = open(os.path.join(ROOT, 'CLIENT_NOTES_ROUND2.md'), encoding='utf-8').read()
     for m in re.finditer(r'^\| (\d+) \| (.+?) \| .*? \|$', notes_md, flags=re.M):
         t = re.sub(r'^\[[FAQ]\]\s*', '', m.group(2))
-        orig[int(m.group(1))] = re.sub(r'\*\*(.+?)\*\*', r'\1', t)
+        pass
     h = [f'<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>الملاحظات والحلول</title><style>{CSS}</style></head><body>']
     h.append('<h1>تطبيق توازن — الملاحظات والحلول</h1>')
     h.append('<div class="sub">كل بند بترتيب ملف الملاحظات: نص الملاحظة، حالتها، كيف تم حلّها، ولقطات الشاشة.</div>')
