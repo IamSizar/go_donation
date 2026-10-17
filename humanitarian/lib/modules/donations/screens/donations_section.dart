@@ -176,48 +176,17 @@ class _DonationsSectionBodyState extends State<_DonationsSectionBody> {
             ),
           ),
           const SizedBox(width: 8),
-          AppPressable(
-            onTap: () => Get.to(() => const MyDonationsPage()),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppThemeConfig.accent(context),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.teal.withValues(alpha: 0.13),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.receipt_long_rounded,
-                    color: AppThemeConfig.onAccent(context),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    'See all'.tr,
-                    style: TextStyle(
-                      color: AppThemeConfig.onAccent(context),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15.5,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    AppIcons.forward(context),
-                    color: AppThemeConfig.onAccent(
-                      context,
-                    ).withValues(alpha: 0.6),
-                    size: 16,
-                  ),
-                ],
-              ),
+          // Icon-only, like the Saved button beside it: the word-and-arrow pill
+          // this replaced squeezed the screen title down to a single letter.
+          IconButton.filled(
+            onPressed: () => Get.to(() => const MyDonationsPage()),
+            icon: const Icon(Icons.receipt_long_rounded, size: 20),
+            tooltip: 'My contributions'.tr,
+            style: IconButton.styleFrom(
+              backgroundColor: AppThemeConfig.accent(context),
+              foregroundColor: AppThemeConfig.onAccent(context),
+              minimumSize: const Size(44, 44),
+              visualDensity: VisualDensity.standard,
             ),
           ),
         ],

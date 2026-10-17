@@ -17,6 +17,7 @@ import 'package:get/get.dart';
 
 class AppTranslations extends Translations {
   static const Map<String, String> _en = {
+    'My contributions': 'My contributions',
     'Add funds': 'Add funds',
     'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.',
     'Choose how you paid.': 'Choose how you paid.',
@@ -275,7 +276,7 @@ class AppTranslations extends Translations {
     'support_send': 'Send',
     'support_message': 'Message',
     'support_subject': 'Subject',
-    'support_new_message': 'Send a message to support',
+    'support_new_message': 'Send a message',
     'Covers running costs: servers, subscriptions and administration.':
         'Covers running costs: servers, subscriptions and administration.',
     'Support the organization': 'Support the organization',
@@ -1667,7 +1668,7 @@ class AppTranslations extends Translations {
     'area_optional': '(optional)',
     'area_none': '— None —',
     'areas_load_failed': 'Could not load the city list.',
-    'support_section_title': 'Which support team?',
+    'support_section_title': 'Which team?',
     'support_section_hint': 'Pick the team your question is about.',
     'support_section_events': 'Events support',
     'support_section_events_desc':
@@ -2309,9 +2310,9 @@ class AppTranslations extends Translations {
     'Could not open website.': 'Could not open website.',
     'Account number copied to clipboard.':
         'Account number copied to clipboard.',
-    'Pending successfully': 'Pending successfully',
+    'Pending successfully': 'Contribution sent',
     'Your donation was submitted and is pending. Thank you.':
-        'Your contribution was submitted and is pending. Thank you.',
+        'It will appear once the team confirms it. Thank you.',
     'Donation failed': 'Contribution failed',
     'Please enter an amount': 'Please enter an amount',
     'Enter a valid amount': 'Enter a valid amount',
@@ -3377,6 +3378,7 @@ class AppTranslations extends Translations {
   };
 
   static const Map<String, String> _ar = {
+    'My contributions': 'مساهماتي',
     'Add funds': 'شحن المحفظة',
     'Pay with one of these methods, then send the request. Your wallet is credited once our team confirms the payment.': 'ادفع بإحدى هذه الطرق ثم أرسل الطلب. تُضاف الأموال إلى محفظتك بعد أن يؤكد فريقنا استلام الدفعة.',
     'Choose how you paid.': 'اختر طريقة الدفع التي استخدمتها.',
@@ -3618,7 +3620,7 @@ class AppTranslations extends Translations {
     'support_send': 'إرسال',
     'support_message': 'الرسالة',
     'support_subject': 'الموضوع',
-    'support_new_message': 'أرسل رسالة إلى الدعم',
+    'support_new_message': 'أرسل رسالة',
     'Covers running costs: servers, subscriptions and administration.':
         'يغطي تكاليف التشغيل: الخوادم والاشتراكات والإدارة.',
     'Support the organization': 'دعم المنظمة',
@@ -4804,11 +4806,11 @@ class AppTranslations extends Translations {
     'area_optional': '(اختياري)',
     'area_none': '— بدون —',
     'areas_load_failed': 'تعذّر تحميل قائمة المدن.',
-    'support_section_title': 'أي قسم دعم؟',
+    'support_section_title': 'أي قسم؟',
     'support_section_hint': 'اختر القسم الذي يخص سؤالك.',
-    'support_section_events': 'قسم دعم خاص بالفعاليات',
+    'support_section_events': 'دعم الفعاليات',
     'support_section_events_desc': 'استفسارات حول الفعاليات وقسم الفعاليات',
-    'support_section_volunteers': 'قسم دعم خاص بالمتطوعين',
+    'support_section_volunteers': 'دعم المتطوعين',
     'support_section_volunteers_desc': 'استفسارات حول التطوع والمهام',
     'support_section_required': 'اختر قسم الدعم',
     'volunteers_support_tile': 'راسل قسم دعم المتطوعين',
@@ -5382,9 +5384,9 @@ class AppTranslations extends Translations {
     'Invalid website link.': 'رابط الموقع غير صالح.',
     'Could not open website.': 'تعذر فتح الموقع.',
     'Account number copied to clipboard.': 'تم نسخ رقم الحساب إلى الحافظة.',
-    'Pending successfully': 'تم الإرسال بنجاح وهو قيد الانتظار',
+    'Pending successfully': 'تم إرسال مساهمتك',
     'Your donation was submitted and is pending. Thank you.':
-        'تم إرسال مساهمتك وهي قيد الانتظار. شكرا لك.',
+        'ستظهر بعد تأكيد الفريق لها. شكراً لك.',
     'Donation failed': 'فشلت المساهمة',
     'Please enter an amount': 'يرجى إدخال المبلغ',
     'Enter a valid amount': 'أدخل مبلغا صالحا',

@@ -968,3 +968,29 @@ The same code appears in the dashboard (ID and reference columns) and in the app
 **Fixed:** the logo is enlarged to fill the notification icon, and the tile behind it uses the same blue as the approved logo. (Android requires the small notification icon to be a single colour, so it appears white on blue.)
 
 While checking your screenshot we also fixed the wording of the approval notification for a donation with no campaign: it showed an English phrase («general donation») and a meaningless line («0 of 0 IQD»). It now states only the amount: «Your ... IQD donation was approved. Thank you!». The same applies to the confirmed, rejected and cancelled notifications.
+
+## 95. «Sent successfully and pending» dialog after a contribution: the title and body repeat the same phrase (pending) twice.
+
+**Status:** ✅ Fixed
+
+**Fixed:** the title is now «Contribution sent» and the body «It will appear once the team confirms it. Thank you.», so the idea is not said twice.
+
+## 96. The «Contribute» screen title shows cut off (a single letter) because the buttons beside it crowd it out.
+
+**Status:** ✅ Fixed
+
+**Found:** the «See all» button, with its text and arrow, sitting next to the Saved button and the assistant icon, took the width of the bar and squeezed the title away.
+
+**Fixed:** «See all» is now icon-only (like the Saved button, with a «My contributions» tooltip), so the title «Contribute» and the line under it show in full.
+
+![](round2_screens/95/iphone-contribute-header.png)
+
+## 97. Support message form: the two section buttons both read «قسم دعم خاص», so they cannot be told apart, and the word «support» is repeated in the title and the question.
+
+**Status:** ✅ Fixed
+
+**Found:** the two names («Special support section for events» and «…for volunteers») are longer than the button and get cut after the first three words, so both buttons show the same name.
+
+**Fixed:** the names are now «Events support» and «Volunteers support». The card title is shortened to «Send a message» and the question to «Which team?», so «support» is not repeated on the same screen.
+
+![](round2_screens/95/iphone-support-form.png)
