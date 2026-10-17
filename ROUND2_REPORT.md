@@ -778,48 +778,75 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 ## 74. Export button + date/time column in EVERY section/table (screenshots: الشركاء has no date/time; إيصالات المساعدات has no export and no date/time).
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** Receipts, City Guide, Marriage meeting requests, Profile changes and Trash had no export; Partners, Campaigns, Community, Missions, Receipts and Trash had no date/time column.
+
+**Fixed:** every table now has an Export button and a stacked date + time column. The backend now returns the creation time for receipts, partners and campaigns (new migration 141 adds it for campaigns; old campaigns show «—»). Community now reads the admin list so it has the date too.
+
+**Screenshots:** round2_screens/74/
 
 ## 75. Sticky table header in every section. (Round-1 #49021 did this — re-verify all pages.)
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Verified — already works everywhere
 
+**Found:** the header is made sticky by one shared script that every table uses; no table has its own markup. Nothing overrides it and the existing test passes, so no change was needed.
 
 ## 76. Unify the top bar design across all sections.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Fixed:** one shared page header on every section: title + count at the start, then search, filters, Export and «New» on the same row, one control height. Works in Arabic (mirrored) and light/dark.
+
+**Screenshots:** round2_screens/76/
 
 ## 77. «حذف الحساب» moves INTO the user edit page, not the outside dropdown.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Fixed:** «حذف الحساب» moved out of the row menu into a red Danger zone at the bottom of the account Edit window (Super-Admin only). The password confirmation is still required, and asked once.
+
+**Screenshots:** round2_screens/77/
 
 ## 78. Account data parity: same fields/options when creating an account in the app, in the dashboard, or editing.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (with notes)
 
+**Found:** Edit showed every profile column, while New User showed only the fields of the chosen role.
+
+**Fixed:** both screens now use one shared rule for which fields are shown per role.
+
+**Notes:** a few fields exist only in the app form (grantor social links, some passport/residence photos) and have no rule row in the dashboard, so they can't be made required/hidden from there. Marriage and employee roles have no registration form, so New User shows no profile boxes for them.
 
 ## 79. Change-password in dashboard (edit user modal, «كلمة مرور جديدة») doesn't work → fix.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** the password endpoint worked, but dashboard sign-in uses a username and the Edit window had no username box, so staff accounts without one could never sign in.
+
+**Fixed:** Edit now has Username + New password in an Account section; saving a password on a staff account with no username is refused with a clear message. Username must be valid and unique. Tests sign in for real after setting a password.
+
+**Screenshots:** round2_screens/79/
 
 ## 80. Supervisor permissions: where to assign roles to dashboard staff with per-section permissions?
 
-**Status:** ⬜ not done yet
+**Status:** ❓ Answered
 
+**Answer:** menu الصلاحيات والموظفون → «الصلاحيات» (matrix: tier × section × view/add/edit/archive/delete/export, password-confirmed and audit-logged, plus per-employee overrides) and «الموظفون» (staff accounts, support department). To make a new staff member: create the account in المستخدمين, then «ترقية إلى موظف» on the Staff page and pick the tier. Super-Admin only.
 
 ## 81. Full separation of account lists: Volunteers / Donors / Beneficiaries / General users / Visitors / Khotba & marriage (family files) / Staff — each section shows only its roles.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** the Donors list could include guest accounts.
+
+**Fixed:** role-scoped lists never contain guests; a type filter in Users (donors, beneficiaries, volunteers, employees, family files, visitors) separates the lists.
 
 ## 82. «تحديد الكل» (Select All) checkbox at the top of every table → bulk delete old test data.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Fixed:** a select-all checkbox + bulk delete bar (with confirmation) on Donations, Community, City Guide, Missions, Trash, Campaigns, Users and Staff. Not added to Registrations, Receipts, Meeting requests, Profile changes and Audit logs because the system has no delete for those.
 
 ## 83. Store (dashboard + app) judged weak by someone who runs a real store app → needs clear, easy, complete sections.
 
@@ -830,13 +857,21 @@ Inside it, «ملفي الشخصي» is now **«بيانات الملف الأس
 
 ## 84. Align all toolbar input fields on ONE horizontal row in every section (screenshots: لوحة التحكم, المستحقون, اشتراكات الفعاليات, المتطوعون, طلبات التواصل, التعليقات, دليل المدينة, الموظفون).
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Fixed:** search, filters, dates, Export and «New» sit on one row on desktop. On mid-size screens the controls wrap to a second line instead of being squeezed or cut; phones keep the stacked layout.
+
+**Screenshots:** round2_screens/84/
 
 ## 85. Create-notification language tabs (EN / عربي / سوراني / باديني) don't translate anything; plus a language switch at the top — what are these for?
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Clarified + fixed
 
+**Answer:** each language tab edits the title/text users get in that language (in-app sends all four; each user sees their own app language; a blank language falls back to English). The top language switch only changes the dashboard's own language. There is no auto-translation.
+
+**Fixed:** the page now says this, marks empty tabs, shows the English fallback, and warns that a push banner goes in one language only.
+
+**Screenshots:** round2_screens/85/
 
 ## 86. Dashboard font is bad too (e.g. «المدن والأقضية والنواحي», «الأقضية») — letters hard to read.
 
@@ -848,25 +883,39 @@ The dashboard used «Kurdfont» — a single-weight font, so every bold heading 
 
 ## 87. Change password not working in edit account (↪ #79).
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (same as #79)
 
+**Fixed:** see #79 — the Edit window now has the username the sign-in needs.
+
+**Screenshots:** round2_screens/87/
 
 ## 88. City guide: clicking the warning banner («...لا تظهر على خريطة التطبيق») doesn't jump to the offending entries.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Fixed:** the warning banner is now clickable: it filters the table to places without valid coordinates and scrolls to it, with a «Show all» button. One shared coordinate rule drives the count, the cell and the filter.
 
 ## 89. Zoom / tablet / phone: list layout breaks — «إجراءات» column header disappears, columns shift.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** other header cells sat above the pinned «إجراءات» header and slid over it when the table scrolled sideways; a leftover rule also un-pinned it on phones.
+
+**Fixed:** the Actions header is pinned above the others and the leftover rule is removed.
+
+**Screenshots:** round2_screens/89/
 
 ## 90. Sidebar notification counts: open the section and there's no badge/marker showing WHICH sub-item has the notifications.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed (sidebar) / ➕ per-tab counts inside pages not done
 
+**Fixed:** each open sidebar section now shows a count badge on the exact sub-item that has pending items (e.g. Recipient 1, Volunteers 2, Notifications, Support).
+
+**Not done:** counts on the tabs inside a page (e.g. Beneficiaries status tabs) need new backend per-tab counts — put aside as an addition.
 
 ## 91. Sidebar bug: two items look selected at once (المجموعات الحوارية + طلبات التواصل) while only one is open.
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
+
+**Fixed:** only the open page's sidebar item is highlighted; the parent group no longer looks selected together with a child (checked on Push, Users).
 
