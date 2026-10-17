@@ -729,18 +729,34 @@ Note: the grey line under each tag («Monthly food basket…») is the case's ow
 
 ## 69. Home: «مشاركتي» opens a page titled «سجلي» — naming mistake?; shorten the circled phrases to one line, remove extra details; «استعلام بالرمز التعريفي» long unclear explanation — is this lookup approach right at all?
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+**Found:** the Home tile is «مشاركتي» but the page it opened was titled «سجلي» (and the list heading under it said it again by role). A two-line subtitle under the title and a long sentence inside the green card both described the page the user was already on. The lookup box carried a three-line explanation.
+
+**Fixed:**
+- Same name at both ends: the page is now titled «مشاركتي».
+- The two-line subtitle and the sentence in the green card were removed.
+- «استعلام بالرمز التعريفي» is now «البحث بالرمز التعريفي», and its explanation is one short line: «أدخل الرمز التعريفي. امسح الحقل للعودة إلى سجلك.»
+
+**Is the lookup the right approach?** It is kept, but it is only really useful for staff: an ordinary user can only ever look up their own code (the server refuses other people's, by design, to protect privacy), and that code is already shown under the box. If the client prefers, it can be hidden from non-staff accounts: say so.
+
+![](round2_screens/69-71/69-after-my-participation.png)
 
 ## 70. Rename «قسم الفعاليات» → «إدارة ملف التوافق الأسري».
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+«قسم الفعاليات» is now **«إدارة ملف التوافق الأسري»** on the Events screen tile and on the page title (the bottom tab itself stays «الفعاليات»: it is the whole Events area, which also holds «خدمات الفعاليات»).
+
+![](round2_screens/69-71/70-after-section-name.png)
 
 ## 71. Inside it, rename «ملفي الشخصي» → «بيانات الملف الأسري».
 
-**Status:** ⬜ not done yet
+**Status:** ✅ Fixed
 
+Inside it, «ملفي الشخصي» is now **«بيانات الملف الأسري»** (the tile, the page it opens, and the «create / edit» label became «إنشاء / تعديل بيانات الملف الأسري»).
+
+![](round2_screens/69-71/71-after-family-file-data.png)
 
 ## 72. «خدمات الفعاليات» → real store: subcategories (halls, photographers, decor), each with providers, photos (e.g. 6 per hall), price; cart; e-payment; booking/direct purchase.
 

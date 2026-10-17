@@ -52,8 +52,13 @@ void main() {
     for (final key in serverSent) {
       expect(ar.containsKey(key), isTrue,
           reason: '$key is sent by the backend and must still translate');
-      expect(ar[key]!.contains('الفعاليات'), isTrue,
-          reason: '$key must now resolve to the Events wording');
+      // R2 #70: the section is now called «إدارة ملف التوافق الأسري» (the
+      // client's wording); the other three still say «الفعاليات».
+      final ok = key == 'Marriage section'
+          ? ar[key]!.contains('إدارة ملف التوافق الأسري')
+          : ar[key]!.contains('الفعاليات');
+      expect(ok, isTrue,
+          reason: '$key must resolve to the Events / family-file wording');
     }
   });
 }

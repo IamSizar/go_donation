@@ -4282,9 +4282,8 @@ class AppTranslations extends Translations {
     'Contact Us': 'اتصل بنا',
     'about_desc': 'تعرّف أكثر على من نحن.',
     'contact_desc': 'تواصل مع فريقنا.',
-    'history_code_title': 'استعلام بالرمز التعريفي',
-    'history_code_help':
-        'أدخل الرمز التعريفي لعرض سجل التبرعات وحالة الدعم الخاص به. يمكنك الاستعلام برمزك الخاص، ويستطيع الموظفون الاستعلام برموز الآخرين. امسح الحقل للعودة إلى سجلك.',
+    'history_code_title': 'البحث بالرمز التعريفي',
+    'history_code_help': 'أدخل الرمز التعريفي. امسح الحقل للعودة إلى سجلك.',
     'history_code_not_found': 'لا يوجد سجل متاح لهذا الرمز.',
     'history_code_not_permitted':
         'حسابك غير مخوّل بالاستعلام عن سجلات الآخرين.',
@@ -4847,7 +4846,7 @@ class AppTranslations extends Translations {
     'marriage_search_desc': 'ابحث عن ملفات الفعاليات واحفظها واطلب لقاءً.',
     'marriage_search_hint': 'ابحث بالمدينة أو التفاصيل…',
     'marriage_no_results': 'لا توجد ملفات.',
-    'marriage_my_profile': 'ملفي',
+    'marriage_my_profile': 'بيانات الملف الأسري',
     'marriage_my_profile_desc': 'تابع ملف الفعاليات الذي قدّمته وحالة مراجعته.',
     'marriage_my_profile_empty': 'لم يتم تقديم أي ملف بعد.',
     'marriage_my_profile_empty_desc': 'قدّم ملفًا لترى حالته هنا.',
@@ -6037,7 +6036,7 @@ class AppTranslations extends Translations {
     'Mission update': 'تحديث المهمة',
     'Missions': 'المهام',
     'My campaign donations': 'مساهمات حملتي',
-    'My history': 'سجلي',
+    'My history': 'مشاركتي',
     'No campaigns yet': 'لا حملات بعد',
     'No conversations yet': 'لا محادثات بعد',
     'No donations yet for this campaign.': 'لا مساهمات بعد لهذه الحملة.',
@@ -6185,8 +6184,8 @@ class AppTranslations extends Translations {
     'Social': 'تواصل اجتماعي',
     'Events': 'الفعاليات',
     'Event services': 'خدمات الفعاليات',
-    'Marriage section': 'قسم الفعاليات',
-    'Events section': 'قسم الفعاليات',
+    'Marriage section': 'إدارة ملف التوافق الأسري',
+    'Events section': 'إدارة ملف التوافق الأسري',
     'Book halls, photographers, and everything your event needs':
         'احجز قاعة أو مصورًا وكل ما تحتاجه فعاليتك',
     'Profiles, posts, and support for the events community':
@@ -6226,10 +6225,10 @@ class AppTranslations extends Translations {
     'Search marriage profiles by name or gender':
         'ابحث عن ملفات الفعاليات بالاسم أو الجنس',
     'News and stories from the marriage section': 'أخبار وقصص من قسم الفعاليات',
-    'Create / edit my profile': 'إنشاء / تعديل ملفي الشخصي',
+    'Create / edit my profile': 'إنشاء / تعديل بيانات الملف الأسري',
     'Submit or update your marriage profile':
         'أرسل أو حدّث ملفك الخاص بالفعاليات',
-    'My profile': 'ملفي الشخصي',
+    'My profile': 'بيانات الملف الأسري',
     'View your submitted profile and its status':
         'اطّلع على الملف الذي أرسلته وحالته',
     'Chats': 'المحادثات',

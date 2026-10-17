@@ -47,9 +47,12 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return SectionScaffold(
+      // R2 #69 — the Home tile is «مشاركتي» and this page was titled «سجلي»
+      // (and the list heading under it said it again by role). Same word on
+      // both ends now; the role-specific heading stays on the list. The
+      // two-line subtitle was removed: it described what the page is.
       title: 'My history',
-      subtitle:
-          'Follow your role-specific records with quick filters and clear details.',
+      subtitle: '',
       trailing: IconButton.filledTonal(
         onPressed: _controller.fetchHistory,
         icon: const Icon(Icons.refresh_rounded),
@@ -163,7 +166,11 @@ class _RoleHistoryScreenState extends State<RoleHistoryScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            localizedContentFromMap(item, 'title', fallback: 'Record'.tr),
+                            localizedContentFromMap(
+                              item,
+                              'title',
+                              fallback: 'Record'.tr,
+                            ),
                             style: TextStyle(
                               color: AppThemeConfig.text(context),
                               fontSize: 20,
@@ -372,14 +379,9 @@ class _HistoryHero extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 14),
-          Text(
-            controller.subtitle.tr,
-            style: TextStyle(
-              color: AppThemeConfig.onAccent(context).withValues(alpha: 0.92),
-              height: 1.5,
-            ),
-          ),
+          // R2 #69 — the explanatory sentence that sat here («راجع المساهمات
+          // والدعم وحالة الدفع والمراجع في مكان واحد») described the page
+          // the user was already on; the figures speak for themselves.
           const SizedBox(height: 18),
           Wrap(spacing: 10, runSpacing: 10, children: stats),
         ],
@@ -669,7 +671,11 @@ class _HistoryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        localizedContentFromMap(item, 'title', fallback: 'Record'.tr),
+                        localizedContentFromMap(
+                          item,
+                          'title',
+                          fallback: 'Record'.tr,
+                        ),
                         style: TextStyle(
                           color: AppThemeConfig.text(context),
                           fontWeight: FontWeight.w900,
